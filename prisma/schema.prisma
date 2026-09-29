@@ -175,11 +175,45 @@ model Order {
   couponCode String?
   total     Decimal     @db.Decimal(10, 2)
   currency  String      @default("USD")
+  shipName  String?
+  shipPhone String?
+  shipStreet String?
+  shipCity  String?
+  shipZip   String?
+  carrier   String?
+  trackingNumber String?
+  shippedAt DateTime?
+  deliveredAt DateTime?
   createdAt DateTime    @default(now())
   updatedAt DateTime    @updatedAt
 
   items    OrderItem[]
   disputes Dispute[]
+  events   OrderEvent[]
+}
+
+enum OrderEventType {
+  CREATED
+  PAID
+  SHIPPED
+  DELIVERED
+  CANCELLED
+  REFUNDED
+  NOTE
+}
+
+// Status timeline + internal notes, visible to buyer/seller/admin.
+model OrderEvent {
+  id        String         @id @default(cuid())
+  orderId   String
+  type      OrderEventType
+  message   String?
+  actorId   String?
+  createdAt DateTime       @default(now())
+
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([orderId, createdAt])
 }
 
 model OrderItem {

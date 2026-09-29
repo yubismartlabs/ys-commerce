@@ -28,6 +28,49 @@ export function orderCancelledEmail(opts: { orderNumber: string; siteName: strin
   };
 }
 
+export function orderShippedEmail(opts: {
+  orderNumber: string;
+  siteName: string;
+  trackingNumber?: string;
+  carrier?: string;
+  note?: string;
+}): EmailTemplate {
+  const title = `Order ${opts.orderNumber} shipped`;
+  const tracking =
+    opts.trackingNumber || opts.carrier
+      ? `<p>Tracking: <strong>${opts.trackingNumber ?? "—"}</strong>${opts.carrier ? ` via ${opts.carrier}` : ""}</p>`
+      : "";
+  const body =
+    `<p>Good news — your order <strong>${opts.orderNumber}</strong> on ${opts.siteName} is on its way.</p>` +
+    tracking +
+    (opts.note ? `<p>Note from the seller: ${opts.note}</p>` : "");
+  return {
+    subject: `[${opts.siteName}] Order ${opts.orderNumber} shipped`,
+    html: layout(title, body),
+    text: textify(title, [
+      `Your order ${opts.orderNumber} on ${opts.siteName} is on its way.`,
+      ...(opts.trackingNumber ? [`Tracking: ${opts.trackingNumber}${opts.carrier ? ` via ${opts.carrier}` : ""}`] : []),
+      ...(opts.note ? [`Note from the seller: ${opts.note}`] : []),
+    ]),
+  };
+}
+
+export function orderDeliveredEmail(opts: { orderNumber: string; siteName: string; note?: string }): EmailTemplate {
+  const title = `Order ${opts.orderNumber} delivered`;
+  const body =
+    `<p>Your order <strong>${opts.orderNumber}</strong> on ${opts.siteName} was delivered. Enjoy!</p>` +
+    (opts.note ? `<p>Note: ${opts.note}</p>` : "") +
+    `<p>Something wrong? Open a dispute from your account.</p>`;
+  return {
+    subject: `[${opts.siteName}] Order ${opts.orderNumber} delivered`,
+    html: layout(title, body),
+    text: textify(title, [
+      `Your order ${opts.orderNumber} on ${opts.siteName} was delivered.`,
+      ...(opts.note ? [`Note: ${opts.note}`] : []),
+    ]),
+  };
+} 
+
 export function orderRefundedEmail(opts: { orderNumber: string; siteName: string; note?: string }): EmailTemplate {
   const title = `Order ${opts.orderNumber} was refunded`;
   const body =

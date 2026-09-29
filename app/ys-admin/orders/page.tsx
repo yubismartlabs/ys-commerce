@@ -1,10 +1,12 @@
 "use client";
 
 import Link from "next/link";
+import { useState } from "react";
 import { useTable, useUpdate } from "@refinedev/core";
 import { Card } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { EmptyState, ErrorState, PageHeader, Pager, StatusBadge, StatusFilter, TableSkeleton } from "@/components/refine/ui";
 import { formatUSD, timeAgo } from "@/lib/format";
 import type { Order } from "@/lib/refine/types";
@@ -20,6 +22,7 @@ export default function OrdersPage() {
     });
 
   const { mutate, mutation } = useUpdate();
+  const [q, setQ] = useState("");
   const active = filters.find((f) => "field" in f && f.field === "status") as { value: string } | undefined;
   const rows = tableQuery.data?.data ?? [];
   const total = tableQuery.data?.total;
@@ -36,6 +39,18 @@ export default function OrdersPage() {
         value={active?.value}
         onChange={(v) => setFilters(v ? [{ field: "status", operator: "eq", value: v }] : [])}
       />
+      <form
+        className="flex gap-2"
+        onSubmit={(e) => {
+          e.preventDefault();
+          const next = active?.value ? [{ field: "status", operator: "eq" as const, value: active.value }] : [];
+          if (q.trim()) next.push({ field: "q", operator: "eq" as const, value: q.trim() });
+          setFilters(next);
+        }}
+      >
+        <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search order number…" className="max-w-64 font-mono" />
+        <Button type="submit" size="sm" variant="outline">Search</Button>
+      </form>
       <Card className="overflow-hidden p-0">
         {tableQuery.isLoading ? (
           <TableSkeleton rows={8} cols={5} />

@@ -7,9 +7,18 @@ import { validateCoupon } from "@/lib/coupons/engine";
 import { cartLineSchema, generateOrderNumber, resolveCart, standardShipping } from "@/lib/coupons/cart";
 import { notifyAdmins } from "@/lib/notifications/notify";
 
+const addressSchema = z.object({
+  name: z.string().min(2).max(80),
+  phone: z.string().max(30).optional(),
+  street: z.string().min(3).max(120),
+  city: z.string().min(2).max(80),
+  zip: z.string().min(3).max(20),
+});
+
 const schema = z.object({
   items: z.array(cartLineSchema).min(1).max(50),
   couponCode: z.string().min(1).max(32).optional(),
+  address: addressSchema,
 });
 
 const round = (n: number) => Math.round(n * 100) / 100;
@@ -24,7 +33,7 @@ export async function POST(req: Request) {
   if (!userId) return fail("UNAUTHORIZED", "Sign in to check out", 401);
 
   const parsed = schema.safeParse(await req.json().catch(() => null));
-  if (!parsed.success) return fail("VALIDATION", "items[] with slug + qty required", 422);
+  if (!parsed.success) return fail("VALIDATION", "items[], couponCode and a shipping address are required", 422);
 
   let lines;
   try {
@@ -88,6 +97,11 @@ export async function POST(req: Request) {
           discount,
           couponCode: coupon?.code,
           total,
+          shipName: parsed.data.address.name,
+          shipPhone: parsed.data.address.phone,
+          shipStreet: parsed.data.address.street,
+          shipCity: parsed.data.address.city,
+          shipZip: parsed.data.address.zip,
           items: {
             create: lines.map((l) => ({
               productId: l.productId,
@@ -107,6 +121,17 @@ export async function POST(req: Request) {
         });
         await tx.coupon.update({ where: { id: coupon.id }, data: { usedCount: { increment: 1 } } });
       }
+      await tx.orderEvent.createMany({
+        data: [
+          { orderId: created.id, type: "CREATED", actorId: userId },
+          {
+            orderId: created.id,
+            type: "PAID",
+            message: coupon ? `Paid with coupon ${coupon.code} (−$${discount.toFixed(2)}).` : "Paid (mock payment).",
+            actorId: userId,
+          },
+        ],
+      });
       return created;
     });
     orderId = order.id;

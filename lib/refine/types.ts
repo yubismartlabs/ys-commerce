@@ -36,17 +36,37 @@ export type OrderItem = {
   variant: string | null;
 };
 
+export type OrderEvent = {
+  id: string;
+  type: "CREATED" | "PAID" | "SHIPPED" | "DELIVERED" | "CANCELLED" | "REFUNDED" | "NOTE";
+  message: string | null;
+  createdAt: string;
+};
+
 export type Order = {
   id: string;
   number: string;
   status: "PENDING" | "PAID" | "SHIPPED" | "DELIVERED" | "CANCELLED" | "REFUNDED";
   subtotal: number;
   shipping: number;
+  discount: number | null;
+  couponCode: string | null;
   total: number;
   currency: string;
+  shipName: string | null;
+  shipPhone: string | null;
+  shipStreet: string | null;
+  shipCity: string | null;
+  shipZip: string | null;
+  carrier: string | null;
+  trackingNumber: string | null;
+  shippedAt: string | null;
+  deliveredAt: string | null;
   createdAt: string;
   items: OrderItem[];
   disputes?: Dispute[];
+  events?: OrderEvent[];
+  buyer?: { id: string; email: string; name: string | null };
 };
 
 export type DisputeMessage = {

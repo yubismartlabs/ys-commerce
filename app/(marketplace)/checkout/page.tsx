@@ -19,6 +19,11 @@ export default function CheckoutPage() {
   const { items, subtotal, clear, couponCode } = useCart();
   const [placing, setPlacing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [name, setName] = useState("");
+  const [phone, setPhone] = useState("");
+  const [street, setStreet] = useState("");
+  const [city, setCity] = useState("");
+  const [zip, setZip] = useState("");
   const lines = items.map((i) => ({ slug: i.slug, qty: i.qty, ...(i.variant ? { variant: i.variant } : {}) }));
   const quote = useQuote(lines, couponCode);
   const total = subtotal();
@@ -42,7 +47,11 @@ export default function CheckoutPage() {
       const res = await fetch("/api/v1/checkout", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ items: lines, ...(couponCode ? { couponCode } : {}) }),
+        body: JSON.stringify({
+          items: lines,
+          ...(couponCode ? { couponCode } : {}),
+          address: { name, phone: phone || undefined, street, city, zip },
+        }),
       });
       const json = await res.json().catch(() => null);
       if (res.status === 401) {
@@ -67,11 +76,11 @@ export default function CheckoutPage() {
         <Card className="space-y-3 p-4">
           <p className="font-bold">Shipping address (USD / US mock)</p>
           <div className="grid gap-2 md:grid-cols-2">
-            <Input placeholder="Full name" />
-            <Input placeholder="Phone" />
-            <Input placeholder="Street" className="md:col-span-2" />
-            <Input placeholder="City" />
-            <Input placeholder="ZIP" />
+            <Input placeholder="Full name *" value={name} onChange={(e) => setName(e.target.value)} />
+            <Input placeholder="Phone" value={phone} onChange={(e) => setPhone(e.target.value)} />
+            <Input placeholder="Street *" className="md:col-span-2" value={street} onChange={(e) => setStreet(e.target.value)} />
+            <Input placeholder="City *" value={city} onChange={(e) => setCity(e.target.value)} />
+            <Input placeholder="ZIP *" value={zip} onChange={(e) => setZip(e.target.value)} />
           </div>
         </Card>
         <Card className="space-y-2 p-4">

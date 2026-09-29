@@ -4,7 +4,9 @@ import {
   digestEmail,
   disputeStatusEmail,
   orderCancelledEmail,
+  orderDeliveredEmail,
   orderRefundedEmail,
+  orderShippedEmail,
   productStatusEmail,
   sellerRequestEmail,
   vendorStatusEmail,
@@ -127,30 +129,58 @@ export async function notifyOrderStatus(opts: {
   orderId: string;
   orderNumber: string;
   buyerId: string;
-  status: "CANCELLED" | "REFUNDED";
+  status: "CANCELLED" | "REFUNDED" | "SHIPPED" | "DELIVERED" | "PAID";
   note?: string;
+  trackingNumber?: string;
+  carrier?: string;
 }): Promise<void> {
   const config = await getEmailConfig();
   const template =
     opts.status === "REFUNDED"
       ? orderRefundedEmail({ orderNumber: opts.orderNumber, siteName: config.siteName, note: opts.note })
-      : orderCancelledEmail({ orderNumber: opts.orderNumber, siteName: config.siteName, note: opts.note });
+      : opts.status === "SHIPPED"
+        ? orderShippedEmail({
+            orderNumber: opts.orderNumber,
+            siteName: config.siteName,
+            trackingNumber: opts.trackingNumber,
+            carrier: opts.carrier,
+            note: opts.note,
+          })
+        : opts.status === "DELIVERED"
+          ? orderDeliveredEmail({ orderNumber: opts.orderNumber, siteName: config.siteName, note: opts.note })
+          : orderCancelledEmail({ orderNumber: opts.orderNumber, siteName: config.siteName, note: opts.note });
+  const past =
+    opts.status === "REFUNDED"
+      ? "refunded"
+      : opts.status === "SHIPPED"
+        ? "shipped"
+        : opts.status === "DELIVERED"
+          ? "delivered"
+          : opts.status === "PAID"
+            ? "confirmed"
+            : "cancelled";
+  // PAID confirmations only notify on explicit request (checkout is silent;
+  // the receipt comes from payment). Ship/deliver/cancel/refund always fan out.
+  const emailName = `order.${opts.status.toLowerCase()}`;
   await notifyUser({
     userId: opts.buyerId,
-    type: `order.${opts.status.toLowerCase()}`,
-    title: `Order ${opts.orderNumber} ${opts.status === "REFUNDED" ? "refunded" : "cancelled"}`,
-    body: opts.note ?? undefined,
-    link: undefined, // buyers have no order page yet; email carries the detail
+    type: emailName,
+    title: `Order ${opts.orderNumber} ${past}`,
+    body:
+      opts.status === "SHIPPED" && opts.trackingNumber
+        ? `Tracking: ${opts.trackingNumber}${opts.carrier ? ` via ${opts.carrier}` : ""}`
+        : (opts.note ?? undefined),
+    link: undefined, // buyers read the timeline on their order page; email carries detail
     meta: { entityId: opts.orderId, orderNumber: opts.orderNumber },
-    email: { template, name: `order.${opts.status.toLowerCase()}`, enabled: config.enabled && config.orderEmails },
+    email: { template, name: emailName, enabled: config.enabled && config.orderEmails },
   });
   // Admin copy (in-app for every admin, one email to the alert inbox).
   await notifyAdmins({
-    type: `order.${opts.status.toLowerCase()}`,
-    title: `Order ${opts.orderNumber} ${opts.status === "REFUNDED" ? "refunded" : "cancelled"}`,
+    type: emailName,
+    title: `Order ${opts.orderNumber} ${past}`,
     link: `/ys-admin/orders/show/${opts.orderId}`,
     meta: { entityId: opts.orderId, orderNumber: opts.orderNumber },
-    email: { template, name: `order.${opts.status.toLowerCase()}.admin`, enabled: config.enabled && config.orderEmails },
+    email: { template, name: `${emailName}.admin`, enabled: config.enabled && config.orderEmails },
   });
 }
 
