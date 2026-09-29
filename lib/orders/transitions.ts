@@ -1,4 +1,5 @@
 import { db } from "@/lib/db";
+import { getSettingGroup } from "@/lib/server-settings";
 import { notifyOrderStatus } from "@/lib/notifications/notify";
 
 export type OrderStatus = "PENDING" | "PAID" | "SHIPPED" | "DELIVERED" | "CANCELLED" | "REFUNDED";
@@ -62,7 +63,12 @@ export async function transitionOrder(input: TransitionInput) {
     if (input.carrier !== undefined) data.carrier = input.carrier || null;
     if (!trackingOnly) data.shippedAt = new Date();
   }
-  if (input.to === "DELIVERED") data.deliveredAt = new Date();
+  if (input.to === "DELIVERED") {
+    const deliveredAt = new Date();
+    const commerce = await getSettingGroup("commerce");
+    data.deliveredAt = deliveredAt;
+    data.protectionUntil = new Date(deliveredAt.getTime() + commerce.buyerProtectionDays * 86400000);
+  }
 
   const updated = await db.$transaction(async (tx) => {
     const o = await tx.order.update({ where: { id: input.orderId }, data: data as never });

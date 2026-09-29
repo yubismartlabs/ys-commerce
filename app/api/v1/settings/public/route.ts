@@ -9,6 +9,8 @@ export async function GET() {
       siteName: s.site.siteName,
       logoUrl: s.site.logoUrl,
       announcement: s.maintenance.announcement,
+      buyerProtectionText: s.commerce.buyerProtectionText,
+      buyerProtectionDays: s.commerce.buyerProtectionDays,
       maintenance: { enabled: s.maintenance.enabled, message: s.maintenance.message },
     },
   });

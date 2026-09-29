@@ -33,6 +33,7 @@ const resourcePath: Record<string, string> = {
   coupons: "coupons",
   notifications: "notifications",
   emails: "emails",
+  payouts: "payouts",
 };
 
 function pathFor(resource: string): string {

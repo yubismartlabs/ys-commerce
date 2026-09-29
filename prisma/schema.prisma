@@ -184,6 +184,7 @@ model Order {
   trackingNumber String?
   shippedAt DateTime?
   deliveredAt DateTime?
+  protectionUntil DateTime?
   createdAt DateTime    @default(now())
   updatedAt DateTime    @updatedAt
 
@@ -235,20 +236,35 @@ model Dispute {
   id        String        @id @default(cuid())
   orderId   String
   buyerId   String
+  category  DisputeCategory @default(OTHER)
   reason    String
   status    DisputeStatus @default(OPEN)
+  resolvedAt DateTime?
   createdAt DateTime      @default(now())
   updatedAt DateTime      @updatedAt
 
   order    Order            @relation(fields: [orderId], references: [id])
   buyer    User             @relation("DisputeBuyer", fields: [buyerId], references: [id])
   messages DisputeMessage[]
+
+  @@index([orderId])
+  @@index([status, createdAt])
+}
+
+enum DisputeCategory {
+  NOT_RECEIVED
+  DAMAGED
+  WRONG_ITEM
+  QUALITY
+  NOT_AS_DESCRIBED
+  OTHER
 }
 
 model DisputeMessage {
   id        String   @id @default(cuid())
   disputeId String
   author    String
+  authorId  String?
   body      String
   createdAt DateTime @default(now())
 
@@ -301,9 +317,37 @@ model Payout {
   amount    Decimal      @db.Decimal(10, 2)
   currency  String       @default("USD")
   status    PayoutStatus @default(PENDING)
+  paidAt    DateTime?
   createdAt DateTime     @default(now())
 
   store Store @relation(fields: [storeId], references: [id])
+}
+
+enum EscrowStatus {
+  HELD
+  FROZEN
+  RELEASED
+  REFUNDED
+}
+
+// Buyer-protection ledger: every paid order line locks the seller's net
+// (gross minus commission) until delivery + protection window, dispute
+// freeze, ruling settlement, or refund.
+model EscrowHold {
+  id        String       @id @default(cuid())
+  orderId   String
+  orderItemId String    @unique
+  storeId   String
+  gross     Decimal      @db.Decimal(10, 2)
+  commission Decimal     @db.Decimal(10, 2)
+  net       Decimal      @db.Decimal(10, 2)
+  status    EscrowStatus @default(HELD)
+  releasedAt DateTime?
+  createdAt DateTime     @default(now())
+
+  @@index([orderId])
+  @@index([storeId, status])
+  @@index([status, createdAt])
 }
 
 model Review {

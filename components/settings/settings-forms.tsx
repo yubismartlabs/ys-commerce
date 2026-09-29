@@ -100,6 +100,8 @@ export function CommerceFields({ control }: { control: C }) {
       <NumberRow control={control} name="commissionDefault" label="Default commission" hint="Fraction of each sale, e.g. 0.05 = 5%." step="0.01" min={0} />
       <SelectRow control={control} name="sellerApproval" label="Seller approval" hint="Manual banks new stores as pending; auto approves." options={["manual", "auto"]} />
       <TextareaRow control={control} name="buyerProtectionText" label="Buyer protection text" hint="Shown on product pages." />
+      <NumberRow control={control} name="buyerProtectionDays" label="Buyer protection (days)" hint="Dispute-filing window after delivery." min={1} />
+      <NumberRow control={control} name="escrowReleaseDays" label="Escrow release (days)" hint="Held funds auto-release this long after delivery." min={0} />
       <SwitchRow control={control} name="reviewModeration" label="Moderate reviews" hint="Hold new reviews for approval." />
     </>
   );

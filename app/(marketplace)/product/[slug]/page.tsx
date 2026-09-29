@@ -12,6 +12,7 @@ import { discountPct, formatSold, formatUSD } from "@/lib/format";
 import { RatingStars } from "@/components/commerce/rating-stars";
 import { ProductCard } from "@/components/commerce/product-card";
 import { getProduct, products } from "@/lib/mocks/catalog";
+import { usePublicSettings } from "@/lib/public-settings";
 import { useCart } from "@/lib/store/cart";
 import { toast } from "sonner";
 import { use } from "react";
@@ -24,6 +25,7 @@ export default function ProductPage({ params }: { params: Promise<{ slug: string
 
   // mock sync lookup (client component over static mock)
   const product = products.find((p) => p.slug === slug) ?? products[0];
+  const { buyerProtectionText, buyerProtectionDays } = usePublicSettings();
   void getProduct;
   const pct = discountPct(product.price, product.compareAt);
   const related = products.filter((p) => p.slug !== product.slug).slice(0, 5);
@@ -105,7 +107,7 @@ export default function ProductPage({ params }: { params: Promise<{ slug: string
           <Card>
             <CardContent className="space-y-2 p-4 text-[13px]">
               <p className="flex items-center gap-2"><Truck className="size-4 text-emerald-600" /> {product.freeShipping ? "Free shipping" : "Shipping from $1.99"} · delivery in 7–12 days (mock)</p>
-              <p className="flex items-center gap-2"><ShieldCheck className="size-4 text-emerald-600" /> Buyer Protection · refund if order issues</p>
+              <p className="flex items-center gap-2"><ShieldCheck className="size-4 text-emerald-600" /> Buyer Protection ({buyerProtectionDays} days) · {buyerProtectionText}</p>
               <Link href={`/store/${product.storeSlug}`} className="flex items-center gap-2 pt-1 font-medium">
                 <Store className="size-4" /> {product.store} · 97.4% positive
               </Link>

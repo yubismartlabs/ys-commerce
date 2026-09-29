@@ -6,6 +6,7 @@ import { ChevronRight } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { EmptyState, ErrorState, PageHeader, Pager, StatusBadge, StatusFilter, TableSkeleton } from "@/components/refine/ui";
 import { formatUSD, timeAgo } from "@/lib/format";
 import type { Dispute } from "@/lib/refine/types";
@@ -53,7 +54,12 @@ export default function DisputesPage() {
                   <TableCell className="font-mono font-medium">{d.order.number}</TableCell>
                   <TableCell className="text-neutral-500">{d.buyer.email}</TableCell>
                   <TableCell className="font-semibold tabular-nums">{formatUSD(d.order.total)}</TableCell>
-                  <TableCell><StatusBadge value={d.status} /></TableCell>
+                  <TableCell>
+                    <span className="flex flex-wrap items-center gap-1.5">
+                      <StatusBadge value={d.status} />
+                      <Badge variant="outline" className="font-mono text-[10px]">{d.category.replace(/_/g, " ")}</Badge>
+                    </span>
+                  </TableCell>
                   <TableCell className="whitespace-nowrap text-neutral-500">{timeAgo(d.createdAt)}</TableCell>
                   <TableCell className="text-right">
                     <Button size="sm" variant="outline" asChild>

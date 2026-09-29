@@ -5,6 +5,7 @@ import { fail, ok } from "@/lib/api/http";
 import { audit } from "@/lib/api/guard";
 import { validateCoupon } from "@/lib/coupons/engine";
 import { cartLineSchema, generateOrderNumber, resolveCart, standardShipping } from "@/lib/coupons/cart";
+import { createHoldsForOrder } from "@/lib/escrow/escrow";
 import { notifyAdmins } from "@/lib/notifications/notify";
 
 const addressSchema = z.object({
@@ -114,6 +115,17 @@ export async function POST(req: Request) {
             })),
           },
         },
+        include: { items: true },
+      });
+      // Lock the seller's net per line in escrow (released after protection).
+      await createHoldsForOrder(tx, {
+        orderId: created.id,
+        lines: created.items.map((i) => ({
+          orderItemId: i.id,
+          storeId: i.storeId,
+          lineTotal: Number(i.price) * i.qty,
+        })),
+        discountRatio: subtotal > 0 ? discount / subtotal : 0,
       });
       if (coupon) {
         await tx.couponRedemption.create({

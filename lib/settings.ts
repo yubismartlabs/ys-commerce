@@ -26,6 +26,8 @@ export const commerceSchema = z.object({
   commissionDefault: z.number().min(0).max(0.5).default(0.05),
   sellerApproval: z.enum(["auto", "manual"]).default("manual"),
   buyerProtectionText: z.string().max(500).default("Full refund if your order doesn't arrive."),
+  buyerProtectionDays: z.number().int().min(1).max(90).default(14),
+  escrowReleaseDays: z.number().int().min(0).max(90).default(14),
   reviewModeration: z.boolean().default(false),
 });
 
@@ -109,5 +111,7 @@ export const publicSettingsSchema = z.object({
   siteName: z.string(),
   logoUrl: z.string(),
   announcement: z.string(),
+  buyerProtectionText: z.string(),
+  buyerProtectionDays: z.number(),
   maintenance: z.object({ enabled: z.boolean(), message: z.string() }),
 });

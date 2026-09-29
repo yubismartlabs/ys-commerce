@@ -5,11 +5,13 @@ import { withAdmin } from "@/lib/api/guard";
 export const GET = withAdmin(async (req) => {
   const url = new URL(req.url);
   const status = url.searchParams.get("status");
+  const category = url.searchParams.get("category");
   const { page, pageSize, skip } = getPagination(url);
 
-  const where = status
-    ? { status: status as "OPEN" | "UNDER_REVIEW" | "RESOLVED_BUYER" | "RESOLVED_SELLER" | "CLOSED" }
-    : {};
+  const where = {
+    ...(status ? { status: status as "OPEN" | "UNDER_REVIEW" | "RESOLVED_BUYER" | "RESOLVED_SELLER" | "CLOSED" } : {}),
+    ...(category ? { category: category as "NOT_RECEIVED" | "DAMAGED" | "WRONG_ITEM" | "QUALITY" | "NOT_AS_DESCRIBED" | "OTHER" } : {}),
+  };
   const [total, disputes] = await Promise.all([
     db.dispute.count({ where }),
     db.dispute.findMany({

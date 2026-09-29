@@ -7,12 +7,21 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Badge } from "@/components/ui/badge";
 import { BackLink, ErrorState, SectionTitle, StatusBadge, TableSkeleton } from "@/components/refine/ui";
 import { formatUSD, timeAgo } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import type { Dispute } from "@/lib/refine/types";
 
-const outcomes = ["UNDER_REVIEW", "RESOLVED_BUYER", "RESOLVED_SELLER", "CLOSED"] as const;
+// Mirrors the API's forward-only ruling map.
+const NEXT: Record<string, string[]> = {
+  OPEN: ["UNDER_REVIEW", "RESOLVED_BUYER", "RESOLVED_SELLER", "CLOSED"],
+  UNDER_REVIEW: ["RESOLVED_BUYER", "RESOLVED_SELLER", "CLOSED"],
+  RESOLVED_BUYER: ["CLOSED"],
+  RESOLVED_SELLER: ["CLOSED"],
+  CLOSED: [],
+};
 
 export default function DisputeShowPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
@@ -21,7 +30,6 @@ export default function DisputeShowPage({ params }: { params: Promise<{ id: stri
   const [status, setStatus] = useState<string>("RESOLVED_BUYER");
   const [message, setMessage] = useState("");
   const d = query.data?.data;
-
   if (query.isLoading) return (<><BackLink href="/ys-admin/disputes" label="Disputes" /><Card className="p-0"><TableSkeleton rows={6} cols={2} /></Card></>);
   if (query.isError || !d) return (<><BackLink href="/ys-admin/disputes" label="Disputes" /><Card className="p-0"><ErrorState message="Dispute not found." /></Card></>);
 
@@ -32,13 +40,43 @@ export default function DisputeShowPage({ params }: { params: Promise<{ id: stri
         <div className="flex flex-wrap items-center gap-2">
           <h1 className="font-mono text-xl font-bold">Order {d.order.number}</h1>
           <StatusBadge value={d.status} />
+          <Badge variant="outline" className="font-mono text-[10px]">{d.category.replace(/_/g, " ")}</Badge>
           <span className="text-xs text-neutral-400">opened {timeAgo(d.createdAt)}</span>
+          {d.resolvedAt ? <span className="text-xs text-neutral-400">· ruled {timeAgo(d.resolvedAt)}</span> : null}
           <span className="ml-auto text-lg font-extrabold tabular-nums">{formatUSD(d.order.total)}</span>
         </div>
         <p className="mt-1 text-sm text-neutral-500">{d.buyer.email}</p>
         <p className="mt-3 rounded-lg bg-neutral-100 p-3 text-sm dark:bg-neutral-800">
           <span className="font-semibold">Reason: </span>{d.reason}
         </p>
+
+        {d.holds && d.holds.length > 0 ? (
+          <>
+            <Separator className="my-5" />
+            <SectionTitle>Escrow holds ({d.holds.length})</SectionTitle>
+            <div className="mt-2 overflow-hidden rounded-lg border">
+              <Table>
+                <TableHeader>
+                  <TableRow><TableHead>Store</TableHead><TableHead>Gross</TableHead><TableHead>Commission</TableHead><TableHead>Net</TableHead><TableHead>Status</TableHead></TableRow>
+                </TableHeader>
+                <TableBody>
+                  {d.holds.map((h) => (
+                    <TableRow key={h.id}>
+                      <TableCell className="max-w-32 truncate font-mono text-xs">{h.storeId}</TableCell>
+                      <TableCell className="tabular-nums">{formatUSD(h.gross)}</TableCell>
+                      <TableCell className="tabular-nums">{formatUSD(h.commission)}</TableCell>
+                      <TableCell className="font-semibold tabular-nums">{formatUSD(h.net)}</TableCell>
+                      <TableCell><StatusBadge value={h.status} /></TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+            <p className="mt-1.5 text-xs text-neutral-500">
+              Ruling for the buyer refunds the order and marks holds REFUNDED; ruling for the seller unfreezes and releases what&apos;s due.
+            </p>
+          </>
+        ) : null}
 
         <Separator className="my-5" />
         <SectionTitle>Thread ({d.messages.length})</SectionTitle>
@@ -66,24 +104,29 @@ export default function DisputeShowPage({ params }: { params: Promise<{ id: stri
 
       <Card className="space-y-3 p-6">
         <SectionTitle>Resolve dispute</SectionTitle>
-        <div className="flex max-w-2xl flex-col gap-2 sm:flex-row">
-          <Select value={status} onValueChange={setStatus}>
-            <SelectTrigger className="sm:w-56"><SelectValue /></SelectTrigger>
-            <SelectContent>
-              {outcomes.map((o) => (
-                <SelectItem key={o} value={o}>{o.replace(/_/g, " ")}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Input value={message} onChange={(e) => setMessage(e.target.value)} placeholder="Resolution note (posted to thread)" className="flex-1" />
-          <Button
-            disabled={mutation.isPending}
-            className="bg-ali-red text-white hover:bg-ali-red-dark"
-            onClick={() => mutate({ resource: "disputes", id, values: { status, message: message || undefined } })}
-          >
-            Save ruling
-          </Button>
-        </div>
+        {(NEXT[d.status] ?? []).length === 0 ? (
+          <p className="text-sm text-neutral-500">This dispute is closed — rulings are terminal.</p>
+        ) : (
+          <div className="flex max-w-2xl flex-col gap-2 sm:flex-row">
+            <Select value={(NEXT[d.status] ?? []).includes(status) ? status : (NEXT[d.status] ?? [])[0]} onValueChange={setStatus}>
+              <SelectTrigger className="sm:w-56"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {(NEXT[d.status] ?? []).map((o) => (
+                  <SelectItem key={o} value={o}>{o.replace(/_/g, " ")}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Input value={message} onChange={(e) => setMessage(e.target.value)} placeholder="Resolution note (posted to thread)" className="flex-1" />
+            <Button
+              disabled={mutation.isPending}
+              className="bg-ali-red text-white hover:bg-ali-red-dark"
+              onClick={() => mutate({ resource: "disputes", id, values: { status: (NEXT[d.status] ?? []).includes(status) ? status : (NEXT[d.status] ?? [])[0], message: message || undefined } })}
+            >
+              Save ruling
+            </Button>
+          </div>
+        )}
+        <p className="text-xs text-neutral-500">Buyer-wins rulings auto-refund the order; seller-wins rulings release frozen escrow.</p>
       </Card>
     </div>
   );

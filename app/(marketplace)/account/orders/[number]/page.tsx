@@ -4,13 +4,14 @@ import { use } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useQuery } from "@tanstack/react-query";
-import { ArrowLeft, Check } from "lucide-react";
+import { ArrowLeft, Check, ShieldCheck } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 import { StatusBadge } from "@/components/refine/ui";
 import { formatUSD, timeAgo } from "@/lib/format";
+import { FileDisputeDialog } from "@/components/disputes/file-dispute-dialog";
 import { cn } from "@/lib/utils";
 import type { Order } from "@/lib/refine/types";
 
@@ -56,6 +57,18 @@ export default function BuyerOrderPage({ params }: { params: Promise<{ number: s
           <StatusBadge value={o.status} />
           <span className="ml-auto text-xl font-black tabular-nums">{formatUSD(o.total)}</span>
         </div>
+        {o.protectionUntil && new Date(o.protectionUntil) > new Date() && o.status === "DELIVERED" ? (
+          <p className="flex items-center gap-2 rounded-lg bg-emerald-500/10 p-3 text-sm text-emerald-700 dark:text-emerald-400">
+            <ShieldCheck className="size-4 shrink-0" />
+            Buyer protection until {new Date(o.protectionUntil).toLocaleDateString()}
+            <span className="ml-auto"><FileDisputeDialog orderNumber={o.number} /></span>
+          </p>
+        ) : o.status === "PAID" || o.status === "SHIPPED" ? (
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-xs text-neutral-400">Something wrong? You can dispute undelivered orders too.</p>
+            <FileDisputeDialog orderNumber={o.number} />
+          </div>
+        ) : null}
 
         {o.status !== "REFUNDED" && o.status !== "CANCELLED" ? (
           <div className="flex items-center">

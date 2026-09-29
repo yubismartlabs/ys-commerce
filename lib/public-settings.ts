@@ -6,6 +6,8 @@ type PublicSettings = {
   siteName: string;
   logoUrl: string;
   announcement: string;
+  buyerProtectionText: string;
+  buyerProtectionDays: number;
   maintenance: { enabled: boolean; message: string };
 };
 
@@ -13,6 +15,8 @@ const FALLBACK: PublicSettings = {
   siteName: "ys-commerce",
   logoUrl: "",
   announcement: "",
+  buyerProtectionText: "Full refund if your order doesn't arrive.",
+  buyerProtectionDays: 14,
   maintenance: { enabled: false, message: "" },
 };
 

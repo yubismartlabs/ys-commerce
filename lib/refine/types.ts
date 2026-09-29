@@ -62,6 +62,7 @@ export type Order = {
   trackingNumber: string | null;
   shippedAt: string | null;
   deliveredAt: string | null;
+  protectionUntil: string | null;
   createdAt: string;
   items: OrderItem[];
   disputes?: Dispute[];
@@ -72,18 +73,31 @@ export type Order = {
 export type DisputeMessage = {
   id: string;
   author: string;
+  authorId: string | null;
   body: string;
   createdAt: string;
+};
+
+export type EscrowHoldView = {
+  id: string;
+  storeId: string;
+  gross: number;
+  commission: number;
+  net: number;
+  status: "HELD" | "FROZEN" | "RELEASED" | "REFUNDED";
 };
 
 export type Dispute = {
   id: string;
   reason: string;
+  category: string;
   status: "OPEN" | "UNDER_REVIEW" | "RESOLVED_BUYER" | "RESOLVED_SELLER" | "CLOSED";
+  resolvedAt: string | null;
   createdAt: string;
-  order: { number: string; total: number; status: string };
+  order: { id?: string; number: string; total: number; status: string };
   buyer: { email: string; name: string | null };
   messages: DisputeMessage[];
+  holds?: EscrowHoldView[];
 };
 
 export type Coupon = {
