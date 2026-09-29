@@ -109,17 +109,17 @@ export function MarketplaceHeader() {
           </Link>
 
           <form onSubmit={submit} className="hidden flex-1 items-center md:flex">
-            <div className="flex w-full overflow-hidden rounded-full border-2 border-ali-red">
+            <div className="flex w-full items-stretch overflow-hidden rounded-full border-2 border-ali-red bg-white">
               <Input
                 value={q}
                 onChange={(e) => setQ(e.target.value)}
                 placeholder="wireless earbuds, summer dress, led lights..."
-                className="h-10 flex-1 rounded-none border-0 px-4 shadow-none focus-visible:ring-0"
+                className="h-11 flex-1 rounded-none border-0 bg-transparent px-4 shadow-none focus-visible:ring-0"
               />
-              <Button type="button" variant="ghost" size="icon" className="rounded-none" aria-label="Image search">
+              <Button type="button" variant="ghost" className="h-auto shrink-0 rounded-none px-3" aria-label="Image search">
                 <Camera className="size-5 text-neutral-500" />
               </Button>
-              <Button type="submit" className="h-10 rounded-none bg-ali-red px-6 text-white hover:bg-ali-red-dark">
+              <Button type="submit" className="h-auto shrink-0 rounded-none bg-ali-red px-6 text-white hover:bg-ali-red-dark">
                 <Search className="size-4" /> Search
               </Button>
             </div>
@@ -171,14 +171,14 @@ export function MarketplaceHeader() {
 
         {/* mobile search */}
         <div className="px-4 pb-3 md:hidden">
-          <form onSubmit={submit} className="flex overflow-hidden rounded-full border-2 border-ali-red">
+          <form onSubmit={submit} className="flex items-stretch overflow-hidden rounded-full border-2 border-ali-red bg-white">
             <Input
               value={q}
               onChange={(e) => setQ(e.target.value)}
               placeholder="Search on ys-commerce"
-              className="h-9 flex-1 border-0 shadow-none focus-visible:ring-0"
+              className="h-10 flex-1 rounded-none border-0 bg-transparent shadow-none focus-visible:ring-0"
             />
-            <Button type="submit" size="icon" className="rounded-none bg-ali-red text-white">
+            <Button type="submit" className="h-auto shrink-0 rounded-none bg-ali-red px-4 text-white hover:bg-ali-red-dark" aria-label="Search">
               <Search className="size-4" />
             </Button>
           </form>
