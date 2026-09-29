@@ -10,7 +10,6 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { timeAgo } from "@/lib/format";
 import { cn } from "@/lib/utils";
-import { ChatLock } from "@/components/chat/chat-lock";
 
 type Row = {
   id: string;
@@ -83,7 +82,7 @@ function List({ basePath }: { basePath: string }) {
         )}
       </Card>
       <p className={cn("flex items-center gap-1.5 text-xs text-neutral-400")}>
-        <Lock className="size-3.5" /> End-to-end encrypted — message bodies never leave your devices in readable form.
+        <Lock className="size-3.5" /> Sealed at rest · trust & safety can review reported threads.
       </p>
     </div>
   );
@@ -102,8 +101,6 @@ export function ChatInbox({ basePath }: { basePath: "/account/messages" | "/sell
     );
   }
   return (
-    <ChatLock userId={userId}>
-      <List basePath={basePath} />
-    </ChatLock>
+    <List basePath={basePath} />
   );
 }

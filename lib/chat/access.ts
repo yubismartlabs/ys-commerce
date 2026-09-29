@@ -6,7 +6,6 @@ export async function getConversationFor(userId: string, id: string) {
     where: { id },
     include: {
       reads: { where: { userId } },
-      envelopes: { where: { userId } },
     },
   });
   if (!convo || (convo.buyerId !== userId && convo.sellerId !== userId)) return null;
@@ -20,5 +19,5 @@ export async function counterparty(conversationId: string, meId: string) {
   });
   if (!convo) return null;
   const otherId = convo.buyerId === meId ? convo.sellerId : convo.buyerId;
-  return db.user.findUnique({ where: { id: otherId }, select: { id: true, name: true, email: true, identityKey: true } });
+  return db.user.findUnique({ where: { id: otherId }, select: { id: true, name: true, email: true } });
 }

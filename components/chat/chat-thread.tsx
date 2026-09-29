@@ -2,7 +2,7 @@
 
 import { useRef, useState } from "react";
 import Image from "next/image";
-import { Ban, Flag, ImagePlus, Loader2, Lock, Reply, Send, ShieldAlert, Undo2 } from "lucide-react";
+import { Ban, Flag, ImagePlus, Loader2, Reply, Send, ShieldCheck, Undo2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -25,8 +25,9 @@ async function act(path: string, body: object) {
 }
 
 /**
- * Full E2EE thread: decrypted bubbles, encrypted image attach, replies,
- * typing indicator, seen receipts, block/report. Plaintext never leaves tab.
+ * Buyer↔seller thread. Messages travel over TLS and rest sealed at rest;
+ * trust & safety can read content for moderation and dispute review.
+ * Contact info, links and off-platform payment terms are blocked.
  */
 export function ChatThread({ conversationId, userId }: { conversationId: string; userId: string }) {
   const chat = useChat(conversationId, userId);
@@ -37,7 +38,6 @@ export function ChatThread({ conversationId, userId }: { conversationId: string;
   const [warnAck, setWarnAck] = useState<string | null>(null);
   const [reporting, setReporting] = useState(false);
   const [reportReason, setReportReason] = useState("");
-  const [shareMine, setShareMine] = useState(true);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const d = chat.detail;
@@ -45,7 +45,7 @@ export function ChatThread({ conversationId, userId }: { conversationId: string;
 
   const submit = async (force = false) => {
     if ((!draft.trim() && !image) || sending) return;
-    // Safety screen on plaintext BEFORE sealing (server can't — E2EE).
+    // Instant client screen (server enforces too — see messages route).
     if (draft.trim() && !force) {
       const check = evaluateMessage(draft);
       if (check.level === "block") {
@@ -86,20 +86,12 @@ export function ChatThread({ conversationId, userId }: { conversationId: string;
       toast.error("Tell us briefly what's wrong (3+ characters).");
       return;
     }
-    // Consent-based evidence: only MY OWN messages, decrypted in this tab.
-    const evidence = shareMine
-      ? chat.messages
-          .filter((m) => m.mine && !m.text.startsWith("⚠"))
-          .slice(-50)
-          .map((m) => ({ text: m.text.slice(0, 2000), at: m.createdAt }))
-      : [];
     try {
       await act(`/api/v1/chat/conversations/${conversationId}`, {
         action: "report",
         reason: reportReason.trim(),
-        ...(evidence.length > 0 ? { evidence } : {}),
       });
-      toast.success("Reported. Thanks.");
+      toast.success("Reported. Trust & safety can review this thread.");
       setReporting(false);
       setReportReason("");
       chat.refetch();
@@ -112,23 +104,9 @@ export function ChatThread({ conversationId, userId }: { conversationId: string;
   if (chat.detailError || !d) {
     return <Card className="p-6 text-sm text-neutral-500">Conversation not found.</Card>;
   }
-  if (chat.keyError === "peer-not-ready") {
-    return (
-      <Card className="mx-auto max-w-md space-y-2 p-6 text-center">
-        <Lock className="mx-auto size-8 text-neutral-400" />
-        <p className="font-bold">Waiting for {d.other?.name ?? "the other side"}</p>
-        <p className="text-sm text-neutral-500">
-          They haven&apos;t set up private chat yet. Your invite appears as soon as they unlock chat — nothing is sent in the clear meanwhile.
-        </p>
-      </Card>
-    );
-  }
-  if (chat.keyError) {
-    return <Card className="p-6 text-sm text-red-600">Encryption error: {chat.keyError}</Card>;
-  }
 
   const replyTarget = replyTo ? chat.messages.find((m) => m.id === replyTo) : null;
-  const lastOwn = [...chat.messages].reverse().find((m) => m.mine);
+  const lastOwn = [...chat.messages].reverse().find((m) => m.senderId === userId);
   const seen = lastOwn && d.readStates.some((r) => r.userId !== userId && new Date(r.lastReadAt) >= new Date(lastOwn.createdAt));
 
   return (
@@ -143,7 +121,7 @@ export function ChatThread({ conversationId, userId }: { conversationId: string;
             <Badge variant="outline" className="font-mono text-[10px]">{d.type}</Badge>
             {d.order ? <StatusBadge value={d.order.status} /> : null}
             {d.store ? <span>{d.store.name}</span> : null}
-            <span className="inline-flex items-center gap-1 text-emerald-600"><Lock className="size-3" /> End-to-end encrypted</span>
+            <span className="inline-flex items-center gap-1 text-neutral-500"><ShieldCheck className="size-3" /> Monitored for safety</span>
           </p>
         </div>
         {!blocked ? (
@@ -151,12 +129,7 @@ export function ChatThread({ conversationId, userId }: { conversationId: string;
             <Button size="sm" variant="ghost" className="gap-1 text-xs" onClick={() => onAction({ action: "block" }, "Blocked. They can no longer message you.")}>
               <Ban className="size-3.5" /> Block
             </Button>
-            <Button
-              size="sm"
-              variant="ghost"
-              className="gap-1 text-xs"
-              onClick={() => setReporting(!reporting)}
-            >
+            <Button size="sm" variant="ghost" className="gap-1 text-xs" onClick={() => setReporting(!reporting)}>
               <Flag className="size-3.5" /> Report
             </Button>
           </div>
@@ -169,39 +142,42 @@ export function ChatThread({ conversationId, userId }: { conversationId: string;
 
       <Card className="space-y-1 p-4">
         {chat.messagesLoading ? (
-          <p className="py-4 text-center text-sm text-neutral-500">Decrypting…</p>
+          <p className="py-4 text-center text-sm text-neutral-500">Loading messages…</p>
         ) : chat.messages.length === 0 ? (
           <p className="py-6 text-center text-sm text-neutral-500">
-            No messages yet. Say hello — only the two of you can read this thread.
+            No messages yet. Say hello — keep deals and contact details on ys-commerce.
           </p>
         ) : (
-          chat.messages.map((m) => (
-            <div key={m.id} className={cn("flex", m.mine && "justify-end")}>
-              <div className={cn(
-                "max-w-[80%] rounded-2xl px-3.5 py-2.5 text-sm",
-                m.mine
-                  ? "rounded-br-md bg-neutral-900 text-white dark:bg-white dark:text-neutral-900"
-                  : "rounded-bl-md bg-neutral-100 dark:bg-neutral-800"
-              )}>
-                {m.imageObjectUrl ? (
-                  <a href={m.imageObjectUrl} target="_blank" rel="noreferrer" className="block">
-                    <span className="relative block h-40 w-40 overflow-hidden rounded-lg">
-                      <Image src={m.imageObjectUrl} alt="attachment" fill className="object-cover" unoptimized />
-                    </span>
-                  </a>
-                ) : null}
-                <p className="whitespace-pre-wrap break-words">{m.text}</p>
-                <p className="mt-1 flex items-center gap-2 text-[11px] opacity-60">
-                  <span>{timeAgo(m.createdAt)}</span>
-                  {!m.mine ? (
-                    <button className="inline-flex items-center gap-0.5 hover:opacity-100" onClick={() => setReplyTo(m.id)}>
-                      <Reply className="size-3" /> Reply
-                    </button>
+          chat.messages.map((m) => {
+            const mine = m.senderId === userId;
+            return (
+              <div key={m.id} className={cn("flex", mine && "justify-end")}>
+                <div className={cn(
+                  "max-w-[80%] rounded-2xl px-3.5 py-2.5 text-sm",
+                  mine
+                    ? "rounded-br-md bg-neutral-900 text-white dark:bg-white dark:text-neutral-900"
+                    : "rounded-bl-md bg-neutral-100 dark:bg-neutral-800"
+                )}>
+                  {m.imageUrl ? (
+                    <a href={m.imageUrl} target="_blank" rel="noreferrer" className="block">
+                      <span className="relative block h-40 w-40 overflow-hidden rounded-lg">
+                        <Image src={m.imageUrl} alt="attachment" fill className="object-cover" />
+                      </span>
+                    </a>
                   ) : null}
-                </p>
+                  {m.text ? <p className="whitespace-pre-wrap break-words">{m.text}</p> : null}
+                  <p className="mt-1 flex items-center gap-2 text-[11px] opacity-60">
+                    <span>{timeAgo(m.createdAt)}</span>
+                    {!mine ? (
+                      <button className="inline-flex items-center gap-0.5 hover:opacity-100" onClick={() => setReplyTo(m.id)}>
+                        <Reply className="size-3" /> Reply
+                      </button>
+                    ) : null}
+                  </p>
+                </div>
               </div>
-            </div>
-          ))
+            );
+          })
         )}
         {chat.peerTyping ? <p className="animate-pulse text-xs text-neutral-400">Typing…</p> : null}
         {seen ? <p className="text-right text-[11px] text-neutral-400">Seen</p> : null}
@@ -210,15 +186,15 @@ export function ChatThread({ conversationId, userId }: { conversationId: string;
       {blocked ? (
         <Card className="p-4 text-center text-sm text-neutral-500">This conversation is blocked.</Card>
       ) : (
-          <Card className="space-y-2 p-3">
+        <Card className="space-y-2 p-3">
           <p className="flex items-start gap-1.5 rounded-lg bg-amber-400/10 px-3 py-2 text-xs text-amber-800 dark:text-amber-300">
-            <ShieldAlert className="mt-0.5 size-3.5 shrink-0" />
+            <ShieldCheck className="mt-0.5 size-3.5 shrink-0" />
             Keep it on ys-commerce: no phone numbers, emails, links, or off-site payments.
             Deals made outside lose buyer protection and seller escrow.
           </p>
           {warnAck === draft && draft.trim() ? (
             <p className="flex flex-wrap items-center gap-2 rounded-lg bg-orange-500/10 px-3 py-2 text-xs">
-              <span className="flex-1">That looks abusive — send anyway?</span>
+              <span className="flex-1">That looks abusive — send anyway? It will be flagged for review.</span>
               <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => setWarnAck(null)}>Edit</Button>
               <Button size="sm" className="h-7 bg-orange-600 text-xs text-white hover:bg-orange-700" onClick={() => void submit(true)}>
                 Send anyway
@@ -228,7 +204,7 @@ export function ChatThread({ conversationId, userId }: { conversationId: string;
           {replyTarget ? (
             <p className="flex items-center gap-2 rounded-lg bg-neutral-100 px-3 py-1.5 text-xs dark:bg-neutral-800">
               <Reply className="size-3.5" />
-              <span className="flex-1 truncate">Replying: {replyTarget.text}</span>
+              <span className="flex-1 truncate">Replying: {replyTarget.text || "Photo"}</span>
               <button className="font-bold" onClick={() => setReplyTo(null)}>×</button>
             </p>
           ) : null}
@@ -245,7 +221,7 @@ export function ChatThread({ conversationId, userId }: { conversationId: string;
             <input
               ref={fileRef}
               type="file"
-              accept="image/*"
+              accept="image/png,image/jpeg,image/webp,image/gif"
               className="hidden"
               onChange={(e) => {
                 const f = e.target.files?.[0];
@@ -273,16 +249,15 @@ export function ChatThread({ conversationId, userId }: { conversationId: string;
                   void submit();
                 }
               }}
-              placeholder={chat.convKey ? "Write a sealed message…" : "Exchanging keys…"}
+              placeholder="Write a message…"
               rows={2}
               className="flex-1"
-              disabled={!chat.convKey}
             />
-            <Button onClick={() => void submit()} disabled={sending || (!draft.trim() && !image) || !chat.convKey} aria-label="Send">
+            <Button onClick={() => void submit()} disabled={sending || (!draft.trim() && !image)} aria-label="Send">
               {sending ? <Loader2 className="size-4 animate-spin" /> : <Send className="size-4" />}
             </Button>
           </div>
-          <p className="text-[11px] text-neutral-400">Sealed on this device before upload. Not even ys-commerce can read it.</p>
+          <p className="text-[11px] text-neutral-400">Messages are screened for scams and contact-info sharing, and may be reviewed for safety.</p>
         </Card>
       )}
 
@@ -290,7 +265,7 @@ export function ChatThread({ conversationId, userId }: { conversationId: string;
         <Card className="space-y-2 p-4">
           <p className="text-sm font-bold">Report conversation</p>
           <p className="text-xs text-neutral-500">
-            Admins see metadata only — message bodies stay sealed. Optionally attach your own messages as evidence.
+            Trust & safety will review this thread, including message content.
           </p>
           <Textarea
             value={reportReason}
@@ -298,18 +273,6 @@ export function ChatThread({ conversationId, userId }: { conversationId: string;
             placeholder="What's wrong? (spam, fraud, abuse…)"
             rows={2}
           />
-          <label className="flex cursor-pointer items-start gap-2 text-xs">
-            <input
-              type="checkbox"
-              className="mt-0.5"
-              checked={shareMine}
-              onChange={(e) => setShareMine(e.target.checked)}
-            />
-            <span>
-              Include my messages as evidence (decrypted on this device, {chat.messages.filter((m) => m.mine).length} available).
-              The other party&apos;s messages stay encrypted.
-            </span>
-          </label>
           <div className="flex gap-2">
             <Button size="sm" variant="outline" onClick={() => setReporting(false)}>Cancel</Button>
             <Button size="sm" variant="destructive" onClick={() => void submitReport()}>Submit report</Button>

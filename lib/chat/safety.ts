@@ -1,15 +1,14 @@
 /**
  * Shared chat-safety detector (client + server safe, no deps).
  *
- * Chat bodies are end-to-end encrypted, so screening runs client-side on
- * plaintext BEFORE sealing. Dispute threads are plaintext server-side, so
- * the same detector runs in API routes there. A determined attacker with a
- * custom client can bypass client checks — metadata rate limits, blocks,
- * and consent-based report evidence are the backstops.
+ * Messages travel over TLS and rest sealed at rest; trust & safety CAN
+ * read content for moderation and dispute review. Screening runs in two
+ * places: instantly client-side for UX, and authoritatively server-side
+ * on send (plus the plaintext dispute channel).
  *
  * Levels:
- * - block: contact info, links, off-platform payment terms. Never sealed.
- * - warn:  handles + profanity. Sender confirms before sealing.
+ * - block: contact info, links, off-platform payment terms. Never stored.
+ * - warn:  handles + profanity. Stored, flagged for moderator review.
  */
 
 export type SafetyLevel = "ok" | "warn" | "block";

@@ -8,6 +8,8 @@ import { publish, rateLimited } from "@/lib/chat/hub";
 import { getEmailConfig } from "@/lib/email/send";
 import { notifyUser } from "@/lib/notifications/notify";
 import { buyerPrefs } from "@/lib/lifecycle/prefs";
+import { evaluateMessage } from "@/lib/chat/safety";
+import { open, seal } from "@/lib/chat/server-crypto";
 
 async function actor() {
   try {
@@ -18,7 +20,45 @@ async function actor() {
   }
 }
 
-/** Ciphertext feed, newest last. Clients decrypt locally. */
+export type MessageView = {
+  id: string;
+  senderId: string;
+  text: string;
+  imageUrl: string | null;
+  replyToId: string | null;
+  flagged: boolean;
+  createdAt: string;
+};
+
+function toView(m: {
+  id: string;
+  senderId: string;
+  ciphertext: string;
+  nonce: string;
+  keyId: string;
+  imageUrl: string | null;
+  replyToId: string | null;
+  flagged: boolean;
+  createdAt: Date;
+}): MessageView {
+  let text = "⚠ Message unavailable.";
+  try {
+    text = open({ ciphertext: m.ciphertext, nonce: m.nonce, keyId: m.keyId });
+  } catch {
+    // Unknown/rotated-away key: row stays sealed rather than crashing the feed.
+  }
+  return {
+    id: m.id,
+    senderId: m.senderId,
+    text,
+    imageUrl: m.imageUrl,
+    replyToId: m.replyToId,
+    flagged: m.flagged,
+    createdAt: m.createdAt.toISOString(),
+  };
+}
+
+/** Plaintext feed (opened server-side) for participants. */
 export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
   let me;
   try {
@@ -40,30 +80,22 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
   };
   const [total, messages] = await Promise.all([
     db.chatMessage.count({ where }),
-    db.chatMessage.findMany({
-      where,
-      skip,
-      take: pageSize,
-      orderBy: { createdAt: "asc" },
-      select: {
-        id: true, senderId: true, ciphertext: true, nonce: true, keyVersion: true,
-        replyToId: true, imageUrl: true, imageNonce: true, createdAt: true,
-      },
-    }),
+    db.chatMessage.findMany({ where, skip, take: pageSize, orderBy: { createdAt: "asc" } }),
   ]);
-  return ok(messages, { page, pageSize, total });
+  return ok(messages.map(toView), { page, pageSize, total });
 }
 
 const postSchema = z.object({
-  ciphertext: z.string().min(16).max(12000),
-  nonce: z.string().min(8).max(64),
-  keyVersion: z.number().int().min(1).default(1),
+  text: z.string().max(2000).optional(),
   replyToId: z.string().optional(),
   imageUrl: z.string().max(500).optional(),
-  imageNonce: z.string().max(64).optional(),
-});
+}).refine((v) => (v.text?.trim() ? true : !!v.imageUrl), { message: "text or image required" });
 
-/** Store one sealed message. The server never sees plaintext. */
+/**
+ * Send a message: screened for PII/circumvention (blocked), flagged for
+ * abuse (allowed, queued for moderation), sealed at rest. Trust & safety
+ * can read content — stated in the thread UI.
+ */
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   let me;
   try {
@@ -76,7 +108,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   const { id } = await params;
 
   const parsed = postSchema.safeParse(await req.json().catch(() => null));
-  if (!parsed.success) return fail("VALIDATION", "ciphertext + nonce required", 422);
+  if (!parsed.success) return fail("VALIDATION", parsed.error.issues[0]?.message ?? "text or image required", 422);
 
   const convo = await db.conversation.findUnique({ where: { id } });
   if (!convo || (convo.buyerId !== me.id && convo.sellerId !== me.id)) {
@@ -90,17 +122,31 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     if (!target || target.conversationId !== id) return fail("VALIDATION", "Reply target not in this conversation", 422);
   }
 
+  const text = (parsed.data.text ?? "").trim();
+  let flagged = false;
+  let flaggedKinds: string[] = [];
+  if (text) {
+    const screen = evaluateMessage(text);
+    if (screen.level === "block") return fail("PROTECTION", screen.message ?? "Content blocked", 422);
+    if (screen.level === "warn") {
+      flagged = true;
+      flaggedKinds = [...new Set(screen.hits.map((h) => h.kind))];
+    }
+  }
+
+  const sealed = seal(text);
   const message = await db.$transaction(async (tx) => {
     const m = await tx.chatMessage.create({
       data: {
         conversationId: id,
         senderId: me.id,
-        ciphertext: parsed.data.ciphertext,
-        nonce: parsed.data.nonce,
-        keyVersion: parsed.data.keyVersion,
+        ciphertext: sealed.ciphertext,
+        nonce: sealed.nonce,
+        keyId: sealed.keyId,
         replyToId: parsed.data.replyToId,
         imageUrl: parsed.data.imageUrl,
-        imageNonce: parsed.data.imageNonce,
+        flagged,
+        flaggedKinds,
       },
     });
     await tx.conversation.update({ where: { id }, data: { lastMessageAt: new Date() } });
@@ -112,32 +158,41 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     return m;
   });
 
-  publish(id, { type: "message", id: message.id, senderId: me.id, createdAt: message.createdAt });
+  publish(id, {
+    type: "message",
+    id: message.id,
+    senderId: me.id,
+    text: text || null,
+    imageUrl: parsed.data.imageUrl ?? null,
+    createdAt: message.createdAt,
+  });
 
-  // Content-free nudge (peer role decides the deep link). Never blocks.
+  // Nudge with a snippet (platform-readable by design). Never blocks.
   const peerId = convo.buyerId === me.id ? convo.sellerId : convo.buyerId;
   const peer = await db.user.findUnique({ where: { id: peerId }, select: { role: true, email: true } });
   if (peer) {
     const config = await getEmailConfig();
     const prefs = await buyerPrefs(peerId);
+    const snippet = text ? (text.length > 140 ? `${text.slice(0, 140)}…` : text) : "📷 Photo";
+    const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
     const link = peer.role === "BUYER" ? `/account/messages/${id}` : `/selling/messages/${id}`;
     await notifyUser({
       userId: peerId,
       type: "chat.message",
       title: "New message",
-      body: convo.type === "ORDER" ? "About your order" : (convo.subject ?? "About a product"),
+      body: convo.type === "ORDER" ? `${snippet}` : `${convo.subject ?? "Product inquiry"} — ${snippet}`,
       link,
       meta: { entityId: id },
       email: {
         template: {
           subject: `[${config.siteName}] New message`,
-          html: `<p>You have a new message${convo.subject ? ` about <strong>${convo.subject}</strong>` : ""}. Open the chat to read it — message contents are end-to-end encrypted.</p>`,
-          text: `You have a new message. Open the chat to read it.`,
+          html: `<p><strong>New message${convo.subject ? ` about ${esc(convo.subject)}` : ""}:</strong></p><p>${esc(snippet)}</p>`,
+          text: `New message: ${snippet}`,
         },
         name: "chat.message",
         enabled: config.enabled && prefs.chat,
       },
     });
   }
-  return ok({ id: message.id, createdAt: message.createdAt }, undefined, 201);
+  return ok(toView({ ...message, flagged, createdAt: message.createdAt }), undefined, 201);
 }

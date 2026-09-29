@@ -33,7 +33,6 @@ export async function GET(req: Request) {
       orderBy: { lastMessageAt: "desc" },
       include: {
         reads: { where: { userId: actor.id } },
-        envelopes: { where: { userId: actor.id }, select: { wrappedKey: true, ephemeralPub: true, nonce: true, keyVersion: true } },
         _count: { select: { messages: true } },
       },
     }),
@@ -42,7 +41,7 @@ export async function GET(req: Request) {
   const otherIds = [...new Set(convos.map((c) => (c.buyerId === actor.id ? c.sellerId : c.buyerId)))];
   const users = await db.user.findMany({
     where: { id: { in: otherIds } },
-    select: { id: true, name: true, email: true, identityKey: true },
+    select: { id: true, name: true, email: true },
   });
   const byId = new Map(users.map((u) => [u.id, u]));
   const orderIds = [...new Set(convos.map((c) => c.orderId).filter((x): x is string => !!x))];
@@ -83,7 +82,6 @@ export async function GET(req: Request) {
         store: storeById.get(c.storeId) ?? null,
         order: c.orderId ? (orderById.get(c.orderId) ?? null) : null,
         product: c.productId ? (productById.get(c.productId) ?? null) : null,
-        envelope: c.envelopes[0] ?? null,
       };
     })
   );
@@ -100,8 +98,7 @@ const createSchema = z.union([
 ]);
 
 /**
- * Open a conversation (idempotent for order+store). The client seals the
- * conversation key afterwards via POST /:id/envelopes.
+ * Open a conversation (idempotent for order+store).
  */
 export async function POST(req: Request) {
   let actor;

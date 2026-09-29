@@ -6,13 +6,15 @@ import { fail, ok } from "@/lib/api/http";
 import { ApiError } from "@/lib/api/guard";
 import { requireUser } from "@/lib/api/identity";
 
+const ALLOWED = new Map([
+  ["image/png", "png"],
+  ["image/jpeg", "jpg"],
+  ["image/webp", "webp"],
+  ["image/gif", "gif"],
+]);
 const MAX_BYTES = 5 * 1024 * 1024;
 
-/**
- * Chat image upload. Clients AES-GCM-seal bytes BEFORE uploading, so blobs
- * on disk are ciphertext (Content-Type carries no image hint). Stored as
- * .enc files; buyers and sellers only.
- */
+/** Chat image upload. Files are readable by trust & safety (platform-readable chat). */
 export async function POST(req: Request) {
   let me;
   try {
@@ -29,15 +31,17 @@ export async function POST(req: Request) {
   }
   const file = form.get("file");
   if (!(file instanceof File)) return fail("VALIDATION", "Missing 'file' field", 422);
-  if (file.size > MAX_BYTES) return fail("VALIDATION", "File must be 5MB or smaller", 422);
-  // Accept any bytes — sealed blobs have no reliable MIME. Size-capped only.
 
   const user = await db.user.findUnique({ where: { id: me.id }, select: { role: true } });
   if (!user || (user.role !== "BUYER" && user.role !== "SELLER" && user.role !== "ADMIN")) {
     return fail("FORBIDDEN", "Buyers and sellers only", 403);
   }
 
-  const name = `chat-${Date.now()}-${randomBytes(8).toString("hex")}.enc`;
+  const ext = ALLOWED.get(file.type);
+  if (!ext) return fail("VALIDATION", "Only PNG, JPEG, WebP or GIF images allowed", 422);
+  if (file.size > MAX_BYTES) return fail("VALIDATION", "File must be 5MB or smaller", 422);
+
+  const name = `chat-${Date.now()}-${randomBytes(8).toString("hex")}.${ext}`;
   const dir = resolve(process.env.UPLOAD_DIR ?? join(process.cwd(), "public", "uploads", "chat"));
   await mkdir(dir, { recursive: true });
   await writeFile(join(dir, name), Buffer.from(await file.arrayBuffer()));

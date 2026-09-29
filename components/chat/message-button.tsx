@@ -8,8 +8,6 @@ import { Button } from "@/components/ui/button";
 
 /**
  * Opens (or finds) a buyer↔seller conversation, then navigates to it.
- * Key exchange + encryption happen inside the thread — this only creates
- * the sealed envelope container.
  */
 export function MessageButton({
   orderId,

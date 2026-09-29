@@ -5,6 +5,7 @@ import { audit, withAdmin } from "@/lib/api/guard";
 import { settleBuyerWin, settleSellerWin } from "@/lib/escrow/escrow";
 import { notifyDisputeStatus, notifyUser } from "@/lib/notifications/notify";
 import { transitionOrder, TransitionError } from "@/lib/orders/transitions";
+import { open } from "@/lib/chat/server-crypto";
 
 const patchSchema = z.object({
   status: z.enum(["UNDER_REVIEW", "RESOLVED_BUYER", "RESOLVED_SELLER", "CLOSED"]),
@@ -36,7 +37,41 @@ export const GET = withAdmin(
       where: { orderId: dispute.orderId },
       select: { id: true, storeId: true, gross: true, commission: true, net: true, status: true },
     });
-    return ok({ ...dispute, holds });
+    // Linked buyer↔seller chats, opened for mediation (platform-readable).
+    const chats = await db.conversation.findMany({
+      where: { orderId: dispute.orderId },
+      select: { id: true, type: true, subject: true, buyerId: true, sellerId: true },
+    });
+    const transcripts = await Promise.all(
+      chats.map(async (c) => {
+        const rows = await db.chatMessage.findMany({
+          where: { conversationId: c.id },
+          orderBy: { createdAt: "asc" },
+          take: 100,
+        });
+        return {
+          id: c.id,
+          type: c.type,
+          subject: c.subject,
+          messages: rows.map((m) => {
+            let text = "⚠ Unreadable.";
+            try {
+              text = open({ ciphertext: m.ciphertext, nonce: m.nonce, keyId: m.keyId });
+            } catch {
+              // keep placeholder
+            }
+            return {
+              senderId: m.senderId,
+              text,
+              imageUrl: m.imageUrl,
+              flagged: m.flagged,
+              createdAt: m.createdAt,
+            };
+          }),
+        };
+      })
+    );
+    return ok({ ...dispute, holds, chats: transcripts });
   }
 , "disputes");
 

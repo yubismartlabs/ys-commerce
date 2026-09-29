@@ -113,10 +113,17 @@ export type Dispute = {
   status: "OPEN" | "UNDER_REVIEW" | "RESOLVED_BUYER" | "RESOLVED_SELLER" | "CLOSED";
   resolvedAt: string | null;
   createdAt: string;
+  buyerId: string;
   order: { id?: string; number: string; total: number; status: string };
   buyer: { email: string; name: string | null };
   messages: DisputeMessage[];
   holds?: EscrowHoldView[];
+  chats?: Array<{
+    id: string;
+    type: string;
+    subject: string | null;
+    messages: Array<{ senderId: string; text: string; imageUrl: string | null; flagged: boolean; createdAt: string }>;
+  }>;
 };
 
 export type Coupon = {

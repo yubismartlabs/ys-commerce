@@ -1,17 +1,15 @@
 import { db } from "@/lib/db";
 import { fail, ok } from "@/lib/api/http";
 import { withAdmin } from "@/lib/api/guard";
+import { open } from "@/lib/chat/server-crypto";
 
-/** Single conversation metadata: volume timeline only, never bodies. */
+/** Single conversation: full transcript (trust & safety readable). */
 export const GET = withAdmin(
   async (_req, _actor, { params }: { params: Promise<{ id: string }> }) => {
     const { id } = await params;
-    const convo = await db.conversation.findUnique({
-      where: { id },
-      include: { _count: { select: { messages: true, envelopes: true } } },
-    });
+    const convo = await db.conversation.findUnique({ where: { id } });
     if (!convo) return fail("NOT_FOUND", "Conversation not found", 404);
-    const [users, order, product, store, stamps] = await Promise.all([
+    const [users, order, product, store, rows] = await Promise.all([
       db.user.findMany({
         where: { id: { in: [convo.buyerId, convo.sellerId] } },
         select: { id: true, name: true, email: true, role: true },
@@ -25,28 +23,43 @@ export const GET = withAdmin(
       db.store.findUnique({ where: { id: convo.storeId }, select: { name: true, slug: true } }),
       db.chatMessage.findMany({
         where: { conversationId: id },
-        select: { senderId: true, createdAt: true },
-        orderBy: { createdAt: "desc" },
-        take: 100,
+        orderBy: { createdAt: "asc" },
+        take: 200,
       }),
     ]);
+    const transcript = rows.map((m) => {
+      let text = "⚠ Unreadable (seal key missing).";
+      try {
+        text = open({ ciphertext: m.ciphertext, nonce: m.nonce, keyId: m.keyId });
+      } catch {
+        // keep placeholder
+      }
+      return {
+        id: m.id,
+        senderId: m.senderId,
+        text,
+        imageUrl: m.imageUrl,
+        replyToId: m.replyToId,
+        flagged: m.flagged,
+        flaggedKinds: m.flaggedKinds,
+        createdAt: m.createdAt,
+      };
+    });
     return ok({
       id: convo.id,
       type: convo.type,
       subject: convo.subject,
-      messageCount: convo._count.messages,
-      envelopeCount: convo._count.envelopes,
+      messageCount: rows.length,
       lastMessageAt: convo.lastMessageAt,
       createdAt: convo.createdAt,
       blocked: !!convo.blockedById,
       reportedAt: convo.reportedAt,
       reportReason: convo.reportReason,
-      reportEvidence: convo.reportEvidence,
       users,
       order,
       product,
       store,
-      activity: stamps,
+      transcript,
     });
   }
 , "chat");

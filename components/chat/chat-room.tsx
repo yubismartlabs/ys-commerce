@@ -6,7 +6,6 @@ import { ArrowLeft } from "lucide-react";
 import { use } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { ChatLock } from "@/components/chat/chat-lock";
 import { ChatThread } from "@/components/chat/chat-thread";
 
 export function ChatRoom({ conversationId, backHref }: { conversationId: string; backHref: string }) {
@@ -26,9 +25,7 @@ export function ChatRoom({ conversationId, backHref }: { conversationId: string;
       <Button variant="ghost" size="sm" asChild className="gap-1">
         <Link href={backHref}><ArrowLeft className="size-4" /> Messages</Link>
       </Button>
-      <ChatLock userId={userId}>
-        <ChatThread conversationId={conversationId} userId={userId} />
-      </ChatLock>
+      <ChatThread conversationId={conversationId} userId={userId} />
     </div>
   );
 }

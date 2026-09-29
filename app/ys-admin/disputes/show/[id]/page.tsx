@@ -1,6 +1,7 @@
 "use client";
 
 import { use, useState } from "react";
+import Link from "next/link";
 import { useShow, useUpdate } from "@refinedev/core";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -103,8 +104,7 @@ export default function DisputeShowPage({ params }: { params: Promise<{ id: stri
       </Card>
 
       <Card className="space-y-3 p-6">
-        <SectionTitle>Resolve dispute</SectionTitle>
-        {(NEXT[d.status] ?? []).length === 0 ? (
+        <SectionTitle>Resolve dispute</SectionTitle>        {(NEXT[d.status] ?? []).length === 0 ? (
           <p className="text-sm text-neutral-500">This dispute is closed — rulings are terminal.</p>
         ) : (
           <div className="flex max-w-2xl flex-col gap-2 sm:flex-row">
@@ -128,6 +128,46 @@ export default function DisputeShowPage({ params }: { params: Promise<{ id: stri
         )}
         <p className="text-xs text-neutral-500">Buyer-wins rulings auto-refund the order; seller-wins rulings release frozen escrow.</p>
       </Card>
+
+      {d.chats && d.chats.length > 0 ? (
+        <Card className="space-y-3 p-6">
+          <SectionTitle>Linked buyer–seller chats ({d.chats.reduce((a, c) => a + c.messages.length, 0)} messages)</SectionTitle>
+          {d.chats.map((c) => (
+            <div key={c.id} className="rounded-lg border p-3">
+              <p className="mb-2 flex flex-wrap items-center gap-2 text-xs text-neutral-500">
+                <Badge variant="outline" className="font-mono text-[10px]">{c.type}</Badge>
+                <span className="font-mono">{c.id.slice(0, 8)}…</span>
+                {c.subject ? <span className="truncate">{c.subject}</span> : null}
+                <Link href={`/ys-admin/chat/${c.id}`} className="ml-auto text-ali-red hover:underline">Full moderation view →</Link>
+              </p>
+              <div className="max-h-64 space-y-1.5 overflow-y-auto">
+                {c.messages.length === 0 ? (
+                  <p className="text-xs text-neutral-400">No messages yet.</p>
+                ) : (
+                  c.messages.map((m, i) => (
+                    <div
+                      key={i}
+                      className={cn(
+                        "rounded-lg px-2.5 py-1.5 text-[13px]",
+                        m.senderId === d.buyerId
+                          ? "mr-8 bg-sky-500/10"
+                          : "ml-8 bg-neutral-100 dark:bg-neutral-800",
+                        m.flagged && "ring-1 ring-amber-400"
+                      )}
+                    >
+                      <p className="whitespace-pre-wrap break-words">{m.text}</p>
+                      <p className="mt-0.5 text-[10px] text-neutral-400">
+                        {m.senderId === d.buyerId ? "buyer" : "seller"} · {timeAgo(m.createdAt)}
+                        {m.flagged ? " · FLAGGED" : ""}
+                      </p>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          ))}
+        </Card>
+      ) : null}
     </div>
   );
 }
