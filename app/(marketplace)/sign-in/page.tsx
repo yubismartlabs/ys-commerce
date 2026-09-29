@@ -32,6 +32,8 @@ function SignInForm() {
     if (res?.ok) {
       router.push(params.get("next") ?? "/");
       router.refresh();
+    } else if ((res as { code?: string } | undefined)?.code === "SUSPENDED") {
+      setError("This account is suspended. Contact support.");
     } else {
       setError("Invalid email or password.");
     }

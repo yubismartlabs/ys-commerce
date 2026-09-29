@@ -120,6 +120,27 @@ export type Coupon = {
   redemptions?: Array<{ id: string; userId: string; orderId: string | null; amount: number; createdAt: string }>;
 };
 
+export type AdminUser = {
+  id: string;
+  name: string | null;
+  email: string;
+  role: "BUYER" | "SELLER" | "ADMIN";
+  scopes: string[];
+  suspendedAt: string | null;
+  suspendReason: string | null;
+  createdAt: string;
+  orderCount: number;
+  _count: { stores: number; disputes: number };
+};
+
+export type AdminUserDetail = AdminUser & {
+  emailVerified: string | null;
+  orderTotal: number;
+  redemptions: number;
+  stores: Array<{ id: string; name: string; slug: string; status: string }>;
+  auditRecent: Array<{ id: string; action: string; entity: string; entityId: string; createdAt: string }>;
+};
+
 export type NotificationItem = {
   id: string;
   type: string;

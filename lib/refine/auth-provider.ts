@@ -9,7 +9,17 @@ export const authProvider: AuthProvider = {
   login: async ({ email, password }: { email: string; password: string }) => {
     const res = await signIn("credentials", { email, password, redirect: false });
     if (res?.ok) return { success: true, redirectTo: "/ys-admin/vendors" };
-    return { success: false, error: { message: "Invalid email or password", statusCode: 401, name: "Auth" } };
+    // Auth.js surfaces custom credential failures as ?error=CredentialsSignin&code=…
+    // (signIn redirect:false exposes it as res.code; res.url is null on error).
+    const suspended = (res as { code?: string } | undefined)?.code === "SUSPENDED";
+    return {
+      success: false,
+      error: {
+        message: suspended ? "This account is suspended. Contact support." : "Invalid email or password",
+        statusCode: suspended ? 403 : 401,
+        name: "Auth",
+      },
+    };
   },
 
   logout: async () => {

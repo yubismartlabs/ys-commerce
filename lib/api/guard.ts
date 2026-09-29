@@ -24,7 +24,13 @@ export async function requireAdmin(req: Request): Promise<AdminActor> {
   const session = await auth();
   const role = (session?.user as { role?: string } | undefined)?.role;
   if (role === "ADMIN" && session?.user) {
-    return { id: (session.user as { id: string }).id, email: session.user.email ?? "", via: "session" };
+    const id = (session.user as { id: string }).id;
+    // Live suspension check — a suspended admin loses console access immediately.
+    const user = await db.user.findUnique({ where: { id }, select: { suspendedAt: true } });
+    if (!user || user.suspendedAt) {
+      throw new ApiError("SUSPENDED", "This account is suspended", 403);
+    }
+    return { id, email: session.user.email ?? "", via: "session" };
   }
 
   const header = req.headers.get("authorization");
@@ -40,6 +46,9 @@ export async function requireAdmin(req: Request): Promise<AdminActor> {
       token.scopes.includes("admin") &&
       (!token.expiresAt || token.expiresAt > new Date())
     ) {
+      if ((token.user as { suspendedAt?: Date | null }).suspendedAt) {
+        throw new ApiError("SUSPENDED", "This account is suspended", 403);
+      }
       return { id: token.user.id, email: token.user.email, via: "token" };
     }
   }

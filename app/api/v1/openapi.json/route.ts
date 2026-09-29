@@ -38,6 +38,14 @@ const spec = {
     "/coupons": { get: { summary: "Active public coupons (no auth)" } },
     "/coupons/validate": { post: { summary: "Quote a coupon against a basket (no auth)" } },
     "/checkout": { post: { summary: "Place an order, optional couponCode (auth)" } },
+    "/admin/users": { get: { summary: "User directory, filters ?q=&role=&status= (admin)" } },
+    "/admin/users/{id}": {
+      get: { summary: "User profile + activity (admin)" },
+      patch: { summary: "role | suspend | unsuspend | resetPassword | profile (admin)" },
+      delete: { summary: "Delete account without history (admin)" },
+    },
+    "/account/profile": { patch: { summary: "Update my display name (auth)" } },
+    "/account/password": { post: { summary: "Change my password (auth)" } },
     "/admin/api-tokens": {
       get: { summary: "List mobile API tokens" },
       post: { summary: "Mint a bearer token (raw token shown once)" },

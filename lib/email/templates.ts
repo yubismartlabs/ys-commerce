@@ -239,3 +239,45 @@ export function digestEmail(opts: { siteName: string; sections: DigestSection[] 
     ),
   };
 }
+
+export function accountSuspendedEmail(opts: { siteName: string; reason?: string }): EmailTemplate {
+  const title = `Your ${opts.siteName} account is suspended`;
+  const body =
+    `<p>Your account on ${opts.siteName} has been suspended and you can no longer sign in.</p>` +
+    (opts.reason ? `<p>Reason: ${opts.reason}</p>` : "") +
+    `<p>If you think this is a mistake, reply to this email to appeal.</p>`;
+  return {
+    subject: `[${opts.siteName}] Account suspended`,
+    html: layout(title, body),
+    text: textify(title, [
+      `Your account on ${opts.siteName} has been suspended.`,
+      ...(opts.reason ? [`Reason: ${opts.reason}`] : []),
+    ]),
+  };
+}
+
+export function accountReinstatedEmail(opts: { siteName: string }): EmailTemplate {
+  const title = `Your ${opts.siteName} account is restored`;
+  const body = `<p>Good news — your account on ${opts.siteName} is active again. You can sign in normally.</p>`;
+  return {
+    subject: `[${opts.siteName}] Account restored`,
+    html: layout(title, body),
+    text: textify(title, [`Your account on ${opts.siteName} is active again.`]),
+  };
+}
+
+export function adminPasswordResetEmail(opts: { siteName: string; tempPassword: string }): EmailTemplate {
+  const title = `Your ${opts.siteName} password was reset`;
+  const body =
+    `<p>An admin reset your password. Your temporary password is:</p>` +
+    `<p style="font-family:monospace;font-size:18px;font-weight:bold">${opts.tempPassword}</p>` +
+    `<p>Sign in and change it immediately from Account → Settings.</p>`;
+  return {
+    subject: `[${opts.siteName}] Password reset by admin`,
+    html: layout(title, body),
+    text: textify(title, [
+      `Temporary password: ${opts.tempPassword}`,
+      "Sign in and change it immediately.",
+    ]),
+  };
+}

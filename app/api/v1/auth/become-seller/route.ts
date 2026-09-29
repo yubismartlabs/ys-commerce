@@ -3,6 +3,7 @@ import { auth } from "@/auth";
 import { db } from "@/lib/db";
 import { fail, ok } from "@/lib/api/http";
 import { getSettingGroup } from "@/lib/server-settings";
+import { isSuspended } from "@/lib/api/identity";
 import { notifySellerRequest } from "@/lib/notifications/notify";
 
 const schema = z.object({
@@ -23,6 +24,7 @@ export async function POST(req: Request) {
   const session = await auth();
   const userId = session?.user?.id;
   if (!userId) return fail("UNAUTHORIZED", "Sign in required", 401);
+  if (await isSuspended(userId)) return fail("SUSPENDED", "This account is suspended", 403);
 
   const parsed = schema.safeParse(await req.json().catch(() => null));
   if (!parsed.success) return fail("VALIDATION", "Store name (2-80 chars) required", 422);

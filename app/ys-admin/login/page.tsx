@@ -12,6 +12,7 @@ export default function AdminLoginPage() {
   // Dev convenience: prefilled so you can sign in with one click.
   const [email, setEmail] = useState("admin@ys.local");
   const [password, setPassword] = useState("admin123");
+  const [message, setMessage] = useState<string | null>(null);
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-neutral-950 bg-[radial-gradient(ellipse_at_top,rgba(230,46,27,0.15),transparent_60%)] p-4">
@@ -25,14 +26,18 @@ export default function AdminLoginPage() {
         </div>
         {isError ? (
           <p className="rounded-lg bg-red-500/10 px-3 py-2 text-center text-sm font-medium text-red-600">
-            Invalid email or password.
+            {message ?? "Invalid email or password."}
           </p>
         ) : null}
         <form
           className="space-y-3"
           onSubmit={(e) => {
             e.preventDefault();
-            login({ email, password });
+            setMessage(null);
+            login(
+              { email, password },
+              { onError: (err) => setMessage((err as { message?: string })?.message ?? null) }
+            );
           }}
         >
           <div className="relative">

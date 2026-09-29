@@ -3,6 +3,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { AccountCoupons } from "@/components/coupons/account-coupons";
 import { AccountDisputesTab } from "@/components/disputes/account-disputes";
 import { AccountOrders } from "@/components/orders/account-orders";
+import { SecurityForm } from "@/components/account/security-form";
 
 export default function AccountPage() {
   return (
@@ -20,7 +21,7 @@ export default function AccountPage() {
         <TabsContent value="disputes"><Card className="px-6 py-4"><AccountDisputesTab /></Card></TabsContent>
         <TabsContent value="reviews"><Card className="p-6 text-sm text-neutral-500">Reviews mock.</Card></TabsContent>
         <TabsContent value="coupons"><Card className="p-6"><AccountCoupons /></Card></TabsContent>
-        <TabsContent value="settings"><Card className="p-6 text-sm text-neutral-500">Addresses, language EN, currency USD.</Card></TabsContent>
+        <TabsContent value="settings"><Card className="p-6"><SecurityForm /></Card></TabsContent>
       </Tabs>
     </div>
   );

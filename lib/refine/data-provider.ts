@@ -20,7 +20,7 @@ import type {
  * Conventions:
  * - list:  ?page=&pageSize=&status=&q=  -> { data, pagination: { total } }
  * - errors: { error: { code, message } } -> Refine HttpError
- * - create/update/delete only exist for coupons; other resources use bespoke pages
+ * - create/update/delete only exist for coupons (+ delete for users); other resources use bespoke pages
  */
 
 const API = "/api/v1/admin";
@@ -34,6 +34,7 @@ const resourcePath: Record<string, string> = {
   notifications: "notifications",
   emails: "emails",
   payouts: "payouts",
+  users: "users",
 };
 
 function pathFor(resource: string): string {
@@ -124,7 +125,7 @@ export const dataProvider: DataProvider = {
     resource,
     id,
   }: DeleteOneParams<TVariables>): Promise<DeleteOneResponse<TData>> => {
-    if (resource !== "coupons") throw notAllowed("Delete", resource);
+    if (resource !== "coupons" && resource !== "users") throw notAllowed("Delete", resource);
     const res = await fetch(`${pathFor(resource)}/${id}`, { method: "DELETE" });
     const json = await res.json().catch(() => null);
     if (!res.ok) {

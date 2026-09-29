@@ -3,6 +3,7 @@ import { auth } from "@/auth";
 import { db } from "@/lib/db";
 import { fail, ok } from "@/lib/api/http";
 import { audit } from "@/lib/api/guard";
+import { isSuspended } from "@/lib/api/identity";
 import { notifyAdmins, notifyUser } from "@/lib/notifications/notify";
 
 /** Seller reads a dispute involving their items. */
@@ -34,6 +35,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   const session = await auth();
   const userId = session?.user?.id;
   if (!userId) return fail("UNAUTHORIZED", "Sign in required", 401);
+  if (await isSuspended(userId)) return fail("SUSPENDED", "This account is suspended", 403);
   const { id } = await params;
 
   const parsed = replySchema.safeParse(await req.json().catch(() => null));

@@ -59,6 +59,11 @@ model User {
   email        String    @unique
   passwordHash String?
   role         Role      @default(BUYER)
+  // Staff-ready: roles stay in the enum; per-area scopes (when needed)
+  // attach here without touching every guard (see lib/auth/permissions).
+  scopes       String[]  @default([])
+  suspendedAt  DateTime?
+  suspendReason String?
   image        String?
   emailVerified DateTime?
   createdAt    DateTime  @default(now())

@@ -1,9 +1,14 @@
-import NextAuth from "next-auth";
+import NextAuth, { CredentialsSignin } from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import { PrismaAdapter } from "@auth/prisma-adapter";
 import bcrypt from "bcryptjs";
 import { z } from "zod";
 import { db } from "@/lib/db";
+
+/** Distinct sign-in failure for suspended accounts (surfaces as code=SUSPENDED). */
+class SuspendedSignin extends CredentialsSignin {
+  code = "SUSPENDED";
+}
 
 const credentialsSchema = z.object({
   email: z.string().email(),
@@ -25,6 +30,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         if (!user?.passwordHash) return null;
         const ok = await bcrypt.compare(parsed.data.password, user.passwordHash);
         if (!ok) return null;
+        // Suspended accounts fail closed with a distinct code the UIs surface.
+        if (user.suspendedAt) throw new SuspendedSignin();
         return { id: user.id, name: user.name, email: user.email, role: user.role };
       },
     }),

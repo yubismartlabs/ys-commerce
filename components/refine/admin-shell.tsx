@@ -22,6 +22,7 @@ import {
   Store,
   Tag,
   Ticket,
+  Users,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -44,6 +45,12 @@ type NavLink = { href: string; label: string; icon: React.ReactNode };
 type NavGroup = { key: string; label: string; icon: React.ReactNode; links: NavLink[] };
 
 const NAV_GROUPS: NavGroup[] = [
+  {
+    key: "users",
+    label: "Users",
+    icon: <Users className="size-4" />,
+    links: [{ href: "/ys-admin/users", label: "Users", icon: <Users className="size-4" /> }],
+  },
   {
     key: "sellers",
     label: "Sellers",

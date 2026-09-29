@@ -6,6 +6,7 @@ import { audit } from "@/lib/api/guard";
 import { validateCoupon } from "@/lib/coupons/engine";
 import { cartLineSchema, generateOrderNumber, resolveCart, standardShipping } from "@/lib/coupons/cart";
 import { createHoldsForOrder } from "@/lib/escrow/escrow";
+import { isSuspended } from "@/lib/api/identity";
 import { notifyAdmins } from "@/lib/notifications/notify";
 
 const addressSchema = z.object({
@@ -32,6 +33,7 @@ export async function POST(req: Request) {
   const session = await auth();
   const userId = session?.user?.id;
   if (!userId) return fail("UNAUTHORIZED", "Sign in to check out", 401);
+  if (await isSuspended(userId)) return fail("SUSPENDED", "This account is suspended", 403);
 
   const parsed = schema.safeParse(await req.json().catch(() => null));
   if (!parsed.success) return fail("VALIDATION", "items[], couponCode and a shipping address are required", 422);
