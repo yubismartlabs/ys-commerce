@@ -38,6 +38,7 @@ const resourcePath: Record<string, string> = {
   roles: "roles",
   deals: "deals",
   chat: "chat",
+  audit: "audit",
 };
 
 function pathFor(resource: string): string {

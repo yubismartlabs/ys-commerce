@@ -28,7 +28,12 @@ export const PATCH = withAdmin(async (req, actor) => {
     if (!result.success) {
       return fail("VALIDATION", `${g}: ${result.error.issues[0]?.message ?? "invalid values"}`, 422);
     }
-    const validated = { ...(result.data as unknown as Prisma.JsonObject) };
+    // Persist ONLY keys the client sent. Zod fills schema defaults for
+    // missing keys — merging those would silently reset untouched settings.
+    const sent = new Set(Object.keys((values ?? {}) as Record<string, unknown>));
+    const validated = Object.fromEntries(
+      Object.entries(result.data as unknown as Prisma.JsonObject).filter(([k]) => sent.has(k))
+    );
     // resendApiKey is write-only: blank means "keep the stored key", never wipe it.
     if (g === "notifications" && typeof validated.resendApiKey === "string" && validated.resendApiKey === "") {
       const current = await db.setting.findUnique({ where: { key: g } });

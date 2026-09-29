@@ -10,6 +10,7 @@ import {
   Bell,
   ChevronDown,
   Globe,
+  History,
   KeyRound,
   LogOut,
   Mail,
@@ -96,6 +97,7 @@ const NAV_GROUPS: NavGroup[] = [
       { href: "/ys-admin/notifications", label: "Notifications", icon: <Bell className="size-4" />, scope: "any" },
       { href: "/ys-admin/payouts", label: "Payouts", icon: <Banknote className="size-4" />, scope: "payouts" },
       { href: "/ys-admin/emails", label: "Email log", icon: <Mail className="size-4" />, scope: "emails" },
+      { href: "/ys-admin/activity", label: "Activity log", icon: <History className="size-4" />, scope: "ops" },
       { href: "/ys-admin/settings/site", label: "Site settings", icon: <Globe className="size-4" />, scope: "settings" },
       { href: "/ys-admin/settings/system", label: "System settings", icon: <SlidersHorizontal className="size-4" />, scope: "settings" },
       { href: "/ys-admin/api-tokens", label: "API tokens", icon: <KeyRound className="size-4" />, scope: "admin" },
@@ -114,6 +116,7 @@ function visibleGroups(identity: Identity | undefined): NavGroup[] {
 }
 
 function findTitle(pathname: string): string {
+  if (pathname === "/ys-admin" || pathname === "/ys-admin/") return "Dashboard";
   for (const g of NAV_GROUPS) {
     const hit = g.links.find((l) => pathname === l.href || pathname.startsWith(`${l.href}/`));
     if (hit) return hit.label;
@@ -195,7 +198,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
     <div className="flex min-h-screen bg-neutral-100 dark:bg-neutral-950">
       {/* desktop sidebar */}
       <aside className="hidden w-64 shrink-0 flex-col overflow-y-auto bg-neutral-950 p-4 text-white md:flex">
-        <Link href="/ys-admin/vendors" className="mb-1 px-2 text-xl font-black tracking-tight">
+        <Link href="/ys-admin" className="mb-1 px-2 text-xl font-black tracking-tight">
           <span className="text-ali-red">ys</span>-admin
         </Link>
         <p className="mb-5 px-2 text-[11px] uppercase tracking-widest text-white/40">Marketplace console</p>
@@ -219,7 +222,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
               </Button>
             </SheetTrigger>
             <SheetContent side="left" className="w-72 overflow-y-auto bg-neutral-950 text-white">
-              <Link href="/ys-admin/vendors" onClick={() => setOpen(false)} className="mb-5 block text-xl font-black">
+              <Link href="/ys-admin" onClick={() => setOpen(false)} className="mb-5 block text-xl font-black">
                 <span className="text-ali-red">ys</span>-admin
               </Link>
               <nav>

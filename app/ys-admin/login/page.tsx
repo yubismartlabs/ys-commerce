@@ -1,13 +1,19 @@
 "use client";
 
-import { useState } from "react";
+import { Suspense, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useLogin } from "@refinedev/core";
 import { Loader2, Lock, Mail, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 
-export default function AdminLoginPage() {
+function AdminLoginForm() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const next = searchParams.get("next");
+  // Only honor same-origin console paths — never external URLs.
+  const redirectTo = next && next.startsWith("/ys-admin") ? next : "/ys-admin";
   const { mutate: login, isPending, isError } = useLogin<{ email: string; password: string }>();
   // Dev convenience: prefilled so you can sign in with one click.
   const [email, setEmail] = useState("admin@ys.local");
@@ -36,7 +42,10 @@ export default function AdminLoginPage() {
             setMessage(null);
             login(
               { email, password },
-              { onError: (err) => setMessage((err as { message?: string })?.message ?? null) }
+              {
+                onSuccess: () => router.replace(redirectTo),
+                onError: (err) => setMessage((err as { message?: string })?.message ?? null),
+              }
             );
           }}
         >
@@ -75,5 +84,13 @@ export default function AdminLoginPage() {
         <p className="text-center text-xs text-neutral-400">Dev seed: admin@ys.local / admin123</p>
       </Card>
     </div>
+  );
+}
+
+export default function AdminLoginPage() {
+  return (
+    <Suspense>
+      <AdminLoginForm />
+    </Suspense>
   );
 }

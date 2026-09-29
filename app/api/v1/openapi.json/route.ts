@@ -87,6 +87,7 @@ const spec = {
       get: { summary: "List mobile API tokens" },
       post: { summary: "Mint a bearer token (raw token shown once)" },
     },
+    "/admin/audit": { get: { summary: "Activity log, filters ?action=&entity=&actorId= (admin)" } },
     "/admin/settings": {
       get: { summary: "All site + system settings (admin)" },
       patch: { summary: "Partial per-group settings update (admin)" },

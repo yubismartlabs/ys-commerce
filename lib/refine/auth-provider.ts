@@ -8,7 +8,8 @@ import type { AuthProvider } from "@refinedev/core";
 export const authProvider: AuthProvider = {
   login: async ({ email, password }: { email: string; password: string }) => {
     const res = await signIn("credentials", { email, password, redirect: false });
-    if (res?.ok) return { success: true, redirectTo: "/ys-admin/vendors" };
+    // No redirectTo here — callers navigate (login page honors ?next=).
+    if (res?.ok) return { success: true };
     // Auth.js surfaces custom credential failures as ?error=CredentialsSignin&code=…
     // (signIn redirect:false exposes it as res.code; res.url is null on error).
     const suspended = (res as { code?: string } | undefined)?.code === "SUSPENDED";

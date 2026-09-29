@@ -12,6 +12,7 @@ const AREA_BY_PREFIX: Array<[string, string]> = [
   ["/ys-admin/disputes", "disputes"],
   ["/ys-admin/coupons", "coupons"],
   ["/ys-admin/deals", "deals"],
+  ["/ys-admin/activity", "ops"],
   ["/ys-admin/chat", "chat"],
   ["/ys-admin/payouts", "payouts"],
   ["/ys-admin/emails", "emails"],
