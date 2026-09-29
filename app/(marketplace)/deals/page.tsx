@@ -1,10 +1,10 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Zap } from "lucide-react";
 import { ApiProductCard } from "@/components/commerce/api-product-card";
 import { Card } from "@/components/ui/card";
-import { formatUSD } from "@/lib/format";
 
 type DealRow = {
   id: string;
@@ -29,13 +29,35 @@ type DealRow = {
   };
 };
 
-function countdown(endsAt: string): string {
-  const ms = new Date(endsAt).getTime() - Date.now();
+function countdown(endsAt: string, now: number): string {
+  const ms = new Date(endsAt).getTime() - now;
   if (ms <= 0) return "Ended";
   const h = Math.floor(ms / 3600000);
   const m = Math.floor((ms % 3600000) / 60000);
   if (h >= 48) return `${Math.floor(h / 24)}d left`;
   return `${h}h ${m}m left`;
+}
+
+/** Deal bar with a ticking countdown + cap progress (price lives on the card). */
+function DealFooter({ endsAt, soldCount, stockCap, progress }: { endsAt: string; soldCount: number; stockCap: number | null; progress: number | null }) {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const t = setInterval(() => setNow(Date.now()), 30_000);
+    return () => clearInterval(t);
+  }, []);
+  return (
+    <div className="rounded-lg bg-ali-red/5 px-2.5 py-1.5 text-xs">
+      <p className="flex items-center justify-between gap-2 font-bold text-ali-red">
+        <span className="truncate">{countdown(endsAt, now)}</span>
+        {stockCap ? <span className="shrink-0 font-medium">{Math.max(0, stockCap - soldCount)} left</span> : null}
+      </p>
+      {progress !== null && stockCap ? (
+        <span className="mt-1 block h-1.5 overflow-hidden rounded-full bg-neutral-200 dark:bg-neutral-700">
+          <span className="block h-full rounded-full bg-ali-red" style={{ width: `${Math.round(progress * 100)}%` }} />
+        </span>
+      ) : null}
+    </div>
+  );
 }
 
 export default function DealsPage() {
@@ -77,17 +99,7 @@ export default function DealsPage() {
                   compareAt: Number(d.product.price),
                 }}
               />
-              <div className="rounded-lg bg-ali-red/5 px-2.5 py-1.5 text-xs">
-                <p className="flex items-center justify-between font-bold text-ali-red">
-                  <span>{formatUSD(Number(d.dealPrice))}</span>
-                  <span className="font-medium">{countdown(d.endsAt)}</span>
-                </p>
-                {d.progress !== null && d.stockCap ? (
-                  <span className="mt-1 block h-1.5 overflow-hidden rounded-full bg-neutral-200 dark:bg-neutral-700">
-                    <span className="block h-full rounded-full bg-ali-red" style={{ width: `${Math.round(d.progress * 100)}%` }} />
-                  </span>
-                ) : null}
-              </div>
+              <DealFooter endsAt={d.endsAt} soldCount={d.soldCount} stockCap={d.stockCap} progress={d.progress} />
             </div>
           ))}
         </div>

@@ -89,7 +89,11 @@ export function MarketplaceHeader() {
               <p className="mb-3 text-lg font-extrabold text-ali-red">ys-commerce</p>
               <div className="grid gap-1">
                 {categories.map((c) => (
-                  <Link key={c} href="/search" className="rounded px-2 py-2 text-sm hover:bg-neutral-100">
+                  <Link
+                    key={c}
+                    href={c === "All Categories" ? "/search" : `/search?category=${encodeURIComponent(c)}`}
+                    className="rounded px-2 py-2 text-sm hover:bg-neutral-100"
+                  >
                     {c}
                   </Link>
                 ))}
@@ -109,7 +113,7 @@ export function MarketplaceHeader() {
             )}
           </Link>
 
-          <SearchBox />
+          <SearchBox className="hidden md:block" />
 
           <div className="ml-auto flex items-center gap-1">
             {status === "unauthenticated" ? (
@@ -169,7 +173,7 @@ export function MarketplaceHeader() {
 
         {/* mobile search */}
         <div className="px-4 pb-3 md:hidden">
-          <SearchBox mobile />
+          <SearchBox />
         </div>
       </div>
 
@@ -185,7 +189,7 @@ export function MarketplaceHeader() {
             <DropdownMenuContent align="start" className="w-52">
               {categories.slice(1).map((c) => (
                 <DropdownMenuItem key={c} asChild>
-                  <Link href={`/search?category=${c}`}>{c}</Link>
+                  <Link href={`/search?category=${encodeURIComponent(c)}`}>{c}</Link>
                 </DropdownMenuItem>
               ))}
             </DropdownMenuContent>

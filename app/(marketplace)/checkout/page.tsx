@@ -27,6 +27,7 @@ export default function CheckoutPage() {
   const lines = items.map((i) => ({ slug: i.slug, qty: i.qty, ...(i.variant ? { variant: i.variant } : {}) }));
   const quote = useQuote(lines, couponCode);
   const total = subtotal();
+  const addressValid = name.trim() !== "" && street.trim() !== "" && city.trim() !== "" && zip.trim() !== "";
 
   if (items.length === 0) {
     return (
@@ -75,12 +76,27 @@ export default function CheckoutPage() {
       <div className="space-y-4">
         <Card className="space-y-3 p-4">
           <p className="font-bold">Shipping address (USD / US mock)</p>
-          <div className="grid gap-2 md:grid-cols-2">
-            <Input placeholder="Full name *" value={name} onChange={(e) => setName(e.target.value)} />
-            <Input placeholder="Phone" value={phone} onChange={(e) => setPhone(e.target.value)} />
-            <Input placeholder="Street *" className="md:col-span-2" value={street} onChange={(e) => setStreet(e.target.value)} />
-            <Input placeholder="City *" value={city} onChange={(e) => setCity(e.target.value)} />
-            <Input placeholder="ZIP *" value={zip} onChange={(e) => setZip(e.target.value)} />
+          <div className="grid gap-3 md:grid-cols-2">
+            <div className="space-y-1">
+              <label htmlFor="co-name" className="text-xs font-semibold text-neutral-600">Full name *</label>
+              <Input id="co-name" placeholder="Jane Doe" autoComplete="name" value={name} onChange={(e) => setName(e.target.value)} />
+            </div>
+            <div className="space-y-1">
+              <label htmlFor="co-phone" className="text-xs font-semibold text-neutral-600">Phone</label>
+              <Input id="co-phone" placeholder="(555) 123-4567" autoComplete="tel" value={phone} onChange={(e) => setPhone(e.target.value)} />
+            </div>
+            <div className="space-y-1 md:col-span-2">
+              <label htmlFor="co-street" className="text-xs font-semibold text-neutral-600">Street *</label>
+              <Input id="co-street" placeholder="123 Main St, Apt 4" autoComplete="street-address" value={street} onChange={(e) => setStreet(e.target.value)} />
+            </div>
+            <div className="space-y-1">
+              <label htmlFor="co-city" className="text-xs font-semibold text-neutral-600">City *</label>
+              <Input id="co-city" placeholder="New York" autoComplete="address-level2" value={city} onChange={(e) => setCity(e.target.value)} />
+            </div>
+            <div className="space-y-1">
+              <label htmlFor="co-zip" className="text-xs font-semibold text-neutral-600">ZIP *</label>
+              <Input id="co-zip" placeholder="10001" autoComplete="postal-code" value={zip} onChange={(e) => setZip(e.target.value)} />
+            </div>
           </div>
         </Card>
         <Card className="space-y-2 p-4">
@@ -93,6 +109,15 @@ export default function CheckoutPage() {
       </div>
       <Card className="h-fit space-y-3 p-4">
         <p className="font-bold">Place order</p>
+        <ul className="space-y-1.5 text-sm">
+          {items.map((i) => (
+            <li key={i.slug + (i.variant ?? "")} className="flex justify-between gap-2">
+              <span className="min-w-0 flex-1 truncate">{i.title}{i.variant ? ` · ${i.variant}` : ""} × {i.qty}</span>
+              <span className="shrink-0 font-medium">{formatUSD(i.price * i.qty)}</span>
+            </li>
+          ))}
+        </ul>
+        <Separator />
         <div className="flex justify-between text-sm"><span>Items ({items.reduce((a, i) => a + i.qty, 0)})</span><span>{formatUSD(total)}</span></div>
         <CouponBox lines={lines} />
         {quote.data ? (
@@ -105,10 +130,13 @@ export default function CheckoutPage() {
         )}
         <Separator />
         <div className="flex justify-between font-extrabold"><span>Total</span><span className="text-ali-red">{formatUSD(quote.data ? quote.data.total : total)}</span></div>
-        {error ? <p className="text-sm text-red-600">{error}</p> : null}
-        <Button onClick={pay} disabled={placing} className="w-full bg-ali-red text-white hover:bg-ali-red-dark">
+        {error ? <p className="text-sm text-red-600" role="alert">{error}</p> : null}
+        <Button onClick={pay} disabled={placing || !addressValid} className="w-full bg-ali-red text-white hover:bg-ali-red-dark">
           {placing ? (<><Loader2 className="size-4 animate-spin" /> Placing order…</>) : "Pay now"}
         </Button>
+        {!addressValid ? (
+          <p className="text-xs text-neutral-500">Enter your name, street, city, and ZIP to place the order.</p>
+        ) : null}
         {!couponCode ? (
           <p className="text-xs text-neutral-500">Have a code? Apply it above — <Link href="/account" className="underline">see active coupons</Link>.</p>
         ) : null}

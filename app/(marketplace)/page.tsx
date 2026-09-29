@@ -34,11 +34,11 @@ export default function HomePage() {
             <CarouselContent>
               {heroSlides.map((s) => (
                 <CarouselItem key={s.seed}>
-                  <div className={`${s.bg} relative flex h-56 items-center overflow-hidden px-8 text-white md:h-64`}>
-                    <div>
+                  <div className={`${s.bg} relative flex h-56 items-center overflow-hidden px-6 text-white md:h-64 md:px-8`}>
+                    <div className="min-w-0 flex-1">
                       <Badge className="mb-2 bg-white/20 text-white">ys-commerce</Badge>
-                      <h1 className="text-3xl font-black md:text-4xl">{s.title}</h1>
-                      <p className="mt-1 text-white/90">{s.sub}</p>
+                      <h1 className="text-2xl font-black md:text-4xl">{s.title}</h1>
+                      <p className="mt-1 text-sm text-white/90 md:text-base">{s.sub}</p>
                       <Button asChild className="mt-4 bg-white text-ali-red hover:bg-white/90">
                         <Link href="/search">Shop now</Link>
                       </Button>
@@ -48,7 +48,7 @@ export default function HomePage() {
                       alt={s.title}
                       width={320}
                       height={260}
-                      className="ml-auto hidden rounded-xl object-cover md:block"
+                      className="ml-4 hidden w-40 shrink-0 rounded-xl object-cover sm:block md:w-80"
                     />
                   </div>
                 </CarouselItem>
@@ -86,7 +86,7 @@ export default function HomePage() {
             View all <ChevronRight className="size-4" />
           </Link>
         </div>
-        <div className="grid grid-cols-4 gap-3 md:grid-cols-8">
+        <div className="grid grid-cols-3 gap-3 md:grid-cols-8">
           {categories.map((c) => (
             <Link key={c.slug} href={`/search?category=${c.slug}`} className="group">
               <Card className="p-3 text-center transition group-hover:shadow-md">

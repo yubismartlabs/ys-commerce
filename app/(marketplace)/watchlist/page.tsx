@@ -67,17 +67,24 @@ function TargetEditor({ item }: { item: Item }) {
   };
 
   return (
-    <div className="flex gap-1.5">
-      <Input
-        value={target}
-        onChange={(e) => setTarget(e.target.value)}
-        placeholder="Alert under $"
-        inputMode="decimal"
-        className="h-8 text-xs"
-      />
-      <Button size="sm" variant="outline" className="h-8 gap-1 text-xs" disabled={saving} onClick={save}>
-        <Bell className="size-3.5" /> Alert
-      </Button>
+    <div className="space-y-1">
+      <label htmlFor={`target-${item.id}`} className="text-[11px] font-semibold text-neutral-500">
+        Notify me below
+      </label>
+      <div className="flex gap-1.5">
+        <Input
+          id={`target-${item.id}`}
+          value={target}
+          onChange={(e) => setTarget(e.target.value)}
+          placeholder="e.g. 24.99"
+          inputMode="decimal"
+          aria-label="Target price for price alert"
+          className="h-8 text-xs"
+        />
+        <Button size="sm" variant="outline" className="h-8 gap-1 text-xs" disabled={saving} onClick={save}>
+          <Bell className="size-3.5" /> Alert
+        </Button>
+      </div>
     </div>
   );
 }
@@ -135,7 +142,7 @@ export default function WatchlistPage() {
           {rows.map((item) => {
             const out = item.product.variants.length > 0 && item.product.variants.every((v) => v.stock <= 0);
             return (
-              <Card key={item.id} className="grid gap-3 p-3 sm:grid-cols-[140px_1fr]">
+              <Card key={item.id} className="grid gap-3 p-3 sm:grid-cols-[minmax(0,120px)_1fr]">
                 <ApiProductCard product={{ ...item.product, price: Number(item.product.price), compareAt: item.product.compareAt === null ? null : Number(item.product.compareAt) }} />
                 <div className="grid content-start gap-2">
                   {out ? (

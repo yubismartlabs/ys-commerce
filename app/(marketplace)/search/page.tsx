@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense } from "react";
@@ -17,20 +17,61 @@ type Row = ApiCardRow;
 
 const PAGE_SIZE = 24;
 
+/** Draft price fields, applied on submit. Remounted (via key) when the URL
+ * changes so the inputs always reflect the active query. */
+function PriceFilter({ minPrice, maxPrice, onApply }: { minPrice: string; maxPrice: string; onApply: (min: string, max: string) => void }) {
+  const [min, setMin] = useState(minPrice);
+  const [max, setMax] = useState(maxPrice);
+
+  return (
+    <form
+      className="space-y-2"
+      onSubmit={(e) => {
+        e.preventDefault();
+        onApply(min.trim(), max.trim());
+      }}
+    >
+      <div>
+        <p className="mb-2 font-bold">Price (USD)</p>
+        <div className="grid grid-cols-2 gap-2">
+          <div className="space-y-1">
+            <label htmlFor="f-min" className="text-[11px] font-semibold text-neutral-500">Min</label>
+            <Input id="f-min" placeholder="0" inputMode="decimal" value={min} onChange={(e) => setMin(e.target.value)} />
+          </div>
+          <div className="space-y-1">
+            <label htmlFor="f-max" className="text-[11px] font-semibold text-neutral-500">Max</label>
+            <Input id="f-max" placeholder="100" inputMode="decimal" value={max} onChange={(e) => setMax(e.target.value)} />
+          </div>
+        </div>
+      </div>
+      <Button type="submit" variant="outline" size="sm" className="w-full">Apply price</Button>
+    </form>
+  );
+}
+
 function SearchBody() {
   const router = useRouter();
   const params = useSearchParams();
-  const [page, setPage] = useState(1);
 
-  const [minPrice, setMinPrice] = useState(params.get("minPrice") ?? "");
-  const [maxPrice, setMaxPrice] = useState(params.get("maxPrice") ?? "");
-  const [free, setFree] = useState(params.get("freeShipping") === "1");
-  const [rated, setRated] = useState(params.get("minRating") === "4");
-  const [deals, setDeals] = useState(params.get("deals") === "1");
-  const [sort, setSort] = useState(params.get("sort") ?? (params.get("q") ? "relevance" : "newest"));
-  const [category, setCategory] = useState(params.get("category") ?? "");
+  // URL is the single source of truth for filters + page, so back/forward and
+  // header links always render the active state.
+  const q = params.get("q") ?? "";
+  const category = params.get("category") ?? "";
+  const minPrice = params.get("minPrice") ?? "";
+  const maxPrice = params.get("maxPrice") ?? "";
+  const free = params.get("freeShipping") === "1";
+  const rated = params.get("minRating") === "4";
+  const deals = params.get("deals") === "1";
+  const defaultSort = q ? "relevance" : "newest";
+  const sort = params.get("sort") ?? defaultSort;
+  const page = Math.max(1, Number(params.get("page")) || 1);
 
-  const key = params.toString();
+  const key = useMemo(() => {
+    const sp = new URLSearchParams(params.toString());
+    sp.delete("page");
+    return sp.toString();
+  }, [params]);
+
   const query = useQuery({
     queryKey: ["search", key, page],
     queryFn: async (): Promise<{
@@ -61,38 +102,36 @@ function SearchBody() {
   const loading = query.isLoading;
   const error = query.isError ? "Search failed. Retry." : null;
 
-  const apply = () => {
-    const q = new URLSearchParams();
-    const initial = params.get("q");
-    if (initial) q.set("q", initial);
-    if (category) q.set("category", category);
-    if (minPrice) q.set("minPrice", minPrice);
-    if (maxPrice) q.set("maxPrice", maxPrice);
-    if (free) q.set("freeShipping", "1");
-    if (rated) q.set("minRating", "4");
-    if (deals) q.set("deals", "1");
-    const defaultSort = params.get("q") ? "relevance" : "newest";
-    if (sort !== defaultSort) q.set("sort", sort);
-    setPage(1);
-    router.push(`/search?${q.toString()}`);
+  /** Navigate with a patch applied to the current filters; filters reset to page 1. */
+  const push = (patch: Record<string, string | null>, targetPage = 1) => {
+    const sp = new URLSearchParams(key);
+    for (const [k, v] of Object.entries(patch)) {
+      if (v === null || v === "") sp.delete(k);
+      else sp.set(k, v);
+    }
+    sp.delete("page");
+    if (targetPage > 1) sp.set("page", String(targetPage));
+    const qs = sp.toString();
+    router.push(qs ? `/search?${qs}` : "/search");
   };
 
-  const title = params.get("q") ? `Results for "${params.get("q")}"` : category || "All products";
+  // Selects + toggles apply instantly; price fields use Apply (avoids a
+  // navigation per keystroke).
+  const title = q ? `Results for "${q}"` : category || "All products";
 
   return (
     <div className="grid gap-4 lg:grid-cols-[240px_1fr]">
       <aside className="lg:block">
         <Card className="space-y-4 p-4 text-sm">
-          <div>
-            <p className="mb-2 font-bold">Price (USD)</p>
-            <div className="grid grid-cols-2 gap-2">
-              <Input placeholder="Min" inputMode="decimal" value={minPrice} onChange={(e) => setMinPrice(e.target.value)} />
-              <Input placeholder="Max" inputMode="decimal" value={maxPrice} onChange={(e) => setMaxPrice(e.target.value)} />
-            </div>
-          </div>
+          <PriceFilter
+            key={`${minPrice}|${maxPrice}`}
+            minPrice={minPrice}
+            maxPrice={maxPrice}
+            onApply={(min, max) => push({ minPrice: min, maxPrice: max })}
+          />
           <div>
             <p className="mb-2 font-bold">Category</p>
-            <Select value={category || "all"} onValueChange={(v) => setCategory(v === "all" ? "" : v)}>
+            <Select value={category || "all"} onValueChange={(v) => push({ category: v === "all" ? null : v })}>
               <SelectTrigger><SelectValue placeholder="All" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All ({categories.reduce((a, c) => a + c.count, 0)})</SelectItem>
@@ -104,21 +143,21 @@ function SearchBody() {
           </div>
           <div className="grid gap-2">
             <label className="flex cursor-pointer items-center gap-2 text-[13px]">
-              <Checkbox checked={free} onCheckedChange={(v) => setFree(v === true)} /> Free shipping
+              <Checkbox checked={free} onCheckedChange={(v) => push({ freeShipping: v === true ? "1" : null })} /> Free shipping
             </label>
             <label className="flex cursor-pointer items-center gap-2 text-[13px]">
-              <Checkbox checked={rated} onCheckedChange={(v) => setRated(v === true)} /> 4★ & up
+              <Checkbox checked={rated} onCheckedChange={(v) => push({ minRating: v === true ? "4" : null })} /> 4★ & up
             </label>
             <label className="flex cursor-pointer items-center gap-2 text-[13px]">
-              <Checkbox checked={deals} onCheckedChange={(v) => setDeals(v === true)} /> Flash deals
+              <Checkbox checked={deals} onCheckedChange={(v) => push({ deals: v === true ? "1" : null })} /> Flash deals
             </label>
           </div>
           <div>
             <p className="mb-2 font-bold">Sort by</p>
-            <Select value={sort} onValueChange={setSort}>
+            <Select value={sort} onValueChange={(v) => push({ sort: v === defaultSort ? null : v })}>
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
-                {params.get("q") ? <SelectItem value="relevance">Most relevant</SelectItem> : null}
+                {q ? <SelectItem value="relevance">Most relevant</SelectItem> : null}
                 <SelectItem value="newest">Newest</SelectItem>
                 <SelectItem value="sold">Best selling</SelectItem>
                 <SelectItem value="rating">Top rated</SelectItem>
@@ -127,7 +166,6 @@ function SearchBody() {
               </SelectContent>
             </Select>
           </div>
-          <Button variant="outline" size="sm" className="w-full" onClick={apply}>Apply filters</Button>
         </Card>
       </aside>
       <section>
@@ -145,7 +183,7 @@ function SearchBody() {
           <Card className="p-10 text-center text-sm text-neutral-500">{error}</Card>
         ) : rows.length === 0 ? (
           <Card className="space-y-2 p-10 text-center text-sm text-neutral-500">
-            <p>No results for &ldquo;{params.get("q")}&rdquo;.</p>
+            <p>No results{q ? ` for “${q}”` : ""}.</p>
             {suggestion.length > 0 ? (
               <p>
                 Did you mean{" "}
@@ -172,9 +210,9 @@ function SearchBody() {
             </div>
             {pages > 1 ? (
               <div className="mt-4 flex items-center gap-2 text-sm text-neutral-500">
-                <Button size="sm" variant="outline" disabled={page <= 1} onClick={() => setPage(page - 1)}>Prev</Button>
+                <Button size="sm" variant="outline" disabled={page <= 1} onClick={() => push({}, page - 1)}>Prev</Button>
                 <span className="tabular-nums">Page {page} of {pages}</span>
-                <Button size="sm" variant="outline" disabled={page >= pages} onClick={() => setPage(page + 1)}>Next</Button>
+                <Button size="sm" variant="outline" disabled={page >= pages} onClick={() => push({}, page + 1)}>Next</Button>
               </div>
             ) : null}
           </>

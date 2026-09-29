@@ -43,11 +43,18 @@ export default function CartPage() {
               <p className="mt-1 font-extrabold text-ali-red">{formatUSD(i.price)}</p>
               <div className="mt-2 flex items-center gap-2">
                 <div className="flex items-center rounded-full border">
-                  <Button variant="ghost" size="icon-xs" onClick={() => setQty(i.slug, Math.max(1, i.qty - 1))}><Minus /></Button>
-                  <span className="w-6 text-center text-xs font-bold">{i.qty}</span>
-                  <Button variant="ghost" size="icon-xs" onClick={() => setQty(i.slug, i.qty + 1)}><Plus /></Button>
+                  <Button
+                    variant="ghost"
+                    size="icon-xs"
+                    aria-label="Decrease quantity"
+                    onClick={() =>
+                      i.qty <= 1 ? remove(i.slug, i.variant) : setQty(i.slug, i.qty - 1, i.variant)
+                    }
+                  ><Minus /></Button>
+                  <span className="w-6 text-center text-xs font-bold" aria-live="polite">{i.qty}</span>
+                  <Button variant="ghost" size="icon-xs" aria-label="Increase quantity" onClick={() => setQty(i.slug, i.qty + 1, i.variant)}><Plus /></Button>
                 </div>
-                <Button variant="ghost" size="sm" onClick={() => remove(i.slug)}><Trash2 className="size-4" /> Remove</Button>
+                <Button variant="ghost" size="sm" onClick={() => remove(i.slug, i.variant)}><Trash2 className="size-4" /> Remove</Button>
               </div>
             </div>
           </div>

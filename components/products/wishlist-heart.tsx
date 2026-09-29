@@ -39,7 +39,14 @@ export function WishlistHeart({ slug, wishlisted, queryKey }: { slug: string; wi
   };
 
   return (
-    <Button size="icon-lg" variant="outline" aria-label="Wishlist" onClick={toggle} disabled={busy}>
+    <Button
+      size="icon-lg"
+      variant="outline"
+      aria-label={on ? "Remove from watchlist" : "Save to watchlist"}
+      aria-pressed={on}
+      onClick={toggle}
+      disabled={busy}
+    >
       {busy ? <Loader2 className="size-4 animate-spin" /> : <Heart className={cn("size-4", on && "fill-ali-red text-ali-red")} />}
     </Button>
   );

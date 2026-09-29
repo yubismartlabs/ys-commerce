@@ -29,8 +29,10 @@ function pushRecent(q: string): void {
   }
 }
 
-/** Header search with live suggestions + recent searches. */
-export function SearchBox({ mobile = false, inputClassName = "" }: { mobile?: boolean; inputClassName?: string }) {
+/** Header search with live suggestions + recent searches. Visibility is
+ * controlled by the parent (desktop vs mobile placement) — this component
+ * always renders its form when mounted. */
+export function SearchBox({ inputClassName = "", className = "" }: { inputClassName?: string; className?: string }) {
   const router = useRouter();
   const [q, setQ] = useState("");
   const [debounced, setDebounced] = useState("");
@@ -50,7 +52,7 @@ export function SearchBox({ mobile = false, inputClassName = "" }: { mobile?: bo
       if (!res.ok) throw new Error("suggest");
       return ((await res.json()).data ?? []) as Suggestion[];
     },
-    enabled: debounced.length >= 2,
+    enabled: open && debounced.length >= 2,
     staleTime: 60_000,
     retry: false,
   });
@@ -80,8 +82,8 @@ export function SearchBox({ mobile = false, inputClassName = "" }: { mobile?: bo
     s.type === "category" ? `/search?category=${encodeURIComponent(s.text)}` : `/search?q=${encodeURIComponent(s.text)}`;
 
   return (
-    <div ref={boxRef} className="relative w-full">
-      <form onSubmit={submit} className={mobile ? "" : "hidden flex-1 items-center md:flex"}>
+    <div ref={boxRef} className={`relative w-full ${className}`}>
+      <form onSubmit={submit} className="flex flex-1 items-center">
         <div className="flex w-full items-stretch overflow-hidden rounded-full border-2 border-ali-red bg-white">
           <input
             value={q}
@@ -98,7 +100,7 @@ export function SearchBox({ mobile = false, inputClassName = "" }: { mobile?: bo
             aria-label="Search products"
           />
           <button type="submit" className="flex shrink-0 items-center gap-1 bg-ali-red px-6 text-sm font-bold text-white hover:bg-ali-red-dark" aria-label="Search">
-            <Search className="size-4" /> {!mobile && <span className="hidden lg:inline">Search</span>}
+            <Search className="size-4" /> <span className="hidden lg:inline">Search</span>
           </button>
         </div>
       </form>

@@ -104,8 +104,10 @@ export default function ProductPage({ params }: { params: Promise<{ slug: string
   }
 
   const product = query.data;
+  const hasVariants = product.variants.length > 0;
   const gallery = product.images.length > 0 ? product.images : [product.image];
   const variant = product.variants.find((v) => v.id === variantId) ?? null;
+  const needsVariant = hasVariants && !variant;
   const basePrice = product.deal ? Number(product.deal.dealPrice) : product.price;
   const price = variant?.price ?? basePrice;
   const compareAt = !variant ? (product.deal ? product.price : product.compareAt) : null;
@@ -137,9 +139,11 @@ export default function ProductPage({ params }: { params: Promise<{ slug: string
                 <button
                   key={g + i}
                   onClick={() => setImgIdx(i)}
+                  aria-label={`View image ${i + 1} of ${gallery.length}`}
+                  aria-pressed={i === imgIdx}
                   className={cn("relative aspect-square overflow-hidden rounded-lg bg-neutral-100 ring-2 ring-offset-1", i === imgIdx ? "ring-ali-red" : "ring-transparent")}
                 >
-                  <Image src={g} alt="" fill className="object-cover" sizes="120px" />
+                  <Image src={g} alt={i === imgIdx ? product.title : ""} fill className="object-cover" sizes="120px" />
                 </button>
               ))}
             </div>
@@ -171,17 +175,20 @@ export default function ProductPage({ params }: { params: Promise<{ slug: string
 
           {product.variants.length > 0 ? (
             <div>
-              <p className="mb-2 text-sm font-semibold">
+              <p className="mb-2 text-sm font-semibold" id="variant-label">
                 Option: <span className="font-normal">{variant ? variant.name : `Select (${product.variants.length})`}</span>
                 {stock !== null ? <span className={cn("ml-2 text-xs font-normal", stock === 0 ? "text-red-600" : "text-neutral-500")}>{stock === 0 ? "Out of stock" : `${stock} in stock`}</span> : null}
               </p>
-              <div className="flex flex-wrap gap-2">
+              <div className="flex flex-wrap gap-2" role="radiogroup" aria-labelledby="variant-label">
                 {product.variants.map((v) => (
                   <button
                     key={v.id}
+                    role="radio"
+                    aria-checked={v.id === variantId}
+                    disabled={v.stock === 0}
                     onClick={() => { setVariantId(v.id); setQty(1); }}
                     className={cn(
-                      "flex items-center gap-2 rounded-lg border-2 px-2.5 py-1.5 text-sm",
+                      "flex items-center gap-2 rounded-lg border-2 px-2.5 py-1.5 text-sm disabled:opacity-50",
                       v.id === variantId ? "border-ali-red" : "border-neutral-200 dark:border-neutral-700"
                     )}
                   >
@@ -197,6 +204,9 @@ export default function ProductPage({ params }: { params: Promise<{ slug: string
                   </button>
                 ))}
               </div>
+              {needsVariant ? (
+                <p className="mt-1.5 text-xs text-neutral-500">Select an option above to add to cart.</p>
+              ) : null}
             </div>
           ) : null}
 
@@ -210,14 +220,14 @@ export default function ProductPage({ params }: { params: Promise<{ slug: string
           </div>
 
           <div className="flex flex-wrap gap-2">
-            <Button size="lg" className="flex-1 bg-ali-red text-white hover:bg-ali-red-dark" disabled={stock === 0} onClick={addToCart}>
+            <Button size="lg" className="flex-1 bg-ali-red text-white hover:bg-ali-red-dark" disabled={stock === 0 || needsVariant} onClick={addToCart}>
               <ShoppingCart /> Add to cart
             </Button>
             <Button
               size="lg"
               variant="outline"
               className="flex-1 border-ali-red text-ali-red"
-              disabled={stock === 0}
+              disabled={stock === 0 || needsVariant}
               onClick={() => { addToCart(); router.push("/checkout"); }}
             >
               <Zap /> Buy now

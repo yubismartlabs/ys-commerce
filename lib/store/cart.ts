@@ -24,8 +24,8 @@ type CartState = {
   items: CartItem[];
   couponCode: string | null;
   add: (p: AddToCartInput, qty?: number, variant?: string) => void;
-  remove: (slug: string) => void;
-  setQty: (slug: string, qty: number) => void;
+  remove: (slug: string, variant?: string) => void;
+  setQty: (slug: string, qty: number, variant?: string) => void;
   setCoupon: (code: string | null) => void;
   clear: () => void;
   count: () => number;
@@ -51,9 +51,12 @@ export const useCart = create<CartState>()(
             items: [...s.items, { slug: p.slug, title: p.title, image: p.image, price: p.price, qty, variant }],
           };
         }),
-      remove: (slug) => set((s) => ({ items: s.items.filter((i) => i.slug !== slug) })),
-      setQty: (slug, qty) =>
-        set((s) => ({ items: s.items.map((i) => (i.slug === slug ? { ...i, qty } : i)) })),
+      remove: (slug, variant) =>
+        set((s) => ({ items: s.items.filter((i) => !(i.slug === slug && i.variant === variant)) })),
+      setQty: (slug, qty, variant) =>
+        set((s) => ({
+          items: s.items.map((i) => (i.slug === slug && i.variant === variant ? { ...i, qty } : i)),
+        })),
       setCoupon: (code) => set({ couponCode: code ? code.trim().toUpperCase() : null }),
       clear: () => set({ items: [], couponCode: null }),
       count: () => get().items.reduce((a, i) => a + i.qty, 0),
