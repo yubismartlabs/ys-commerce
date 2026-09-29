@@ -73,3 +73,24 @@ export type Coupon = {
   active: boolean;
   createdAt: string;
 };
+
+export type NotificationItem = {
+  id: string;
+  type: string;
+  title: string;
+  body: string | null;
+  link: string | null;
+  readAt: string | null;
+  createdAt: string;
+};
+
+export type EmailLogItem = {
+  id: string;
+  to: string;
+  template: string;
+  subject: string;
+  status: "SENT" | "SKIPPED" | "FAILED";
+  resendId: string | null;
+  error: string | null;
+  createdAt: string;
+};

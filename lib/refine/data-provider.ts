@@ -31,6 +31,8 @@ const resourcePath: Record<string, string> = {
   orders: "orders",
   disputes: "disputes",
   coupons: "coupons",
+  notifications: "notifications",
+  emails: "emails",
 };
 
 function pathFor(resource: string): string {

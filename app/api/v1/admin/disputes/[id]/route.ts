@@ -2,6 +2,7 @@ import { z } from "zod";
 import { db } from "@/lib/db";
 import { fail, ok } from "@/lib/api/http";
 import { audit, withAdmin } from "@/lib/api/guard";
+import { notifyDisputeStatus } from "@/lib/notifications/notify";
 
 const patchSchema = z.object({
   status: z.enum(["UNDER_REVIEW", "RESOLVED_BUYER", "RESOLVED_SELLER", "CLOSED"]),
@@ -43,6 +44,20 @@ export const PATCH = withAdmin(
       return d;
     });
     await audit(actor.id, `dispute.${parsed.data.status.toLowerCase()}`, "Dispute", id, {});
+    // Notify buyer (in-app + email) and all admins. Never blocks the mutation.
+    const full = await db.dispute.findUnique({
+      where: { id },
+      include: { order: { select: { number: true } } },
+    });
+    if (full) {
+      await notifyDisputeStatus({
+        disputeId: id,
+        orderNumber: full.order.number,
+        buyerId: full.buyerId,
+        status: parsed.data.status,
+        message: parsed.data.message,
+      });
+    }
     return ok(updated);
   }
 );

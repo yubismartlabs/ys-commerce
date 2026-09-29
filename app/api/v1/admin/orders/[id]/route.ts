@@ -2,6 +2,7 @@ import { z } from "zod";
 import { db } from "@/lib/db";
 import { fail, ok } from "@/lib/api/http";
 import { audit, withAdmin } from "@/lib/api/guard";
+import { notifyOrderStatus } from "@/lib/notifications/notify";
 
 const patchSchema = z.object({
   status: z.enum(["CANCELLED", "REFUNDED"]),
@@ -33,6 +34,16 @@ export const PATCH = withAdmin(
     // TODO(payments): trigger real refund against payment provider before writing REFUNDED
     const updated = await db.order.update({ where: { id }, data: { status: parsed.data.status } });
     await audit(actor.id, `order.${parsed.data.status.toLowerCase()}`, "Order", id, { note: parsed.data.note });
+
+    // Notify buyer (in-app + email) and all admins. Never blocks the mutation.
+    await notifyOrderStatus({
+      orderId: id,
+      orderNumber: order.number,
+      buyerId: order.buyerId,
+      status: parsed.data.status,
+      note: parsed.data.note,
+    });
+
     return ok(updated);
   }
 );

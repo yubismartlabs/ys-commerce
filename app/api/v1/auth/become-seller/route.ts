@@ -3,6 +3,7 @@ import { auth } from "@/auth";
 import { db } from "@/lib/db";
 import { fail, ok } from "@/lib/api/http";
 import { getSettingGroup } from "@/lib/server-settings";
+import { notifySellerRequest } from "@/lib/notifications/notify";
 
 const schema = z.object({
   storeName: z.string().min(2).max(80),
@@ -45,6 +46,15 @@ export async function POST(req: Request) {
 
   await db.auditLog.create({
     data: { actorId: userId, action: "store.create", entity: "Store", entityId: store.id },
+  });
+
+  // Alert all admins (in-app + email) about the new seller request.
+  // Manual approval banks the store as PENDING; auto-approval is a later step.
+  await notifySellerRequest({
+    storeId: store.id,
+    storeName: store.name,
+    ownerId: userId,
+    ownerEmail: user.email,
   });
   return ok(store, undefined, 201);
 }

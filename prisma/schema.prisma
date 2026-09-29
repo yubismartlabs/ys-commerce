@@ -71,6 +71,7 @@ model User {
   disputes  Dispute[]  @relation("DisputeBuyer")
   auditLogs AuditLog[] @relation("AuditActor")
   apiTokens ApiToken[]
+  notifications Notification[]
 }
 
 model Account {
@@ -284,4 +285,47 @@ model Setting {
   key       String   @id
   value     Json
   updatedAt DateTime @updatedAt
+}
+
+enum EmailStatus {
+  SENT
+  SKIPPED
+  FAILED
+}
+
+// In-app inbox. Admin console only (bell + /ys-admin/notifications).
+// type examples: order.cancelled, dispute.updated, vendor.approved,
+// product.takedown, seller.request, dispute.opened, stock.low,
+// payout.failed, review.new
+model Notification {
+  id        String    @id @default(cuid())
+  userId    String
+  type      String
+  title     String
+  body      String?
+  link      String?
+  readAt    DateTime?
+  meta      Json?
+  createdAt DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, readAt])
+  @@index([userId, createdAt])
+}
+
+// Audit trail of every outbound email (see /ys-admin/emails).
+model EmailLog {
+  id        String      @id @default(cuid())
+  to        String
+  template  String
+  subject   String
+  status    EmailStatus @default(SENT)
+  resendId  String?
+  error     String?
+  meta      Json?
+  createdAt DateTime    @default(now())
+
+  @@index([createdAt])
+  @@index([status])
 }

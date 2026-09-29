@@ -47,7 +47,16 @@ export const notificationsSchema = z.object({
   adminAlertEmail: z.string().email().or(z.literal("")).default(""),
   orderEmails: z.boolean().default(true),
   disputeEmails: z.boolean().default(true),
-  providerNote: z.string().max(200).default("Email provider not configured — notifications are stubbed."),
+  vendorEmails: z.boolean().default(true),
+  productEmails: z.boolean().default(true),
+  adminAlerts: z.boolean().default(true),
+  lowStockThreshold: z.number().int().min(0).max(1000).default(5),
+  fromEmail: z.string().email().or(z.literal("")).default("onboarding@resend.dev"),
+  replyTo: z.string().email().or(z.literal("")).default(""),
+  // Write-only: accepted on PATCH, never returned by GET (see admin settings route).
+  resendApiKey: z.string().max(200).default(""),
+  testRecipient: z.string().email().or(z.literal("")).default(""),
+  providerNote: z.string().max(200).default("Resend sends order, dispute and vendor emails."),
 });
 
 export const securitySchema = z.object({

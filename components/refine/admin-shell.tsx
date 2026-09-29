@@ -6,10 +6,12 @@ import { usePathname, useSelectedLayoutSegment } from "next/navigation";
 import { useLogout, useGetIdentity } from "@refinedev/core";
 import {
   ArrowLeft,
+  Bell,
   ChevronDown,
   Globe,
   KeyRound,
   LogOut,
+  Mail,
   Menu,
   MessageSquareWarning,
   Package,
@@ -33,6 +35,7 @@ import {
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { initials } from "@/lib/format";
 import { cn } from "@/lib/utils";
+import { NotificationBell } from "@/components/notifications/notification-bell";
 
 type Identity = { email?: string; name?: string | null };
 
@@ -72,6 +75,8 @@ const NAV_GROUPS: NavGroup[] = [
     label: "System",
     icon: <Settings className="size-4" />,
     links: [
+      { href: "/ys-admin/notifications", label: "Notifications", icon: <Bell className="size-4" /> },
+      { href: "/ys-admin/emails", label: "Email log", icon: <Mail className="size-4" /> },
       { href: "/ys-admin/settings/site", label: "Site settings", icon: <Globe className="size-4" /> },
       { href: "/ys-admin/settings/system", label: "System settings", icon: <SlidersHorizontal className="size-4" /> },
       { href: "/ys-admin/api-tokens", label: "API tokens", icon: <KeyRound className="size-4" /> },
@@ -198,7 +203,8 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
             <p className="hidden text-xs text-neutral-500 sm:block">Manage vendors, catalog, orders and disputes</p>
           </div>
 
-          <div className="ml-auto">
+          <div className="ml-auto flex items-center gap-1">
+            <NotificationBell />
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" className="gap-2 rounded-full pl-1.5 pr-2.5">

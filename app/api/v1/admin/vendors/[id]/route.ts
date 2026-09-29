@@ -2,6 +2,7 @@ import { z } from "zod";
 import { db } from "@/lib/db";
 import { fail, ok } from "@/lib/api/http";
 import { audit, withAdmin } from "@/lib/api/guard";
+import { notifyVendorStatus } from "@/lib/notifications/notify";
 
 const patchSchema = z.object({
   status: z.enum(["PENDING", "APPROVED", "SUSPENDED", "REJECTED"]),
@@ -31,6 +32,25 @@ export const PATCH = withAdmin(
 
     const updated = await db.store.update({ where: { id }, data: { status: parsed.data.status } });
     await audit(actor.id, `vendor.${parsed.data.status.toLowerCase()}`, "Store", id, { note: parsed.data.note });
+
+    // Notify store owner (in-app + email) of moderation outcome (skip silent PENDING resets).
+    // Never blocks the mutation.
+    if (parsed.data.status !== "PENDING") {
+      const full = await db.store.findUnique({
+        where: { id },
+        select: { name: true, ownerId: true },
+      });
+      if (full) {
+        await notifyVendorStatus({
+          storeId: id,
+          storeName: full.name,
+          ownerId: full.ownerId,
+          status: parsed.data.status,
+          note: parsed.data.note,
+        });
+      }
+    }
+
     return ok(updated);
   }
 );

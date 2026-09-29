@@ -1,13 +1,14 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useForm, type Control, type FieldValues, type Resolver } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import type { z } from "zod";
-import { Loader2 } from "lucide-react";
+import { Loader2, Send } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import type { SettingGroup, Settings } from "@/lib/settings";
 import { NumberRow, SelectRow, SwitchRow, TextRow, TextareaRow } from "@/components/settings/form-fields";
@@ -126,12 +127,27 @@ export function ShippingFields({ control }: { control: C }) {
   );
 }
 
-export function NotificationsFields({ control }: { control: C }) {
+export function NotificationsFields({ control, hasResendKey }: { control: C; hasResendKey?: boolean }) {
   return (
     <>
       <TextRow control={control} name="adminAlertEmail" label="Admin alert email" hint="Order and dispute alerts land here." />
-      <SwitchRow control={control} name="orderEmails" label="Order emails" hint="Confirmations and shipping updates." />
-      <SwitchRow control={control} name="disputeEmails" label="Dispute emails" hint="New disputes and rulings." />
+      <SwitchRow control={control} name="orderEmails" label="Order emails" hint="Buyer confirmations + admin copies on cancel/refund." />
+      <SwitchRow control={control} name="disputeEmails" label="Dispute emails" hint="Buyer updates + admin copies on rulings." />
+      <SwitchRow control={control} name="vendorEmails" label="Vendor emails" hint="Store owners on approve/suspend/reject." />
+      <SwitchRow control={control} name="productEmails" label="Product emails" hint="Sellers on takedown/activation." />
+      <SwitchRow control={control} name="adminAlerts" label="Admin alert emails" hint="Seller requests, new disputes and the ops digest." />
+      <NumberRow control={control} name="lowStockThreshold" label="Low-stock threshold" hint="Variants at or below this count appear in the digest." min={0} />
+      <TextRow control={control} name="fromEmail" label="From email" hint="Verified sender. Test domain can only reach the Resend account owner." />
+      <TextRow control={control} name="replyTo" label="Reply-to email" hint="Optional. Replies go here instead of the sender." />
+      <TextRow
+        control={control}
+        name="resendApiKey"
+        label="Resend API key"
+        hint={hasResendKey ? "A key is saved. Enter a new one to replace it; blank keeps it." : "Paste a Resend API key (re_...). Stored server-side, never shown again."}
+        type="password"
+        placeholder={hasResendKey ? "••••••••" : "re_..."}
+      />
+      <TextRow control={control} name="testRecipient" label="Test recipient" hint="Defaults the test-email button below." />
       <TextRow control={control} name="providerNote" label="Provider note" hint="Internal reminder of email setup state." />
     </>
   );
@@ -144,5 +160,49 @@ export function SecurityFields({ control }: { control: C }) {
       <NumberRow control={control} name="sessionLifetimeDays" label="Session lifetime (days)" hint="Display only — Auth.js default is 30 days." min={1} />
       <SwitchRow control={control} name="allowAdminTokens" label="Allow mobile API tokens" hint="Bearer tokens for the mobile app and scripts." />
     </>
+  );
+}
+
+export function TestEmailButton({ defaultTo }: { defaultTo?: string }) {
+  const [to, setTo] = useState("");
+  const [sending, setSending] = useState(false);
+
+  const send = async () => {
+    setSending(true);
+    try {
+      const res = await fetch("/api/v1/admin/settings/test-email", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(to.trim() ? { to: to.trim() } : {}),
+      });
+      const json = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(json?.error?.message ?? "Send failed.");
+      toast.success(`Test email sent to ${json?.data?.to ?? defaultTo ?? "recipient"}.`);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Send failed.");
+    } finally {
+      setSending(false);
+    }
+  };
+
+  return (
+    <Card className="flex flex-col gap-2 p-5 sm:flex-row sm:items-end">
+      <div className="grid flex-1 gap-1.5">
+        <p className="text-sm font-medium">Send a test email</p>
+        <p className="text-xs text-neutral-500">
+          Uses the saved key and sender. {defaultTo ? `Defaults to ${defaultTo}.` : null} On the Resend test
+          domain, only the account owner&apos;s inbox receives mail.
+        </p>
+        <Input
+          value={to}
+          onChange={(e) => setTo(e.target.value)}
+          placeholder={defaultTo || "you@example.com"}
+          className="max-w-md"
+        />
+      </div>
+      <Button type="button" variant="outline" onClick={send} disabled={sending}>
+        {sending ? <><Loader2 className="size-4 animate-spin" /> Sending…</> : <><Send className="size-4" /> Send test</>}
+      </Button>
+    </Card>
   );
 }

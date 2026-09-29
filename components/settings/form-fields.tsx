@@ -24,12 +24,14 @@ export function TextRow<T extends FieldValues>({
   label,
   hint,
   placeholder,
+  type,
 }: {
   control: Control<T>;
   name: Path<T>;
   label: string;
   hint?: string;
   placeholder?: string;
+  type?: string;
 }) {
   return (
     <Row label={label} hint={hint}>
@@ -37,7 +39,7 @@ export function TextRow<T extends FieldValues>({
         control={control}
         name={name}
         render={({ field }) => (
-          <Input {...field} value={field.value ?? ""} placeholder={placeholder} className="max-w-md" />
+          <Input {...field} type={type ?? "text"} value={field.value ?? ""} placeholder={placeholder} className="max-w-md" />
         )}
       />
     </Row>

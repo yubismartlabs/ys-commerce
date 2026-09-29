@@ -12,6 +12,7 @@ import {
   PaymentsFields,
   SecurityFields,
   ShippingFields,
+  TestEmailButton,
   useAdminSettings,
 } from "@/components/settings/settings-forms";
 
@@ -65,10 +66,11 @@ export default function SystemSettingsPage() {
             {(c) => <ShippingFields control={c} />}
           </GroupForm>
         </TabsContent>
-        <TabsContent value="notifications">
+        <TabsContent value="notifications" className="space-y-4">
           <GroupForm group="notifications" schema={groupSchemas.notifications} values={s.notifications}>
-            {(c) => <NotificationsFields control={c} />}
+            {(c) => <NotificationsFields control={c} hasResendKey={(s.notifications as { hasResendKey?: boolean }).hasResendKey} />}
           </GroupForm>
+          <TestEmailButton defaultTo={s.notifications.testRecipient || s.notifications.adminAlertEmail || undefined} />
         </TabsContent>
         <TabsContent value="security">
           <GroupForm group="security" schema={groupSchemas.security} values={s.security}>

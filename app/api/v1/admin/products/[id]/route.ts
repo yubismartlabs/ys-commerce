@@ -2,6 +2,7 @@ import { z } from "zod";
 import { db } from "@/lib/db";
 import { fail, ok } from "@/lib/api/http";
 import { audit, withAdmin } from "@/lib/api/guard";
+import { notifyProductStatus } from "@/lib/notifications/notify";
 
 const patchSchema = z.object({
   status: z.enum(["DRAFT", "ACTIVE", "TAKEDOWN"]),
@@ -31,6 +32,24 @@ export const PATCH = withAdmin(
 
     const updated = await db.product.update({ where: { id }, data: { status: parsed.data.status } });
     await audit(actor.id, `product.${parsed.data.status.toLowerCase()}`, "Product", id, { note: parsed.data.note });
+
+    // Notify the seller (in-app + email); takedowns also alert all admins.
+    // Never blocks the mutation.
+    const full = await db.product.findUnique({
+      where: { id },
+      select: { title: true, storeId: true, store: { select: { name: true, ownerId: true } } },
+    });
+    if (full) {
+      await notifyProductStatus({
+        productId: id,
+        productTitle: full.title,
+        storeId: full.storeId,
+        storeName: full.store.name,
+        ownerId: full.store.ownerId,
+        status: parsed.data.status,
+        note: parsed.data.note,
+      });
+    }
     return ok(updated);
   }
 );
