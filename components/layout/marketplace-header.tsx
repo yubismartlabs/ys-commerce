@@ -1,22 +1,18 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
 import {
-  Camera,
   ChevronDown,
   CircleHelp,
   Globe,
   Heart,
   MapPin,
   Menu,
-  Search,
   ShoppingCart,
   Store,
   User,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -30,8 +26,8 @@ import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { useCart } from "@/lib/store/cart";
 import { usePublicSettings } from "@/lib/public-settings";
 import { BuyerBell } from "@/components/notifications/buyer-bell";
+import { SearchBox } from "@/components/search/search-box";
 import { signOut, useSession } from "next-auth/react";
-import { useRouter } from "next/navigation";
 
 const categories = [
   "All Categories",
@@ -52,13 +48,6 @@ export function MarketplaceHeader() {
   const isSeller = role === "SELLER" || role === "ADMIN";
   const firstName = session?.user?.name?.split(" ")[0] ?? "Buyer";
   const { siteName, logoUrl } = usePublicSettings();
-  const [q, setQ] = useState("");
-  const router = useRouter();
-
-  const submit = (e?: React.FormEvent) => {
-    e?.preventDefault();
-    router.push(q ? `/search?q=${encodeURIComponent(q)}` : "/search");
-  };
 
   return (
     <header className="sticky top-0 z-40 bg-white">
@@ -120,22 +109,7 @@ export function MarketplaceHeader() {
             )}
           </Link>
 
-          <form onSubmit={submit} className="hidden flex-1 items-center md:flex">
-            <div className="flex w-full items-stretch overflow-hidden rounded-full border-2 border-ali-red bg-white">
-              <Input
-                value={q}
-                onChange={(e) => setQ(e.target.value)}
-                placeholder="wireless earbuds, summer dress, led lights..."
-                className="h-11 flex-1 rounded-none border-0 bg-transparent px-4 shadow-none focus-visible:ring-0"
-              />
-              <Button type="button" variant="ghost" className="h-auto shrink-0 rounded-none px-3" aria-label="Image search">
-                <Camera className="size-5 text-neutral-500" />
-              </Button>
-              <Button type="submit" className="h-auto shrink-0 rounded-none bg-ali-red px-6 text-white hover:bg-ali-red-dark">
-                <Search className="size-4" /> Search
-              </Button>
-            </div>
-          </form>
+          <SearchBox />
 
           <div className="ml-auto flex items-center gap-1">
             {status === "unauthenticated" ? (
@@ -195,17 +169,7 @@ export function MarketplaceHeader() {
 
         {/* mobile search */}
         <div className="px-4 pb-3 md:hidden">
-          <form onSubmit={submit} className="flex items-stretch overflow-hidden rounded-full border-2 border-ali-red bg-white">
-            <Input
-              value={q}
-              onChange={(e) => setQ(e.target.value)}
-              placeholder="Search on ys-commerce"
-              className="h-10 flex-1 rounded-none border-0 bg-transparent shadow-none focus-visible:ring-0"
-            />
-            <Button type="submit" className="h-auto shrink-0 rounded-none bg-ali-red px-4 text-white hover:bg-ali-red-dark" aria-label="Search">
-              <Search className="size-4" />
-            </Button>
-          </form>
+          <SearchBox mobile />
         </div>
       </div>
 

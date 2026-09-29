@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense } from "react";
 import { useQuery } from "@tanstack/react-query";
@@ -14,29 +15,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 
 type Row = ApiCardRow;
 
-type SearchResponse = {
-  data: Row[];
-  total: number;
-  pages: number;
-  categories: Array<{ category: string; count: number }>;
-};
-
 const PAGE_SIZE = 24;
-
-async function search(params: URLSearchParams, page: number): Promise<SearchResponse> {
-  const q = new URLSearchParams(params);
-  q.set("page", String(page));
-  q.set("pageSize", String(PAGE_SIZE));
-  const res = await fetch(`/api/v1/products?${q.toString()}`);
-  if (!res.ok) throw new Error("Search failed.");
-  const json = await res.json();
-  return {
-    data: json.data,
-    total: json.pagination.total,
-    pages: Math.max(1, Math.ceil(json.pagination.total / PAGE_SIZE)),
-    categories: json.meta?.categories ?? [],
-  };
-}
 
 function SearchBody() {
   const router = useRouter();
@@ -48,20 +27,37 @@ function SearchBody() {
   const [free, setFree] = useState(params.get("freeShipping") === "1");
   const [rated, setRated] = useState(params.get("minRating") === "4");
   const [deals, setDeals] = useState(params.get("deals") === "1");
-  const [sort, setSort] = useState(params.get("sort") ?? "newest");
+  const [sort, setSort] = useState(params.get("sort") ?? (params.get("q") ? "relevance" : "newest"));
   const [category, setCategory] = useState(params.get("category") ?? "");
 
   const key = params.toString();
   const query = useQuery({
     queryKey: ["search", key, page],
-    queryFn: () => search(new URLSearchParams(key), page),
+    queryFn: async (): Promise<{
+      data: Row[];
+      total: number;
+      pages: number;
+      categories: Array<{ category: string; count: number }>;
+      suggestion: string[];
+    }> => {
+      const res = await fetch(`/api/v1/products?${key}&page=${page}&pageSize=${PAGE_SIZE}`);
+      if (!res.ok) throw new Error("Search failed.");
+      const json = await res.json();
+      return {
+        data: json.data,
+        total: json.pagination.total,
+        pages: Math.max(1, Math.ceil(json.pagination.total / PAGE_SIZE)),
+        categories: json.meta?.categories ?? [],
+        suggestion: json.meta?.suggestion ?? [],
+      };
+    },
     retry: 1,
   });
-
   const rows = query.data?.data ?? [];
   const total = query.data?.total ?? 0;
   const pages = query.data?.pages ?? 1;
   const categories = query.data?.categories ?? [];
+  const suggestion = query.data?.suggestion ?? [];
   const loading = query.isLoading;
   const error = query.isError ? "Search failed. Retry." : null;
 
@@ -75,7 +71,8 @@ function SearchBody() {
     if (free) q.set("freeShipping", "1");
     if (rated) q.set("minRating", "4");
     if (deals) q.set("deals", "1");
-    if (sort !== "newest") q.set("sort", sort);
+    const defaultSort = params.get("q") ? "relevance" : "newest";
+    if (sort !== defaultSort) q.set("sort", sort);
     setPage(1);
     router.push(`/search?${q.toString()}`);
   };
@@ -121,6 +118,7 @@ function SearchBody() {
             <Select value={sort} onValueChange={setSort}>
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
+                {params.get("q") ? <SelectItem value="relevance">Most relevant</SelectItem> : null}
                 <SelectItem value="newest">Newest</SelectItem>
                 <SelectItem value="sold">Best selling</SelectItem>
                 <SelectItem value="rating">Top rated</SelectItem>
@@ -146,7 +144,25 @@ function SearchBody() {
         ) : error ? (
           <Card className="p-10 text-center text-sm text-neutral-500">{error}</Card>
         ) : rows.length === 0 ? (
-          <Card className="p-10 text-center text-sm text-neutral-500">No results. Try another keyword.</Card>
+          <Card className="space-y-2 p-10 text-center text-sm text-neutral-500">
+            <p>No results for &ldquo;{params.get("q")}&rdquo;.</p>
+            {suggestion.length > 0 ? (
+              <p>
+                Did you mean{" "}
+                {suggestion.map((s, i) => (
+                  <span key={s}>
+                    {i > 0 ? " or " : ""}
+                    <Link href={`/search?q=${encodeURIComponent(s)}`} className="font-semibold text-ali-red hover:underline">
+                      {s}
+                    </Link>
+                  </span>
+                ))}
+                ?
+              </p>
+            ) : (
+              <p>Try another keyword.</p>
+            )}
+          </Card>
         ) : (
           <>
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-4">

@@ -653,3 +653,16 @@ model ChatMessage {
   @@index([flagged, createdAt])
 }
 
+
+// Storefront search analytics: what buyers looked for, what it returned.
+// Powers suggestions + (later) a merchandising view. PII-free.
+model SearchLog {
+  id        String   @id @default(cuid())
+  query     String
+  results   Int      @default(0)
+  userId    String?
+  createdAt DateTime @default(now())
+
+  @@index([query])
+  @@index([createdAt])
+}
