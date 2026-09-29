@@ -87,7 +87,7 @@ export function SiteFields({ control }: { control: C }) {
 export function MaintenanceFields({ control }: { control: C }) {
   return (
     <>
-      <SwitchRow control={control} name="enabled" label="Maintenance mode" hint="Guests see a maintenance banner; admins browse normally." />
+      <SwitchRow control={control} name="enabled" label="Maintenance mode" hint="Guests see a full maintenance page; admins browse normally with a banner." />
       <TextareaRow control={control} name="message" label="Maintenance message" />
       <TextareaRow control={control} name="announcement" label="Announcement banner" hint="Shown above the storefront header until dismissed. Empty hides it." />
     </>
