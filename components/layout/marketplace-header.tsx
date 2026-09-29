@@ -29,7 +29,8 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { useCart } from "@/lib/store/cart";
-import { useSession } from "@/lib/store/session";
+import { usePublicSettings } from "@/lib/public-settings";
+import { signOut, useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 
 const categories = [
@@ -46,7 +47,11 @@ const categories = [
 
 export function MarketplaceHeader() {
   const count = useCart((s) => s.count());
-  const isSeller = useSession((s) => s.isSeller);
+  const { data: session, status } = useSession();
+  const role = (session?.user as { role?: string } | undefined)?.role;
+  const isSeller = role === "SELLER" || role === "ADMIN";
+  const firstName = session?.user?.name?.split(" ")[0] ?? "Buyer";
+  const { siteName, logoUrl } = usePublicSettings();
   const [q, setQ] = useState("");
   const router = useRouter();
 
@@ -103,9 +108,16 @@ export function MarketplaceHeader() {
             </SheetContent>
           </Sheet>
 
-          <Link href="/" className="shrink-0 text-2xl font-black tracking-tight">
-            <span className="text-ali-red">ys</span>
-            <span className="text-neutral-900">-commerce</span>
+          <Link href="/" className="flex shrink-0 items-center gap-2" aria-label={siteName}>
+            {logoUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={logoUrl} alt={siteName} className="h-8 max-w-36 object-contain" />
+            ) : (
+              <span className="text-2xl font-black tracking-tight">
+                <span className="text-ali-red">{siteName.slice(0, 2)}</span>
+                <span className="text-neutral-900">{siteName.slice(2)}</span>
+              </span>
+            )}
           </Link>
 
           <form onSubmit={submit} className="hidden flex-1 items-center md:flex">
@@ -126,26 +138,40 @@ export function MarketplaceHeader() {
           </form>
 
           <div className="ml-auto flex items-center gap-1">
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" className="hidden gap-1 text-[13px] sm:inline-flex">
-                  <User className="size-5" /> Hi, Buyer <ChevronDown className="size-3.5" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-56">
-                <DropdownMenuLabel>My YS</DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem asChild><Link href="/account">My Orders</Link></DropdownMenuItem>
-                <DropdownMenuItem asChild><Link href="/watchlist">Watchlist</Link></DropdownMenuItem>
-                <DropdownMenuItem asChild><Link href="/account">Coupons & Coins</Link></DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem asChild>
-                  <Link href={isSeller ? "/selling/dashboard" : "/selling/onboarding"}>
-                    {isSeller ? "Selling Dashboard" : "Start Selling"}
-                  </Link>
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+            {status === "unauthenticated" ? (
+              <Button variant="ghost" className="hidden gap-1 text-[13px] sm:inline-flex" asChild>
+                <Link href="/sign-in">
+                  <User className="size-5" /> Sign in
+                </Link>
+              </Button>
+            ) : (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" className="hidden max-w-44 gap-1 text-[13px] sm:inline-flex">
+                    <User className="size-5 shrink-0" />
+                    <span className="truncate">Hi, {status === "loading" ? "…" : firstName}</span>
+                    <ChevronDown className="size-3.5 shrink-0" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-56">
+                  <DropdownMenuLabel className="truncate">{session?.user?.email ?? "My YS"}</DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem asChild><Link href="/account">My Orders</Link></DropdownMenuItem>
+                  <DropdownMenuItem asChild><Link href="/watchlist">Watchlist</Link></DropdownMenuItem>
+                  <DropdownMenuItem asChild><Link href="/account">Coupons & Coins</Link></DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem asChild>
+                    <Link href={isSeller ? "/selling/dashboard" : "/selling/onboarding"}>
+                      {isSeller ? "Selling Dashboard" : "Start Selling"}
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={() => signOut({ callbackUrl: "/" })}>
+                    Sign out
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
 
             <Button variant="ghost" size="icon" asChild className="relative">
               <Link href="/watchlist" aria-label="Watchlist">

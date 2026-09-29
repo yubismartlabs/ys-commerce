@@ -1,0 +1,287 @@
+// ys-commerce marketplace schema.
+// Managed by Prisma. Apply with: npm run db:migrate
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  BUYER
+  SELLER
+  ADMIN
+}
+
+enum StoreStatus {
+  PENDING
+  APPROVED
+  SUSPENDED
+  REJECTED
+}
+
+enum ProductStatus {
+  DRAFT
+  ACTIVE
+  TAKEDOWN
+}
+
+enum OrderStatus {
+  PENDING
+  PAID
+  SHIPPED
+  DELIVERED
+  CANCELLED
+  REFUNDED
+}
+
+enum DisputeStatus {
+  OPEN
+  UNDER_REVIEW
+  RESOLVED_BUYER
+  RESOLVED_SELLER
+  CLOSED
+}
+
+enum PayoutStatus {
+  PENDING
+  PROCESSING
+  PAID
+  FAILED
+}
+
+model User {
+  id           String    @id @default(cuid())
+  name         String?
+  email        String    @unique
+  passwordHash String?
+  role         Role      @default(BUYER)
+  image        String?
+  emailVerified DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  accounts  Account[]
+  sessions  Session[]
+  stores    Store[]    @relation("StoreOwner")
+  reviews   Review[]
+  disputes  Dispute[]  @relation("DisputeBuyer")
+  auditLogs AuditLog[] @relation("AuditActor")
+  apiTokens ApiToken[]
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+model Store {
+  id             String      @id @default(cuid())
+  name           String
+  slug           String      @unique
+  description    String?
+  status         StoreStatus @default(PENDING)
+  commissionRate Decimal     @default(0.05) @db.Decimal(5, 4)
+  ownerId        String
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+
+  owner    User      @relation("StoreOwner", fields: [ownerId], references: [id])
+  products Product[]
+  payouts  Payout[]
+  reviews  Review[]
+}
+
+model Product {
+  id          String        @id @default(cuid())
+  slug        String        @unique
+  title       String
+  description String?
+  image       String
+  price       Decimal       @db.Decimal(10, 2)
+  compareAt   Decimal?      @db.Decimal(10, 2)
+  category    String
+  badge       String?
+  freeShipping Boolean      @default(true)
+  status      ProductStatus @default(ACTIVE)
+  storeId     String
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  store    Store            @relation(fields: [storeId], references: [id])
+  variants ProductVariant[]
+  items    OrderItem[]
+  reviews  Review[]
+
+  @@index([category])
+  @@index([status])
+}
+
+model ProductVariant {
+  id        String   @id @default(cuid())
+  productId String
+  name      String
+  sku       String?  @unique
+  price     Decimal? @db.Decimal(10, 2)
+  stock     Int      @default(0)
+  createdAt DateTime @default(now())
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+}
+
+model Order {
+  id        String      @id @default(cuid())
+  number    String      @unique
+  buyerId   String
+  status    OrderStatus @default(PENDING)
+  subtotal  Decimal     @db.Decimal(10, 2)
+  shipping  Decimal     @default(0) @db.Decimal(10, 2)
+  total     Decimal     @db.Decimal(10, 2)
+  currency  String      @default("USD")
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+
+  items    OrderItem[]
+  disputes Dispute[]
+}
+
+model OrderItem {
+  id        String  @id @default(cuid())
+  orderId   String
+  productId String
+  storeId   String
+  title     String
+  image     String
+  price     Decimal @db.Decimal(10, 2)
+  qty       Int
+  variant   String?
+
+  order   Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id])
+}
+
+model Dispute {
+  id        String        @id @default(cuid())
+  orderId   String
+  buyerId   String
+  reason    String
+  status    DisputeStatus @default(OPEN)
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+
+  order    Order            @relation(fields: [orderId], references: [id])
+  buyer    User             @relation("DisputeBuyer", fields: [buyerId], references: [id])
+  messages DisputeMessage[]
+}
+
+model DisputeMessage {
+  id        String   @id @default(cuid())
+  disputeId String
+  author    String
+  body      String
+  createdAt DateTime @default(now())
+
+  dispute Dispute @relation(fields: [disputeId], references: [id], onDelete: Cascade)
+}
+
+model Coupon {
+  id        String   @id @default(cuid())
+  code      String   @unique
+  pctOff    Int
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+}
+
+model Payout {
+  id        String       @id @default(cuid())
+  storeId   String
+  amount    Decimal      @db.Decimal(10, 2)
+  currency  String       @default("USD")
+  status    PayoutStatus @default(PENDING)
+  createdAt DateTime     @default(now())
+
+  store Store @relation(fields: [storeId], references: [id])
+}
+
+model Review {
+  id        String   @id @default(cuid())
+  productId String
+  storeId   String
+  authorId  String
+  rating    Int
+  title     String?
+  body      String?
+  createdAt DateTime @default(now())
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  store   Store   @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  author  User    @relation(fields: [authorId], references: [id])
+}
+
+model ApiToken {
+  id        String    @id @default(cuid())
+  name      String
+  tokenHash String    @unique
+  userId    String
+  scopes    String[]  @default(["admin"])
+  expiresAt DateTime?
+  createdAt DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  actorId   String?
+  action    String
+  entity    String
+  entityId  String
+  meta      Json?
+  createdAt DateTime @default(now())
+
+  actor User? @relation("AuditActor", fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([entity, entityId])
+}
+
+// Site + system configuration. One row per namespaced group, JSON value.
+// Read live by the storefront (public subset) and ys-admin (full).
+model Setting {
+  key       String   @id
+  value     Json
+  updatedAt DateTime @updatedAt
+}
