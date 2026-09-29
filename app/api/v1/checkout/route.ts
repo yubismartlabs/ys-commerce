@@ -138,6 +138,11 @@ export async function POST(req: Request) {
       for (const l of lines) {
         await tx.product.update({ where: { id: l.productId }, data: { soldCount: { increment: l.qty } } });
       }
+      const qtyByStore = new Map<string, number>();
+      for (const l of lines) qtyByStore.set(l.storeId, (qtyByStore.get(l.storeId) ?? 0) + l.qty);
+      for (const [storeId, qty] of qtyByStore) {
+        await tx.store.update({ where: { id: storeId }, data: { soldCount: { increment: qty } } });
+      }
       await tx.orderEvent.createMany({
         data: [
           { orderId: created.id, type: "CREATED", actorId: userId },

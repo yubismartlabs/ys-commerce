@@ -3,7 +3,7 @@ import { auth } from "@/auth";
 import { db } from "@/lib/db";
 import { fail, getPagination, ok } from "@/lib/api/http";
 import { audit } from "@/lib/api/guard";
-import { hasPurchased, recalcProductRating } from "@/lib/products/ratings";
+import { hasPurchased, recalcProductRating, recalcStoreRating } from "@/lib/products/ratings";
 import { getEmailConfig } from "@/lib/email/send";
 import { notifyUser } from "@/lib/notifications/notify";
 
@@ -95,6 +95,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ slug: s
     },
   });
   await recalcProductRating(product.id);
+  await recalcStoreRating(product.storeId);
   await audit(userId, "review.create", "Review", review.id, { productId: product.id, rating: review.rating });
 
   // Seller gets an in-app + email nudge to respond.

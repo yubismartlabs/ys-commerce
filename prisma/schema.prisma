@@ -134,8 +134,17 @@ model Store {
   name           String
   slug           String      @unique
   description    String?
+  logo           String?
+  banner         String?
+  shippingPolicy String?
+  returnPolicy   String?
+  announcement   String?
   status         StoreStatus @default(PENDING)
   commissionRate Decimal     @default(0.05) @db.Decimal(5, 4)
+  ratingAvg      Float       @default(0)
+  ratingCount    Int         @default(0)
+  soldCount      Int         @default(0)
+  followerCount  Int         @default(0)
   ownerId        String
   createdAt      DateTime    @default(now())
   updatedAt      DateTime    @updatedAt
@@ -144,6 +153,22 @@ model Store {
   products Product[]
   payouts  Payout[]
   reviews  Review[]
+  followers StoreFollow[]
+
+  @@index([status])
+  @@index([ratingAvg])
+}
+
+model StoreFollow {
+  id        String   @id @default(cuid())
+  storeId   String
+  userId    String
+  createdAt DateTime @default(now())
+
+  store Store @relation(fields: [storeId], references: [id], onDelete: Cascade)
+
+  @@unique([storeId, userId])
+  @@index([userId])
 }
 
 model Product {

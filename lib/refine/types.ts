@@ -3,11 +3,21 @@ export type Vendor = {
   name: string;
   slug: string;
   description: string | null;
+  logo: string | null;
+  banner: string | null;
+  shippingPolicy: string | null;
+  returnPolicy: string | null;
+  announcement: string | null;
   status: "PENDING" | "APPROVED" | "SUSPENDED" | "REJECTED";
   commissionRate: number;
+  ratingAvg: number;
+  ratingCount: number;
+  soldCount: number;
+  followerCount: number;
   createdAt: string;
-  owner: { email: string; name: string | null };
+  owner: { id?: string; email: string; name: string | null };
   _count: { products: number };
+  analytics?: { orders: number; revenue: number; escrow: Partial<Record<string, number>> };
 };
 
 export type ProductVariant = { id: string; name: string; sku: string | null; price: number | null; image: string | null; stock: number };

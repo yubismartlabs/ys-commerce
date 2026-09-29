@@ -52,10 +52,10 @@ async function main() {
   });
 
   const storeDefs = [
-    { name: "TechChoice Store", slug: "techchoice-store", status: "APPROVED" as const },
-    { name: "FashionForward", slug: "fashionforward", status: "APPROVED" as const },
-    { name: "HomeEssentials", slug: "homeessentials", status: "PENDING" as const },
-    { name: "GadgetHub", slug: "gadgethub", status: "PENDING" as const },
+    { name: "TechChoice Store", slug: "techchoice-store", status: "APPROVED" as const, description: "Gadgets, audio and smart home picks — tested before listing.", shippingPolicy: "Ships in 48h with tracking. Free over $25.", returnPolicy: "14-day returns, buyer pays return shipping unless faulty." },
+    { name: "FashionForward", slug: "fashionforward", status: "APPROVED" as const, description: "Trend-led fashion essentials, true-to-size guaranteed.", shippingPolicy: "Ships in 24h. Free worldwide over $25.", returnPolicy: "30-day free returns on unworn items." },
+    { name: "HomeEssentials", slug: "homeessentials", status: "PENDING" as const, description: "Home and garden staples for everyday living.", shippingPolicy: "Ships in 72h.", returnPolicy: "14-day returns." },
+    { name: "GadgetHub", slug: "gadgethub", status: "PENDING" as const, description: "New gadgets weekly — early-bird prices.", shippingPolicy: "Ships in 48h.", returnPolicy: "14-day returns." },
   ];
 
   const sellers = [];
@@ -68,8 +68,8 @@ async function main() {
     sellers.push(owner);
     await prisma.store.upsert({
       where: { slug: s.slug },
-      update: { status: s.status },
-      create: { name: s.name, slug: s.slug, status: s.status, ownerId: owner.id },
+      update: { status: s.status, description: s.description, shippingPolicy: s.shippingPolicy, returnPolicy: s.returnPolicy },
+      create: { name: s.name, slug: s.slug, status: s.status, ownerId: owner.id, description: s.description, shippingPolicy: s.shippingPolicy, returnPolicy: s.returnPolicy },
     });
   }
 
@@ -170,7 +170,7 @@ async function main() {
   });
 
   // Sample verified reviews on the demo orders' products + aggregates.
-  const { recalcProductRating } = await import("../lib/products/ratings");
+  const { recalcProductRating, recalcStoreRating } = await import("../lib/products/ratings");
   const reviewSamples = [
     { slug: "product-1", rating: 5, title: "Exceeded expectations", body: "Sound quality is great for the price. Shipping took 9 days." },
     { slug: "product-2", rating: 4, title: "Good value", body: "Comfortable and true to size. Slight glue smell at first." },
@@ -197,6 +197,19 @@ async function main() {
       });
     }
     await recalcProductRating(p.id);
+  }
+
+  // Store ratings + units sold from seeded orders.
+  for (const s of await prisma.store.findMany({ select: { id: true } })) {
+    await recalcStoreRating(s.id);
+  }
+  const soldByProduct = await prisma.orderItem.groupBy({ by: ["productId"], _sum: { qty: true } });
+  for (const row of soldByProduct) {
+    await prisma.product.update({ where: { id: row.productId }, data: { soldCount: row._sum.qty ?? 0 } });
+  }
+  const soldByStore = await prisma.orderItem.groupBy({ by: ["storeId"], _sum: { qty: true } });
+  for (const row of soldByStore) {
+    await prisma.store.update({ where: { id: row.storeId }, data: { soldCount: row._sum.qty ?? 0 } });
   }
 
   // Example staff roles (assignable in ys-admin → Users → Roles).

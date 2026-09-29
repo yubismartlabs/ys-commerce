@@ -8,6 +8,7 @@ const links = [
   { href: "/selling/orders", label: "Orders" },
   { href: "/selling/disputes", label: "Disputes" },
   { href: "/selling/payouts", label: "Payouts" },
+  { href: "/selling/store", label: "Store settings" },
 ];
 
 export default function SellingLayout({ children }: { children: React.ReactNode }) {

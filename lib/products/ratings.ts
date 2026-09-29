@@ -24,8 +24,20 @@ export async function ratingDistribution(productId: string): Promise<Array<{ rat
   return [5, 4, 3, 2, 1].map((rating) => ({ rating, count: byRating.get(rating) ?? 0 }));
 }
 
-/** Did this buyer purchase the product (verified badge)? */
-export async function hasPurchased(userId: string, productId: string): Promise<boolean> {
+/** Recompute a store's rating from all reviews on its products. */
+export async function recalcStoreRating(storeId: string): Promise<{ avg: number; count: number }> {
+  const agg = await db.review.aggregate({
+    where: { storeId },
+    _avg: { rating: true },
+    _count: true,
+  });
+  const count = agg._count;
+  const avg = Math.round((agg._avg.rating ?? 0) * 10) / 10;
+  await db.store.update({ where: { id: storeId }, data: { ratingAvg: avg, ratingCount: count } });
+  return { avg, count };
+}
+
+/** Did this buyer purchase the product (verified badge)? */export async function hasPurchased(userId: string, productId: string): Promise<boolean> {
   const hit = await db.orderItem.findFirst({
     where: { productId, order: { buyerId: userId, status: { in: ["PAID", "SHIPPED", "DELIVERED"] } } },
     select: { id: true },
