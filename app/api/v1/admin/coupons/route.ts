@@ -1,33 +1,52 @@
-import { z } from "zod";
 import { db } from "@/lib/db";
-import { fail, getPagination, ok } from "@/lib/api/http";
-import { withAdmin } from "@/lib/api/guard";
+import { getPagination, ok, fail } from "@/lib/api/http";
+import { audit, withAdmin } from "@/lib/api/guard";
+import { couponInput } from "@/lib/coupons/schema";
 
 export const GET = withAdmin(async (req) => {
   const url = new URL(req.url);
+  const active = url.searchParams.get("active");
+  const type = url.searchParams.get("type");
+  const q = url.searchParams.get("q");
   const { page, pageSize, skip } = getPagination(url);
+
+  const where = {
+    ...(active === "1" ? { active: true } : active === "0" ? { active: false } : {}),
+    ...(type ? { type: type as "PERCENT" | "FIXED" | "FREESHIP" } : {}),
+    ...(q ? { code: { contains: q.toUpperCase(), mode: "insensitive" as const } } : {}),
+  };
   const [total, coupons] = await Promise.all([
-    db.coupon.count(),
-    db.coupon.findMany({ skip, take: pageSize, orderBy: { createdAt: "desc" } }),
+    db.coupon.count({ where }),
+    db.coupon.findMany({
+      where,
+      skip,
+      take: pageSize,
+      orderBy: { createdAt: "desc" },
+      include: { _count: { select: { redemptions: true } } },
+    }),
   ]);
   return ok(coupons, { page, pageSize, total });
 });
 
-const createSchema = z.object({
-  code: z.string().min(3).max(32).toUpperCase(),
-  pctOff: z.number().int().min(1).max(90),
-});
-
 export const POST = withAdmin(async (req, actor) => {
-  const parsed = createSchema.safeParse(await req.json().catch(() => null));
-  if (!parsed.success) return fail("VALIDATION", "code (3-32 chars) and pctOff (1-90) required", 422);
+  const parsed = couponInput.safeParse(await req.json().catch(() => null));
+  if (!parsed.success) {
+    return fail("VALIDATION", parsed.error.issues[0]?.message ?? "Invalid coupon", 422);
+  }
 
   const existing = await db.coupon.findUnique({ where: { code: parsed.data.code } });
   if (existing) return fail("CONFLICT", "Coupon code already exists", 409);
 
-  const coupon = await db.coupon.create({ data: parsed.data });
-  await db.auditLog.create({
-    data: { actorId: actor.id, action: "coupon.create", entity: "Coupon", entityId: coupon.id },
+  const { startsAt, endsAt, ...rest } = parsed.data;
+  const coupon = await db.coupon.create({
+    data: {
+      ...rest,
+      pctOff: parsed.data.type === "PERCENT" ? parsed.data.pctOff! : null,
+      amountOff: parsed.data.type === "FIXED" ? parsed.data.amountOff! : null,
+      startsAt: startsAt ? new Date(startsAt) : null,
+      endsAt: endsAt ? new Date(endsAt) : null,
+    },
   });
+  await audit(actor.id, "coupon.create", "Coupon", coupon.id, { code: coupon.code });
   return ok(coupon, undefined, 201);
 });

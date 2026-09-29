@@ -1,0 +1,131 @@
+import { z } from "zod";
+import { auth } from "@/auth";
+import { db } from "@/lib/db";
+import { fail, ok } from "@/lib/api/http";
+import { audit } from "@/lib/api/guard";
+import { validateCoupon } from "@/lib/coupons/engine";
+import { cartLineSchema, generateOrderNumber, resolveCart, standardShipping } from "@/lib/coupons/cart";
+import { notifyAdmins } from "@/lib/notifications/notify";
+
+const schema = z.object({
+  items: z.array(cartLineSchema).min(1).max(50),
+  couponCode: z.string().min(1).max(32).optional(),
+});
+
+const round = (n: number) => Math.round(n * 100) / 100;
+
+/**
+ * Real checkout (mock payment = PAID): validates the coupon server-side,
+ * creates the order + items, records redemption and decrements variant stock.
+ */
+export async function POST(req: Request) {
+  const session = await auth();
+  const userId = session?.user?.id;
+  if (!userId) return fail("UNAUTHORIZED", "Sign in to check out", 401);
+
+  const parsed = schema.safeParse(await req.json().catch(() => null));
+  if (!parsed.success) return fail("VALIDATION", "items[] with slug + qty required", 422);
+
+  let lines;
+  try {
+    lines = await resolveCart(parsed.data.items);
+  } catch (e) {
+    return fail("VALIDATION", e instanceof Error ? e.message : "Invalid cart", 422);
+  }
+  const subtotal = round(lines.reduce((a, l) => a + l.price * l.qty, 0));
+  const shipping = await standardShipping(subtotal);
+
+  let coupon: { id: string; code: string } | null = null;
+  let discount = 0;
+  let shippingDiscount = 0;
+  if (parsed.data.couponCode?.trim()) {
+    const v = await validateCoupon({ code: parsed.data.couponCode, items: lines, shipping, userId });
+    if (!v.ok) return fail("COUPON", v.error, 422);
+    coupon = { id: v.coupon.id, code: v.coupon.code };
+    discount = v.discount;
+    shippingDiscount = v.shippingDiscount;
+  }
+  const shippingFinal = round(Math.max(0, shipping - shippingDiscount));
+  const total = round(Math.max(0, subtotal - discount + shippingFinal));
+  const number = await generateOrderNumber();
+
+  let orderId: string;
+  try {
+    const order = await db.$transaction(async (tx) => {
+      // Re-check caps inside the transaction (closes the validate→redeem race).
+      if (coupon) {
+        const fresh = await tx.coupon.findUnique({ where: { id: coupon.id } });
+        if (!fresh || !fresh.active) throw new Error("COUPON:This code is no longer active.");
+        if (fresh.maxUses !== null && fresh.usedCount >= fresh.maxUses) {
+          throw new Error("COUPON:This code just reached its usage limit.");
+        }
+        if (fresh.perUserLimit !== null) {
+          const mine = await tx.couponRedemption.count({ where: { couponId: fresh.id, userId } });
+          if (mine >= fresh.perUserLimit) throw new Error("COUPON:You've already used this code.");
+        }
+      }
+      // Variant stock check + decrement (exact name match only).
+      const variantLines = lines.filter((l) => l.variant);
+      if (variantLines.length > 0) {
+        const variants = await tx.productVariant.findMany({
+          where: { productId: { in: [...new Set(variantLines.map((l) => l.productId))] } },
+        });
+        for (const l of variantLines) {
+          const v = variants.find((x) => x.productId === l.productId && x.name === l.variant);
+          if (v) {
+            if (v.stock < l.qty) throw new Error(`STOCK:Only ${v.stock} left of ${l.title} (${v.name}).`);
+            await tx.productVariant.update({ where: { id: v.id }, data: { stock: v.stock - l.qty } });
+          }
+        }
+      }
+      const created = await tx.order.create({
+        data: {
+          number,
+          buyerId: userId,
+          status: "PAID",
+          subtotal,
+          shipping: shippingFinal,
+          discount,
+          couponCode: coupon?.code,
+          total,
+          items: {
+            create: lines.map((l) => ({
+              productId: l.productId,
+              storeId: l.storeId,
+              title: l.title,
+              image: l.image,
+              price: l.price,
+              qty: l.qty,
+              variant: l.variant,
+            })),
+          },
+        },
+      });
+      if (coupon) {
+        await tx.couponRedemption.create({
+          data: { couponId: coupon.id, userId, orderId: created.id, amount: discount },
+        });
+        await tx.coupon.update({ where: { id: coupon.id }, data: { usedCount: { increment: 1 } } });
+      }
+      return created;
+    });
+    orderId = order.id;
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : "Checkout failed";
+    if (msg.startsWith("COUPON:")) return fail("COUPON", msg.slice(7), 422);
+    if (msg.startsWith("STOCK:")) return fail("STOCK", msg.slice(6), 422);
+    console.error("[checkout] failed", msg);
+    return fail("CHECKOUT", "Checkout failed, please retry", 500);
+  }
+
+  await audit(userId, "order.create", "Order", orderId, { number, total, coupon: coupon?.code });
+  await notifyAdmins({
+    type: "order.created",
+    title: `New order ${number} — $${total.toFixed(2)}`,
+    body: coupon ? `Coupon ${coupon.code} applied (−$${discount.toFixed(2)}).` : undefined,
+    link: `/ys-admin/orders/show/${orderId}`,
+    meta: { entityId: orderId, orderNumber: number },
+  });
+  const order = await db.order.findUnique({ where: { id: orderId }, include: { items: true } });
+  return ok(order, undefined, 201);
+}

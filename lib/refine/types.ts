@@ -69,9 +69,21 @@ export type Dispute = {
 export type Coupon = {
   id: string;
   code: string;
-  pctOff: number;
+  type: "PERCENT" | "FIXED" | "FREESHIP";
+  pctOff: number | null;
+  amountOff: number | null;
   active: boolean;
+  startsAt: string | null;
+  endsAt: string | null;
+  minSubtotal: number | null;
+  maxUses: number | null;
+  usedCount: number;
+  perUserLimit: number | null;
+  categories: string[];
+  storeIds: string[];
   createdAt: string;
+  _count?: { redemptions: number };
+  redemptions?: Array<{ id: string; userId: string; orderId: string | null; amount: number; createdAt: string }>;
 };
 
 export type NotificationItem = {

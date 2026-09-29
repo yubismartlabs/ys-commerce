@@ -15,9 +15,11 @@ export type CartItem = {
 
 type CartState = {
   items: CartItem[];
+  couponCode: string | null;
   add: (p: Product, qty?: number, variant?: string) => void;
   remove: (slug: string) => void;
   setQty: (slug: string, qty: number) => void;
+  setCoupon: (code: string | null) => void;
   clear: () => void;
   count: () => number;
   subtotal: () => number;
@@ -27,6 +29,7 @@ export const useCart = create<CartState>()(
   persist(
     (set, get) => ({
       items: [],
+      couponCode: null,
       add: (p, qty = 1, variant) =>
         set((s) => {
           const found = s.items.find((i) => i.slug === p.slug && i.variant === variant);
@@ -44,7 +47,8 @@ export const useCart = create<CartState>()(
       remove: (slug) => set((s) => ({ items: s.items.filter((i) => i.slug !== slug) })),
       setQty: (slug, qty) =>
         set((s) => ({ items: s.items.map((i) => (i.slug === slug ? { ...i, qty } : i)) })),
-      clear: () => set({ items: [] }),
+      setCoupon: (code) => set({ couponCode: code ? code.trim().toUpperCase() : null }),
+      clear: () => set({ items: [], couponCode: null }),
       count: () => get().items.reduce((a, i) => a + i.qty, 0),
       subtotal: () => get().items.reduce((a, i) => a + i.qty * i.price, 0),
     }),

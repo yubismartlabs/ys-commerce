@@ -1,67 +1,117 @@
 "use client";
 
-import { useState } from "react";
 import Link from "next/link";
+import { useState } from "react";
 import { Plus } from "lucide-react";
-import { useTable, useCreate, useDelete } from "@refinedev/core";
+import { useTable } from "@refinedev/core";
 import { Card } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
 import { EmptyState, ErrorState, PageHeader, Pager, StatusBadge, TableSkeleton } from "@/components/refine/ui";
 import { timeAgo } from "@/lib/format";
 import type { Coupon } from "@/lib/refine/types";
 
+const typeOptions = ["PERCENT", "FIXED", "FREESHIP"] as const;
+
+export function couponValue(c: Coupon): string {
+  if (c.type === "FREESHIP") return "Free shipping";
+  if (c.type === "FIXED") return `$${Number(c.amountOff ?? 0).toFixed(2)} off`;
+  return `−${c.pctOff ?? 0}%`;
+}
+
+function rules(c: Coupon): string {
+  const parts: string[] = [];
+  if (c.minSubtotal) parts.push(`min $${Number(c.minSubtotal).toFixed(2)}`);
+  if (c.maxUses) parts.push(`${c.usedCount}/${c.maxUses} used`);
+  else if (c.usedCount) parts.push(`${c.usedCount} used`);
+  if (c.perUserLimit) parts.push(`max ${c.perUserLimit}/user`);
+  if (c.categories.length > 0) parts.push(c.categories.join(","));
+  if (c.endsAt) parts.push(`ends ${new Date(c.endsAt).toLocaleDateString()}`);
+  return parts.join(" · ") || "—";
+}
+
 export default function CouponsPage() {
-  const { tableQuery, currentPage, setCurrentPage, pageCount } =
+  const [active, setActive] = useState<string | undefined>(undefined);
+  const [type, setType] = useState<string | undefined>(undefined);
+  const [q, setQ] = useState("");
+  const { tableQuery, filters, setFilters, currentPage, setCurrentPage, pageCount } =
     useTable<Coupon>({
       resource: "coupons",
       pagination: { pageSize: 20, mode: "server" },
       syncWithLocation: true,
     });
 
-  const { mutate: create, mutation: creating } = useCreate();
-  const { mutate: remove, mutation: deleting } = useDelete();
-  const [code, setCode] = useState("");
-  const [pct, setPct] = useState("10");
   const rows = tableQuery.data?.data ?? [];
   const total = tableQuery.data?.total;
+  void filters;
+
+  const apply = (a = active, t = type, query = q) => {
+    const next: Array<{ field: string; operator: "eq"; value: string }> = [];
+    if (a !== undefined) next.push({ field: "active", operator: "eq", value: a });
+    if (t !== undefined) next.push({ field: "type", operator: "eq", value: t });
+    if (query.trim()) next.push({ field: "q", operator: "eq", value: query.trim() });
+    setFilters(next);
+  };
 
   return (
     <div className="space-y-4">
       <PageHeader
         title="Coupons"
-        description="Sitewide discount codes applied at checkout."
+        description="Percent, fixed-amount and free-shipping codes with usage rules."
         actions={
-          <form
-            className="flex gap-2"
-            onSubmit={(e) => {
-              e.preventDefault();
-              create(
-                { resource: "coupons", values: { code, pctOff: Number(pct) } },
-                { onSuccess: () => { setCode(""); setPct("10"); } }
-              );
-            }}
-          >
-            <Input value={code} onChange={(e) => setCode(e.target.value)} placeholder="CODE" className="w-36 uppercase" required />
-            <Input value={pct} onChange={(e) => setPct(e.target.value)} placeholder="%" inputMode="numeric" className="w-20" required />
-            <Button type="submit" disabled={creating.isPending} className="bg-ali-red text-white hover:bg-ali-red-dark">
-              <Plus className="size-4" /> Create
-            </Button>
-          </form>
+          <Button asChild className="bg-ali-red text-white hover:bg-ali-red-dark">
+            <Link href="/ys-admin/coupons/create"><Plus className="size-4" /> New coupon</Link>
+          </Button>
         }
       />
+      <div className="flex flex-wrap items-center gap-1.5">
+        {(["ALL", "ACTIVE", "INACTIVE"] as const).map((s) => {
+          const v = s === "ALL" ? undefined : s === "ACTIVE" ? "1" : "0";
+          return (
+            <Button
+              key={s}
+              size="sm"
+              variant={active === v ? "default" : "outline"}
+              className="rounded-full"
+              onClick={() => { setActive(v); apply(v, type, q); }}
+            >
+              {s}
+            </Button>
+          );
+        })}
+        <span className="mx-1 text-neutral-300">|</span>
+        {typeOptions.map((t) => (
+          <Button
+            key={t}
+            size="sm"
+            variant={type === t ? "default" : "outline"}
+            className="rounded-full font-mono text-xs"
+            onClick={() => { const v = type === t ? undefined : t; setType(v); apply(active, v, q); }}
+          >
+            {t}
+          </Button>
+        ))}
+        <form
+          className="ml-auto flex gap-2"
+          onSubmit={(e) => { e.preventDefault(); apply(active, type, q); }}
+        >
+          <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search code…" className="w-44 uppercase" />
+          <Button type="submit" size="sm" variant="outline">Search</Button>
+        </form>
+      </div>
       <Card className="overflow-hidden p-0">
         {tableQuery.isLoading ? (
-          <TableSkeleton rows={6} cols={4} />
+          <TableSkeleton rows={6} cols={5} />
         ) : tableQuery.isError ? (
           <ErrorState message="Failed to load coupons. Check the API connection and retry." />
         ) : rows.length === 0 ? (
-          <EmptyState title="No coupons yet" hint="Create your first discount code with the form above." />
+          <EmptyState title="No coupons found" hint="Create one or clear the filters." />
         ) : (
           <Table>
             <TableHeader>
-              <TableRow><TableHead>Code</TableHead><TableHead>Off</TableHead><TableHead>Status</TableHead><TableHead>Created</TableHead><TableHead className="text-right">Actions</TableHead></TableRow>
+              <TableRow><TableHead>Code</TableHead><TableHead>Type</TableHead><TableHead>Value</TableHead><TableHead>Rules</TableHead><TableHead>Status</TableHead><TableHead>Created</TableHead><TableHead className="text-right">Action</TableHead></TableRow>
             </TableHeader>
             <TableBody>
               {rows.map((c) => (
@@ -71,17 +121,14 @@ export default function CouponsPage() {
                       {c.code}
                     </Link>
                   </TableCell>
-                  <TableCell className="font-semibold tabular-nums">−{c.pctOff}%</TableCell>
+                  <TableCell><Badge variant="outline" className="font-mono text-[10px]">{c.type}</Badge></TableCell>
+                  <TableCell className="font-semibold tabular-nums">{couponValue(c)}</TableCell>
+                  <TableCell className="max-w-64 truncate text-xs text-neutral-500">{rules(c)}</TableCell>
                   <TableCell><StatusBadge value={c.active ? "ACTIVE" : "INACTIVE"} /></TableCell>
                   <TableCell className="whitespace-nowrap text-neutral-500">{timeAgo(c.createdAt)}</TableCell>
                   <TableCell className="text-right">
-                    <Button
-                      size="sm"
-                      variant="destructive"
-                      disabled={deleting.isPending}
-                      onClick={() => { if (window.confirm("Delete this coupon?")) remove({ resource: "coupons", id: c.id }); }}
-                    >
-                      Delete
+                    <Button size="sm" variant="outline" asChild>
+                      <Link href={`/ys-admin/coupons/show/${c.id}`}>Open</Link>
                     </Button>
                   </TableCell>
                 </TableRow>

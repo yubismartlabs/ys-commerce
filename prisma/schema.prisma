@@ -171,6 +171,8 @@ model Order {
   status    OrderStatus @default(PENDING)
   subtotal  Decimal     @db.Decimal(10, 2)
   shipping  Decimal     @default(0) @db.Decimal(10, 2)
+  discount  Decimal     @default(0) @db.Decimal(10, 2)
+  couponCode String?
   total     Decimal     @db.Decimal(10, 2)
   currency  String      @default("USD")
   createdAt DateTime    @default(now())
@@ -220,11 +222,43 @@ model DisputeMessage {
 }
 
 model Coupon {
+  id          String     @id @default(cuid())
+  code        String     @unique
+  type        CouponType @default(PERCENT)
+  pctOff      Int?       // PERCENT: 1-90
+  amountOff   Decimal?   @db.Decimal(10, 2) // FIXED: USD off eligible subtotal
+  active      Boolean    @default(true)
+  startsAt    DateTime?
+  endsAt      DateTime?
+  minSubtotal Decimal?   @db.Decimal(10, 2)
+  maxUses     Int?       // total redemption cap
+  usedCount   Int        @default(0)
+  perUserLimit Int?      // redemptions per user
+  categories  String[]   @default([]) // empty = all categories
+  storeIds    String[]   @default([]) // empty = all stores
+  createdAt   DateTime   @default(now())
+
+  redemptions CouponRedemption[]
+}
+
+enum CouponType {
+  PERCENT
+  FIXED
+  FREESHIP
+}
+
+model CouponRedemption {
   id        String   @id @default(cuid())
-  code      String   @unique
-  pctOff    Int
-  active    Boolean  @default(true)
+  couponId  String
+  userId    String
+  orderId   String?  @unique // one coupon per order
+  amount    Decimal  @db.Decimal(10, 2) // discount granted (0 for free-ship)
   createdAt DateTime @default(now())
+
+  coupon Coupon @relation(fields: [couponId], references: [id], onDelete: Cascade)
+
+  @@index([couponId])
+  @@index([userId])
 }
 
 model Payout {

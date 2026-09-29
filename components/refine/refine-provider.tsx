@@ -29,7 +29,7 @@ export function RefineProvider({ children }: { children: React.ReactNode }) {
         { name: "products", list: "/ys-admin/products", show: "/ys-admin/products/show/:id", meta: { label: "Products", icon: <Package className="size-4" /> } },
         { name: "orders", list: "/ys-admin/orders", show: "/ys-admin/orders/show/:id", meta: { label: "Orders", icon: <ShoppingCart className="size-4" /> } },
         { name: "disputes", list: "/ys-admin/disputes", show: "/ys-admin/disputes/show/:id", meta: { label: "Disputes", icon: <MessageSquareWarning className="size-4" /> } },
-        { name: "coupons", list: "/ys-admin/coupons", show: "/ys-admin/coupons/show/:id", meta: { label: "Coupons", icon: <Ticket className="size-4" /> } },
+        { name: "coupons", list: "/ys-admin/coupons", show: "/ys-admin/coupons/show/:id", create: "/ys-admin/coupons/create", meta: { label: "Coupons", icon: <Ticket className="size-4" /> } },
         { name: "notifications", list: "/ys-admin/notifications", meta: { label: "Notifications", icon: <Bell className="size-4" /> } },
         { name: "emails", list: "/ys-admin/emails", meta: { label: "Email log", icon: <Mail className="size-4" /> } },
       ]}

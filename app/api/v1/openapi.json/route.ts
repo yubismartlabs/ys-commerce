@@ -22,8 +22,11 @@ const spec = {
     "/admin/orders/{id}": { patch: { summary: "Cancel / refund order (admin)" } },
     "/admin/disputes": { get: { summary: "List disputes with threads (admin)" } },
     "/admin/disputes/{id}": { patch: { summary: "Resolve dispute (admin)" } },
-    "/admin/coupons": { get: { summary: "List coupons" }, post: { summary: "Create coupon" } },
-    "/admin/coupons/{id}": { delete: { summary: "Delete coupon" } },
+    "/admin/coupons": { get: { summary: "List coupons, filters ?active=&type=&q= (admin)" }, post: { summary: "Create coupon (admin)" } },
+    "/admin/coupons/{id}": { get: { summary: "Coupon detail + redemptions (admin)" }, patch: { summary: "Update coupon (admin)" }, delete: { summary: "Delete coupon" } },
+    "/coupons": { get: { summary: "Active public coupons (no auth)" } },
+    "/coupons/validate": { post: { summary: "Quote a coupon against a basket (no auth)" } },
+    "/checkout": { post: { summary: "Place an order, optional couponCode (auth)" } },
     "/admin/api-tokens": {
       get: { summary: "List mobile API tokens" },
       post: { summary: "Mint a bearer token (raw token shown once)" },

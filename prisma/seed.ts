@@ -139,8 +139,18 @@ async function main() {
 
   await prisma.coupon.upsert({
     where: { code: "WELCOME10" },
+    update: { type: "PERCENT", pctOff: 10, active: true },
+    create: { code: "WELCOME10", type: "PERCENT", pctOff: 10 },
+  });
+  await prisma.coupon.upsert({
+    where: { code: "SAVE5" },
     update: {},
-    create: { code: "WELCOME10", pctOff: 10 },
+    create: { code: "SAVE5", type: "FIXED", amountOff: 5, minSubtotal: 25 },
+  });
+  await prisma.coupon.upsert({
+    where: { code: "FREESHIP" },
+    update: {},
+    create: { code: "FREESHIP", type: "FREESHIP" },
   });
 
   const { defaultSettings, SETTING_GROUPS } = await import("../lib/settings");

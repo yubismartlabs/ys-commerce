@@ -20,7 +20,7 @@ import type {
  * Conventions:
  * - list:  ?page=&pageSize=&status=&q=  -> { data, pagination: { total } }
  * - errors: { error: { code, message } } -> Refine HttpError
- * - create/delete only exist for coupons; other resources throw 405
+ * - create/update/delete only exist for coupons; other resources use bespoke pages
  */
 
 const API = "/api/v1/admin";
@@ -100,7 +100,6 @@ export const dataProvider: DataProvider = {
     id,
     variables,
   }: UpdateParams<TVariables>): Promise<UpdateResponse<TData>> => {
-    if (resource === "coupons") throw notAllowed("Update", resource);
     const data = await request<TData>(`${pathFor(resource)}/${id}`, {
       method: "PATCH",
       body: JSON.stringify(variables),

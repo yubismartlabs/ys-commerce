@@ -5,12 +5,17 @@ import Image from "next/image";
 import { Minus, Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { Separator } from "@/components/ui/separator";
 import { useCart } from "@/lib/store/cart";
+import { CouponBox } from "@/components/coupons/coupon-box";
+import { useQuote } from "@/components/coupons/use-quote";
 import { formatUSD } from "@/lib/format";
 
 export default function CartPage() {
-  const { items, setQty, remove, subtotal, clear } = useCart();
+  const { items, setQty, remove, subtotal, clear, couponCode } = useCart();
   const total = subtotal();
+  const lines = items.map((i) => ({ slug: i.slug, qty: i.qty, ...(i.variant ? { variant: i.variant } : {}) }));
+  const quote = useQuote(lines, couponCode);
 
   if (items.length === 0) {
     return (
@@ -54,8 +59,17 @@ export default function CartPage() {
       <Card className="h-fit space-y-3 p-4">
         <p className="font-bold">Order summary</p>
         <div className="flex justify-between text-sm"><span>Subtotal</span><span>{formatUSD(total)}</span></div>
-        <div className="flex justify-between text-sm"><span>Shipping</span><span className="text-emerald-600">Free</span></div>
-        <div className="flex justify-between border-t pt-3 font-extrabold"><span>Total</span><span className="text-ali-red">{formatUSD(total)}</span></div>
+        <CouponBox lines={lines} />
+        {quote.data ? (
+          <>
+            <div className="flex justify-between text-sm text-emerald-600"><span>Coupon {quote.data.code}</span><span>−{formatUSD(quote.data.discount + quote.data.shippingDiscount)}</span></div>
+            <div className="flex justify-between text-sm"><span>Shipping</span><span>{quote.data.shippingFinal === 0 ? "Free" : formatUSD(quote.data.shippingFinal)}</span></div>
+          </>
+        ) : (
+          <div className="flex justify-between text-sm"><span>Shipping</span><span className="text-neutral-500">At checkout</span></div>
+        )}
+        <Separator />
+        <div className="flex justify-between font-extrabold"><span>Total</span><span className="text-ali-red">{formatUSD(quote.data ? quote.data.total : total)}</span></div>
         <Button asChild className="w-full bg-ali-red text-white hover:bg-ali-red-dark">
           <Link href="/checkout">Checkout</Link>
         </Button>
