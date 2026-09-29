@@ -41,6 +41,7 @@ export const GET = withAdmin(
       blocked: !!convo.blockedById,
       reportedAt: convo.reportedAt,
       reportReason: convo.reportReason,
+      reportEvidence: convo.reportEvidence,
       users,
       order,
       product,

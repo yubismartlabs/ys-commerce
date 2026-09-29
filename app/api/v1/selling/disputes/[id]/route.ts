@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import { fail, ok } from "@/lib/api/http";
 import { audit } from "@/lib/api/guard";
 import { isSuspended } from "@/lib/api/identity";
+import { evaluateMessage } from "@/lib/chat/safety";
 import { notifyAdmins, notifyUser } from "@/lib/notifications/notify";
 
 /** Seller reads a dispute involving their items. */
@@ -40,6 +41,9 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
 
   const parsed = replySchema.safeParse(await req.json().catch(() => null));
   if (!parsed.success) return fail("VALIDATION", "message required", 422);
+
+  const screen = evaluateMessage(parsed.data.message);
+  if (screen.level === "block") return fail("PROTECTION", screen.message ?? "Content blocked", 422);
 
   const stores = await db.store.findMany({ where: { ownerId: userId }, select: { id: true } });
   const storeIds = stores.map((s) => s.id);

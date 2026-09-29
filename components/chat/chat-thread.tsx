@@ -2,7 +2,7 @@
 
 import { useRef, useState } from "react";
 import Image from "next/image";
-import { Ban, Flag, ImagePlus, Loader2, Lock, Reply, Send, Undo2 } from "lucide-react";
+import { Ban, Flag, ImagePlus, Loader2, Lock, Reply, Send, ShieldAlert, Undo2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -12,6 +12,7 @@ import { StatusBadge } from "@/components/refine/ui";
 import { timeAgo } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { useChat } from "@/components/chat/use-chat";
+import { evaluateMessage } from "@/lib/chat/safety";
 
 async function act(path: string, body: object) {
   const res = await fetch(path, {
@@ -33,19 +34,36 @@ export function ChatThread({ conversationId, userId }: { conversationId: string;
   const [sending, setSending] = useState(false);
   const [image, setImage] = useState<{ blob: Blob; name: string; preview: string } | null>(null);
   const [replyTo, setReplyTo] = useState<string | null>(null);
+  const [warnAck, setWarnAck] = useState<string | null>(null);
+  const [reporting, setReporting] = useState(false);
+  const [reportReason, setReportReason] = useState("");
+  const [shareMine, setShareMine] = useState(true);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const d = chat.detail;
   const blocked = !!d?.blockedById;
 
-  const submit = async () => {
+  const submit = async (force = false) => {
     if ((!draft.trim() && !image) || sending) return;
+    // Safety screen on plaintext BEFORE sealing (server can't — E2EE).
+    if (draft.trim() && !force) {
+      const check = evaluateMessage(draft);
+      if (check.level === "block") {
+        toast.error(check.message ?? "Message blocked.", { duration: 6000 });
+        return;
+      }
+      if (check.level === "warn" && warnAck !== draft) {
+        setWarnAck(draft);
+        return;
+      }
+    }
     setSending(true);
     try {
       await chat.send(draft, image ?? undefined, replyTo ?? undefined);
       setDraft("");
       setImage(null);
       setReplyTo(null);
+      setWarnAck(null);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Send failed.");
     } finally {
@@ -60,6 +78,33 @@ export function ChatThread({ conversationId, userId }: { conversationId: string;
       chat.refetch();
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Action failed.");
+    }
+  };
+
+  const submitReport = async () => {
+    if (reportReason.trim().length < 3) {
+      toast.error("Tell us briefly what's wrong (3+ characters).");
+      return;
+    }
+    // Consent-based evidence: only MY OWN messages, decrypted in this tab.
+    const evidence = shareMine
+      ? chat.messages
+          .filter((m) => m.mine && !m.text.startsWith("⚠"))
+          .slice(-50)
+          .map((m) => ({ text: m.text.slice(0, 2000), at: m.createdAt }))
+      : [];
+    try {
+      await act(`/api/v1/chat/conversations/${conversationId}`, {
+        action: "report",
+        reason: reportReason.trim(),
+        ...(evidence.length > 0 ? { evidence } : {}),
+      });
+      toast.success("Reported. Thanks.");
+      setReporting(false);
+      setReportReason("");
+      chat.refetch();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Report failed.");
     }
   };
 
@@ -110,10 +155,7 @@ export function ChatThread({ conversationId, userId }: { conversationId: string;
               size="sm"
               variant="ghost"
               className="gap-1 text-xs"
-              onClick={() => {
-                const reason = window.prompt("Report this conversation (metadata only — admins can't read messages):");
-                if (reason) void onAction({ action: "report", reason }, "Reported. Thanks.");
-              }}
+              onClick={() => setReporting(!reporting)}
             >
               <Flag className="size-3.5" /> Report
             </Button>
@@ -168,7 +210,21 @@ export function ChatThread({ conversationId, userId }: { conversationId: string;
       {blocked ? (
         <Card className="p-4 text-center text-sm text-neutral-500">This conversation is blocked.</Card>
       ) : (
-        <Card className="space-y-2 p-3">
+          <Card className="space-y-2 p-3">
+          <p className="flex items-start gap-1.5 rounded-lg bg-amber-400/10 px-3 py-2 text-xs text-amber-800 dark:text-amber-300">
+            <ShieldAlert className="mt-0.5 size-3.5 shrink-0" />
+            Keep it on ys-commerce: no phone numbers, emails, links, or off-site payments.
+            Deals made outside lose buyer protection and seller escrow.
+          </p>
+          {warnAck === draft && draft.trim() ? (
+            <p className="flex flex-wrap items-center gap-2 rounded-lg bg-orange-500/10 px-3 py-2 text-xs">
+              <span className="flex-1">That looks abusive — send anyway?</span>
+              <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => setWarnAck(null)}>Edit</Button>
+              <Button size="sm" className="h-7 bg-orange-600 text-xs text-white hover:bg-orange-700" onClick={() => void submit(true)}>
+                Send anyway
+              </Button>
+            </p>
+          ) : null}
           {replyTarget ? (
             <p className="flex items-center gap-2 rounded-lg bg-neutral-100 px-3 py-1.5 text-xs dark:bg-neutral-800">
               <Reply className="size-3.5" />
@@ -229,6 +285,37 @@ export function ChatThread({ conversationId, userId }: { conversationId: string;
           <p className="text-[11px] text-neutral-400">Sealed on this device before upload. Not even ys-commerce can read it.</p>
         </Card>
       )}
+
+      {reporting && !blocked ? (
+        <Card className="space-y-2 p-4">
+          <p className="text-sm font-bold">Report conversation</p>
+          <p className="text-xs text-neutral-500">
+            Admins see metadata only — message bodies stay sealed. Optionally attach your own messages as evidence.
+          </p>
+          <Textarea
+            value={reportReason}
+            onChange={(e) => setReportReason(e.target.value)}
+            placeholder="What's wrong? (spam, fraud, abuse…)"
+            rows={2}
+          />
+          <label className="flex cursor-pointer items-start gap-2 text-xs">
+            <input
+              type="checkbox"
+              className="mt-0.5"
+              checked={shareMine}
+              onChange={(e) => setShareMine(e.target.checked)}
+            />
+            <span>
+              Include my messages as evidence (decrypted on this device, {chat.messages.filter((m) => m.mine).length} available).
+              The other party&apos;s messages stay encrypted.
+            </span>
+          </label>
+          <div className="flex gap-2">
+            <Button size="sm" variant="outline" onClick={() => setReporting(false)}>Cancel</Button>
+            <Button size="sm" variant="destructive" onClick={() => void submitReport()}>Submit report</Button>
+          </div>
+        </Card>
+      ) : null}
     </div>
   );
 }

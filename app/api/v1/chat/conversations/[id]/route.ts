@@ -56,10 +56,20 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   });
 }
 
+const evidenceSchema = z.object({
+  text: z.string().min(1).max(2000),
+  at: z.string().datetime(),
+});
+
 const patchSchema = z.union([
   z.object({ action: z.literal("block") }),
   z.object({ action: z.literal("unblock") }),
-  z.object({ action: z.literal("report"), reason: z.string().min(3).max(500) }),
+  z.object({
+    action: z.literal("report"),
+    reason: z.string().min(3).max(500),
+    // Reporter's OWN messages, decrypted client-side with consent (≤50).
+    evidence: z.array(evidenceSchema).max(50).optional(),
+  }),
 ]);
 
 /** Block/unblock the peer, or report metadata (admins see metadata only — never content). */
@@ -93,8 +103,17 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   }
   await db.conversation.update({
     where: { id },
-    data: { reportedAt: new Date(), reportReason: parsed.data.reason },
+    data: {
+      reportedAt: new Date(),
+      reportReason: parsed.data.reason,
+      ...(parsed.data.evidence
+        ? { reportEvidence: JSON.stringify(parsed.data.evidence).slice(0, 20000) }
+        : {}),
+    },
   });
-  await audit(me.id, "chat.report", "Conversation", id, { reason: parsed.data.reason });
+  await audit(me.id, "chat.report", "Conversation", id, {
+    reason: parsed.data.reason,
+    evidence: parsed.data.evidence ? parsed.data.evidence.length : 0,
+  });
   return ok({ reported: true });
 }

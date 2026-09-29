@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import { fail, ok } from "@/lib/api/http";
 import { audit } from "@/lib/api/guard";
 import { isSuspended } from "@/lib/api/identity";
+import { evaluateMessage } from "@/lib/chat/safety";
 import { notifyAdmins } from "@/lib/notifications/notify";
 
 /** Buyer reads their own dispute thread. */
@@ -36,6 +37,9 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
 
   const parsed = replySchema.safeParse(await req.json().catch(() => null));
   if (!parsed.success) return fail("VALIDATION", "message required", 422);
+
+  const screen = evaluateMessage(parsed.data.message);
+  if (screen.level === "block") return fail("PROTECTION", screen.message ?? "Content blocked", 422);
 
   const dispute = await db.dispute.findUnique({ where: { id }, include: { order: { select: { number: true } } } });
   if (!dispute || dispute.buyerId !== userId) return fail("NOT_FOUND", "Dispute not found", 404);

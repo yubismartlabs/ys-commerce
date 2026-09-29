@@ -614,6 +614,9 @@ model Conversation {
   blockedById   String?
   reportedAt    DateTime?
   reportReason  String?
+  // Voluntary evidence: the reporter's OWN messages, decrypted client-side
+  // and attached with consent. The other party's messages stay sealed.
+  reportEvidence String?
   createdAt     DateTime         @default(now())
 
   messages  ChatMessage[]

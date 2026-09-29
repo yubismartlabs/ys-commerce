@@ -20,6 +20,7 @@ type Detail = {
   blocked: boolean;
   reportedAt: string | null;
   reportReason: string | null;
+  reportEvidence: string | null;
   users: Array<{ id: string; name: string | null; email: string; role: string }>;
   order: { number: string; status: string; total: number } | null;
   product: { title: string; slug: string } | null;
@@ -57,6 +58,35 @@ export default function ChatInspectPage({ params }: { params: Promise<{ id: stri
             <span className="font-semibold">Report ({timeAgo(d.reportedAt)}): </span>{d.reportReason}
           </p>
         ) : null}
+        {(() => {
+          let evidence: Array<{ text: string; at: string }> = [];
+          try {
+            const parsed: unknown = d.reportEvidence ? JSON.parse(d.reportEvidence) : [];
+            if (Array.isArray(parsed)) {
+              evidence = parsed.filter(
+                (e): e is { text: string; at: string } =>
+                  !!e && typeof e === "object" && typeof (e as { text?: unknown }).text === "string"
+              );
+            }
+          } catch {
+            evidence = [];
+          }
+          if (evidence.length === 0) return null;
+          return (
+            <div className="rounded-lg border border-amber-400/40 bg-amber-400/10 p-3">
+              <p className="text-sm font-bold">Reporter-provided evidence ({evidence.length})</p>
+              <p className="text-xs text-neutral-500">Only the reporter&apos;s own messages — shared with consent. The other side stays sealed.</p>
+              <ul className="mt-2 space-y-1.5">
+                {evidence.map((e, i) => (
+                  <li key={i} className="rounded bg-white/60 p-2 text-sm dark:bg-black/20">
+                    <p>{e.text}</p>
+                    <p className="mt-0.5 text-[11px] text-neutral-400">{e.at ? timeAgo(e.at) : ""}</p>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          );
+        })()}
 
         <Separator />
         <SectionTitle>Participants</SectionTitle>

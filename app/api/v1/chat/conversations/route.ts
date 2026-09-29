@@ -115,6 +115,15 @@ export async function POST(req: Request) {
   if (!parsed.success) return fail("VALIDATION", "Provide {orderId, storeId} or {productId} or {storeId}", 422);
   const body = parsed.data;
 
+  // Anti-spam: cap new conversations per user per day (order chats are idempotent anyway).
+  const openedToday = await db.conversation.count({
+    where: {
+      OR: [{ buyerId: actor.id }, { sellerId: actor.id }],
+      createdAt: { gt: new Date(Date.now() - 24 * 3600000) },
+    },
+  });
+  if (openedToday >= 10) return fail("RATE_LIMITED", "Too many new conversations — try again tomorrow", 429);
+
   if ("orderId" in body) {
     const order = await db.order.findUnique({
       where: { id: body.orderId },

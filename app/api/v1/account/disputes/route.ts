@@ -5,6 +5,7 @@ import { fail, getPagination, ok } from "@/lib/api/http";
 import { audit } from "@/lib/api/guard";
 import { filingEligibility, freezeForOrder } from "@/lib/escrow/escrow";
 import { isSuspended } from "@/lib/api/identity";
+import { evaluateMessage } from "@/lib/chat/safety";
 import { getEmailConfig } from "@/lib/email/send";
 import { disputeOpenedEmail } from "@/lib/email/templates";
 import { notifyAdmins, notifyUser } from "@/lib/notifications/notify";
@@ -57,6 +58,10 @@ export async function POST(req: Request) {
 
   const parsed = fileSchema.safeParse(await req.json().catch(() => null));
   if (!parsed.success) return fail("VALIDATION", "orderNumber, category and reason (10+ chars) required", 422);
+
+  // Dispute threads are plaintext — screen contact info / circumvention server-side.
+  const screen = evaluateMessage(parsed.data.reason);
+  if (screen.level === "block") return fail("PROTECTION", screen.message ?? "Content blocked", 422);
 
   const order = await db.order.findUnique({
     where: { number: parsed.data.orderNumber.trim().toUpperCase() },
