@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 
-export function ok<T>(data: T, pagination?: { page: number; pageSize: number; total: number }, status = 200) {
-  return NextResponse.json(serialize({ data, ...(pagination ? { pagination } : {}) }), { status });
+export function ok<T>(data: T, pagination?: { page: number; pageSize: number; total: number }, status = 200, meta?: Record<string, unknown>) {
+  return NextResponse.json(serialize({ data, ...(pagination ? { pagination } : {}), ...(meta ? { meta } : {}) }), { status });
 }
 
 export function fail(code: string, message: string, status = 400) {

@@ -77,14 +77,30 @@ async function main() {
   for (const [i, item] of catalog.entries()) {
     const store = stores[i % stores.length];
     const slug = `product-${i + 1}`;
+    const gallery = [0, 1, 2].map((g) => `https://picsum.photos/seed/ys-product-${i + 1}-${g}/800/800`);
     await prisma.product.upsert({
       where: { slug },
-      update: {},
+      update: {
+        images: gallery,
+        specs: [
+          { k: "Brand", v: "YS Choice" },
+          { k: "Category", v: item.category },
+          { k: "Warranty", v: "12 months" },
+          { k: "Ships from", v: "United States" },
+        ],
+      },
       create: {
         slug,
         title: item.title,
         description: "Mock description seeded for admin development.",
         image: `https://picsum.photos/seed/ys-product-${i + 1}/600/600`,
+        images: gallery,
+        specs: [
+          { k: "Brand", v: "YS Choice" },
+          { k: "Category", v: item.category },
+          { k: "Warranty", v: "12 months" },
+          { k: "Ships from", v: "United States" },
+        ],
         price: item.price,
         compareAt: item.compareAt,
         category: item.category,
@@ -152,6 +168,36 @@ async function main() {
     update: {},
     create: { code: "FREESHIP", type: "FREESHIP" },
   });
+
+  // Sample verified reviews on the demo orders' products + aggregates.
+  const { recalcProductRating } = await import("../lib/products/ratings");
+  const reviewSamples = [
+    { slug: "product-1", rating: 5, title: "Exceeded expectations", body: "Sound quality is great for the price. Shipping took 9 days." },
+    { slug: "product-2", rating: 4, title: "Good value", body: "Comfortable and true to size. Slight glue smell at first." },
+    { slug: "product-3", rating: 5, title: "Love the app control", body: "Bright colors, easy install behind the TV." },
+  ];
+  for (const r of reviewSamples) {
+    const p = await prisma.product.findUnique({ where: { slug: r.slug } });
+    if (!p) continue;
+    const exists = await prisma.review.findUnique({
+      where: { productId_authorId: { productId: p.id, authorId: buyer.id } },
+    });
+    if (!exists) {
+      await prisma.review.create({
+        data: {
+          productId: p.id,
+          storeId: p.storeId,
+          authorId: buyer.id,
+          rating: r.rating,
+          title: r.title,
+          body: r.body,
+          verified: true,
+          helpful: r.rating === 5 ? 12 : 4,
+        },
+      });
+    }
+    await recalcProductRating(p.id);
+  }
 
   // Example staff roles (assignable in ys-admin → Users → Roles).
   await prisma.staffRole.upsert({

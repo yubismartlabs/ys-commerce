@@ -3,11 +3,24 @@ import Image from "next/image";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { discountPct, formatSold, formatUSD } from "@/lib/format";
-import type { Product } from "@/lib/mocks/catalog";
 import { RatingStars } from "./rating-stars";
 import { cn } from "@/lib/utils";
 
-export function ProductCard({ product }: { product: Product }) {
+/** Minimal card fields — satisfied by both mock catalog rows and API products. */
+export type CardProduct = {
+  slug: string;
+  title: string;
+  image: string;
+  price: number;
+  compareAt?: number;
+  rating: number;
+  reviews: number;
+  sold: number;
+  badge?: string | null;
+  freeShipping: boolean;
+};
+
+export function ProductCard({ product }: { product: CardProduct }) {
   const pct = discountPct(product.price, product.compareAt);
   return (
     <Link href={`/product/${product.slug}`} className="group">

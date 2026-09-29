@@ -152,12 +152,17 @@ model Product {
   title       String
   description String?
   image       String
+  images      String[]      @default([])
+  specs       Json?
   price       Decimal       @db.Decimal(10, 2)
   compareAt   Decimal?      @db.Decimal(10, 2)
   category    String
   badge       String?
   freeShipping Boolean      @default(true)
   status      ProductStatus @default(ACTIVE)
+  ratingAvg   Float         @default(0)
+  ratingCount Int           @default(0)
+  soldCount   Int           @default(0)
   storeId     String
   createdAt   DateTime      @default(now())
   updatedAt   DateTime      @updatedAt
@@ -169,6 +174,8 @@ model Product {
 
   @@index([category])
   @@index([status])
+  @@index([ratingAvg])
+  @@index([soldCount])
 }
 
 model ProductVariant {
@@ -177,6 +184,7 @@ model ProductVariant {
   name      String
   sku       String?  @unique
   price     Decimal? @db.Decimal(10, 2)
+  image     String?
   stock     Int      @default(0)
   createdAt DateTime @default(now())
 
@@ -377,11 +385,31 @@ model Review {
   rating    Int
   title     String?
   body      String?
+  images    String[] @default([])
+  verified  Boolean  @default(false)
+  helpful   Int      @default(0)
+  replyBody String?
+  replyAt   DateTime?
   createdAt DateTime @default(now())
 
   product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
   store   Store   @relation(fields: [storeId], references: [id], onDelete: Cascade)
   author  User    @relation(fields: [authorId], references: [id])
+  votes   ReviewVote[]
+
+  @@unique([productId, authorId])
+  @@index([productId, createdAt])
+}
+
+model ReviewVote {
+  id        String   @id @default(cuid())
+  reviewId  String
+  userId    String
+  createdAt DateTime @default(now())
+
+  review Review @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+
+  @@unique([reviewId, userId])
 }
 
 model ApiToken {

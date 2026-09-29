@@ -2,7 +2,6 @@
 
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
-import type { Product } from "@/lib/mocks/catalog";
 
 export type CartItem = {
   slug: string;
@@ -13,10 +12,18 @@ export type CartItem = {
   variant?: string;
 };
 
+/** Minimal product shape any listing (mock or backend) can add to the cart. */
+export type AddToCartInput = {
+  slug: string;
+  title: string;
+  image: string;
+  price: number;
+};
+
 type CartState = {
   items: CartItem[];
   couponCode: string | null;
-  add: (p: Product, qty?: number, variant?: string) => void;
+  add: (p: AddToCartInput, qty?: number, variant?: string) => void;
   remove: (slug: string) => void;
   setQty: (slug: string, qty: number) => void;
   setCoupon: (code: string | null) => void;

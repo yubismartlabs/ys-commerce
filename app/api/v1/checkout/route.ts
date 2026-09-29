@@ -135,6 +135,9 @@ export async function POST(req: Request) {
         });
         await tx.coupon.update({ where: { id: coupon.id }, data: { usedCount: { increment: 1 } } });
       }
+      for (const l of lines) {
+        await tx.product.update({ where: { id: l.productId }, data: { soldCount: { increment: l.qty } } });
+      }
       await tx.orderEvent.createMany({
         data: [
           { orderId: created.id, type: "CREATED", actorId: userId },

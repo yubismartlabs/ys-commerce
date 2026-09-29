@@ -38,6 +38,9 @@ export default function ProductShowPage({ params }: { params: Promise<{ id: stri
               {p.compareAt ? <span className="text-sm text-neutral-400 line-through">{formatUSD(p.compareAt)}</span> : null}
             </div>
             <p className="mt-1 text-sm text-neutral-500">{p.store.name} · {p.category}{p.freeShipping ? " · Free shipping" : ""}{p.badge ? ` · ${p.badge}` : ""}</p>
+            <p className="mt-1 text-sm text-neutral-500">
+              ★ {p.ratingAvg.toFixed(1)} ({p.ratingCount} reviews) · {p.soldCount} sold
+            </p>
             <div className="mt-3">
               {p.status === "ACTIVE" ? (
                 <Button size="sm" variant="destructive" disabled={mutation.isPending} onClick={() => mutate({ resource: "products", id, values: { status: "TAKEDOWN" } })}>Takedown listing</Button>
@@ -49,6 +52,35 @@ export default function ProductShowPage({ params }: { params: Promise<{ id: stri
         </div>
 
         {p.description ? (<><Separator className="my-5" /><SectionTitle>Description</SectionTitle><p className="mt-2 text-sm text-neutral-600">{p.description}</p></>) : null}
+
+        {p.images && p.images.length > 0 ? (
+          <>
+            <Separator className="my-5" />
+            <SectionTitle>Gallery ({p.images.length})</SectionTitle>
+            <div className="mt-2 flex flex-wrap gap-2">
+              {p.images.map((g) => (
+                <span key={g} className="relative size-20 overflow-hidden rounded-lg bg-neutral-100">
+                  <Image src={g} alt="" fill sizes="80px" className="object-cover" />
+                </span>
+              ))}
+            </div>
+          </>
+        ) : null}
+
+        {p.specs && p.specs.length > 0 ? (
+          <>
+            <Separator className="my-5" />
+            <SectionTitle>Specifications</SectionTitle>
+            <dl className="mt-2 divide-y text-sm">
+              {p.specs.map((s) => (
+                <div key={s.k} className="grid grid-cols-[160px_1fr] gap-2 py-1.5">
+                  <dt className="text-neutral-500">{s.k}</dt>
+                  <dd>{s.v}</dd>
+                </div>
+              ))}
+            </dl>
+          </>
+        ) : null}
 
         {p.variants && p.variants.length > 0 && (
           <>

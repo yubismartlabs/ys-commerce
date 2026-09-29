@@ -10,21 +10,29 @@ export type Vendor = {
   _count: { products: number };
 };
 
+export type ProductVariant = { id: string; name: string; sku: string | null; price: number | null; image: string | null; stock: number };
+
 export type Product = {
   id: string;
   slug: string;
   title: string;
   description: string | null;
   image: string;
+  images: string[];
+  specs: Array<{ k: string; v: string }> | null;
   price: number;
   compareAt: number | null;
   category: string;
   badge: string | null;
   freeShipping: boolean;
   status: "DRAFT" | "ACTIVE" | "TAKEDOWN";
+  ratingAvg: number;
+  ratingCount: number;
+  soldCount: number;
   createdAt: string;
-  store: { name: string; slug: string };
-  variants?: Array<{ id: string; name: string; sku: string | null; price: number | null; stock: number }>;
+  store: { id?: string; name: string; slug: string };
+  variants?: ProductVariant[];
+  _count?: { reviews: number };
 };
 
 export type OrderItem = {
