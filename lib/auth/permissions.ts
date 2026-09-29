@@ -28,6 +28,7 @@ export const AREAS = [
   "settings",
   "users",
   "ops",
+  "chat",
   "admin",
 ] as const;
 

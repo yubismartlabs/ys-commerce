@@ -157,6 +157,7 @@ export function MarketplaceHeader() {
                   <DropdownMenuLabel className="truncate">{session?.user?.email ?? "My YS"}</DropdownMenuLabel>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem asChild><Link href="/account">My Orders</Link></DropdownMenuItem>
+                  <DropdownMenuItem asChild><Link href="/account/messages">Messages</Link></DropdownMenuItem>
                   <DropdownMenuItem asChild><Link href="/watchlist">Watchlist</Link></DropdownMenuItem>
                   <DropdownMenuItem asChild><Link href="/account">Coupons & Coins</Link></DropdownMenuItem>
                   <DropdownMenuSeparator />

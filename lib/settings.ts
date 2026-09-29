@@ -54,6 +54,7 @@ export const notificationsSchema = z.object({
   adminAlerts: z.boolean().default(true),
   priceAlerts: z.boolean().default(true),
   lifecycle: z.boolean().default(true),
+  chatEmails: z.boolean().default(true),
   lowStockThreshold: z.number().int().min(0).max(1000).default(5),
   fromEmail: z.string().email().or(z.literal("")).default("onboarding@resend.dev"),
   replyTo: z.string().email().or(z.literal("")).default(""),

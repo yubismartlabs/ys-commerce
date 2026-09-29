@@ -16,6 +16,7 @@ import { RatingStars } from "@/components/commerce/rating-stars";
 import { ApiProductCard, type ApiCardRow } from "@/components/commerce/api-product-card";
 import { ProductReviews } from "@/components/products/product-reviews";
 import { WishlistHeart } from "@/components/products/wishlist-heart";
+import { MessageButton } from "@/components/chat/message-button";
 import { usePublicSettings } from "@/lib/public-settings";
 import { useCart } from "@/lib/store/cart";
 import { cn } from "@/lib/utils";
@@ -30,6 +31,7 @@ type Variant = {
 };
 
 type LiveProduct = {
+  id: string;
   slug: string;
   title: string;
   description: string | null;
@@ -230,6 +232,7 @@ export default function ProductPage({ params }: { params: Promise<{ slug: string
               <Link href={`/store/${product.store.slug}`} className="flex items-center gap-2 pt-1 font-medium">
                 <Store className="size-4" /> {product.store.name} · {product.ratingAvg.toFixed(1)} ★
               </Link>
+              <MessageButton productId={product.id} label="Ask about this product" basePath="/account/messages" />
             </CardContent>
           </Card>
         </div>

@@ -86,6 +86,7 @@ export type Order = {
   disputes?: Dispute[];
   events?: OrderEvent[];
   buyer?: { id: string; email: string; name: string | null };
+  stores?: Array<{ id: string; name: string; slug: string }>;
 };
 
 export type DisputeMessage = {

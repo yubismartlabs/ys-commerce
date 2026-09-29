@@ -8,6 +8,7 @@ import { Heart, Loader2, Megaphone, RotateCcw, Truck } from "lucide-react";
 import { toast } from "sonner";
 import { ApiProductCard, type ApiCardRow } from "@/components/commerce/api-product-card";
 import { RatingStars } from "@/components/commerce/rating-stars";
+import { MessageButton } from "@/components/chat/message-button";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -191,6 +192,7 @@ export default function StorePage({ params }: { params: Promise<{ slug: string }
               queryClient.invalidateQueries({ queryKey: ["store", slug] });
             }}
           />
+          <MessageButton storeId={store.id} label="Message store" basePath="/account/messages" />
         </div>
         {store.announcement ? (
           <p className="flex items-center gap-2 border-t bg-amber-400/10 px-5 py-2 text-sm">

@@ -78,6 +78,12 @@ model User {
   staffRole    StaffRole? @relation(fields: [staffRoleId], references: [id], onDelete: SetNull)
   // Buyer lifecycle preferences, e.g. { lifecycle: false, priceAlerts: false }.
   prefs        Json?
+  // E2EE chat identity: base64 SPKI of the P-256 ECDH public key.
+  // The private key never leaves the user's devices.
+  identityKey  String?
+  // Passphrase-wrapped private JWK backup (server holds ciphertext only)
+  // so the same identity restores on new devices with the passphrase.
+  identityBackup String?
   suspendedAt  DateTime?
   suspendReason String?
   image        String?
@@ -585,4 +591,86 @@ model EmailLog {
 
   @@index([createdAt])
   @@index([status])
+}
+
+enum ConversationType {
+  ORDER
+  INQUIRY
+}
+
+// Buyer↔seller conversations. The server stores ciphertext only —
+// message bodies are end-to-end encrypted (see lib/chat/e2ee.ts) and
+// unreadable to admins, digests, and email.
+model Conversation {
+  id            String           @id @default(cuid())
+  type          ConversationType
+  orderId       String?
+  productId     String?
+  storeId       String
+  buyerId       String
+  sellerId      String
+  subject       String?
+  lastMessageAt DateTime         @default(now())
+  blockedById   String?
+  reportedAt    DateTime?
+  reportReason  String?
+  createdAt     DateTime         @default(now())
+
+  messages  ChatMessage[]
+  reads     ConversationRead[]
+  envelopes KeyEnvelope[]
+
+  @@unique([orderId, storeId])
+  @@index([buyerId, lastMessageAt])
+  @@index([sellerId, lastMessageAt])
+  @@index([storeId])
+}
+
+model ConversationRead {
+  id             String   @id @default(cuid())
+  conversationId String
+  userId         String
+  lastReadAt     DateTime @default(now())
+
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@unique([conversationId, userId])
+}
+
+model ChatMessage {
+  id             String   @id @default(cuid())
+  conversationId String
+  senderId       String
+  // AES-GCM ciphertext (base64). Plaintext never touches the server.
+  ciphertext     String
+  nonce          String
+  keyVersion     Int      @default(1)
+  replyToId      String?
+  // Encrypted image blob URL + nonce; bytes are AES-GCM sealed client-side.
+  imageUrl       String?
+  imageNonce     String?
+  createdAt      DateTime @default(now())
+
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@index([conversationId, createdAt])
+  @@index([senderId])
+}
+
+// Conversation-key envelopes: the symmetric key, ECDH-wrapped per
+// participant public key. The server cannot unwrap them.
+model KeyEnvelope {
+  id             String   @id @default(cuid())
+  conversationId String
+  userId         String
+  wrappedKey     String
+  ephemeralPub   String
+  nonce          String
+  keyVersion     Int      @default(1)
+  createdAt      DateTime @default(now())
+
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@unique([conversationId, userId, keyVersion])
+  @@index([userId])
 }

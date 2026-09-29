@@ -15,6 +15,7 @@ import {
   Mail,
   Menu,
   MessageSquareWarning,
+  MessageCircle,
   Package,
   Settings,
   ShoppingCart,
@@ -75,6 +76,7 @@ const NAV_GROUPS: NavGroup[] = [
     links: [
       { href: "/ys-admin/orders", label: "Orders", icon: <ShoppingCart className="size-4" />, scope: "orders" },
       { href: "/ys-admin/disputes", label: "Disputes", icon: <MessageSquareWarning className="size-4" />, scope: "disputes" },
+      { href: "/ys-admin/chat", label: "Message reports", icon: <MessageCircle className="size-4" />, scope: "chat" },
     ],
   },
   {

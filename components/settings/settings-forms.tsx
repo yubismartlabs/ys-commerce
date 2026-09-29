@@ -140,6 +140,7 @@ export function NotificationsFields({ control, hasResendKey }: { control: C; has
       <SwitchRow control={control} name="adminAlerts" label="Admin alert emails" hint="Seller requests, new disputes and the ops digest." />
       <SwitchRow control={control} name="priceAlerts" label="Price & restock alerts" hint="Buyer wishlist price-drop and back-in-stock emails." />
       <SwitchRow control={control} name="lifecycle" label="Lifecycle emails" hint="Cart recovery, review requests and win-back campaigns." />
+      <SwitchRow control={control} name="chatEmails" label="Chat notifications" hint="New-message nudges (never message content)." />
       <NumberRow control={control} name="lowStockThreshold" label="Low-stock threshold" hint="Variants at or below this count appear in the digest." min={0} />
       <TextRow control={control} name="fromEmail" label="From email" hint="Verified sender. Test domain can only reach the Resend account owner." />
       <TextRow control={control} name="replyTo" label="Reply-to email" hint="Optional. Replies go here instead of the sender." />

@@ -7,6 +7,7 @@ const links = [
   { href: "/selling/listings", label: "Listings" },
   { href: "/selling/orders", label: "Orders" },
   { href: "/selling/disputes", label: "Disputes" },
+  { href: "/selling/messages", label: "Messages" },
   { href: "/selling/payouts", label: "Payouts" },
   { href: "/selling/store", label: "Store settings" },
 ];

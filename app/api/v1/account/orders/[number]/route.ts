@@ -14,5 +14,9 @@ export async function GET(_req: Request, { params }: { params: Promise<{ number:
     include: { items: true, events: { orderBy: { createdAt: "asc" } } },
   });
   if (!order || order.buyerId !== userId) return fail("NOT_FOUND", "Order not found", 404);
-  return ok(order);
+  const stores = await db.store.findMany({
+    where: { id: { in: [...new Set(order.items.map((i) => i.storeId))] } },
+    select: { id: true, name: true, slug: true },
+  });
+  return ok({ ...order, stores });
 }

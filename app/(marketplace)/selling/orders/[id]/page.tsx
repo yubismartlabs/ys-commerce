@@ -12,6 +12,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
 import { StatusBadge } from "@/components/refine/ui";
 import { formatUSD, timeAgo } from "@/lib/format";
+import { MessageButton } from "@/components/chat/message-button";
 import type { Order, OrderItem } from "@/lib/refine/types";
 
 type SellerDetail = Order & { sellerItems: OrderItem[] };
@@ -78,6 +79,7 @@ export default function SellingOrderPage({ params }: { params: Promise<{ id: str
           <h1 className="font-mono text-xl font-bold">{o.number}</h1>
           <StatusBadge value={o.status} />
           <span className="text-xs text-neutral-400">placed {timeAgo(o.createdAt)}</span>
+          <span className="ml-auto"><MessageButton orderId={o.id} label="Message buyer" basePath="/selling/messages" /></span>
         </div>
 
         <div>

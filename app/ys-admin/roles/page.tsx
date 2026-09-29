@@ -28,11 +28,13 @@ const ASSIGNABLE = [
   "orders",
   "disputes",
   "coupons",
+  "deals",
   "payouts",
   "emails",
   "settings",
   "users",
   "ops",
+  "chat",
 ] as const;
 
 async function api(path: string, init?: RequestInit) {

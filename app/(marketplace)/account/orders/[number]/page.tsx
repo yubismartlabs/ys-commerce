@@ -12,6 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { StatusBadge } from "@/components/refine/ui";
 import { formatUSD, timeAgo } from "@/lib/format";
 import { FileDisputeDialog } from "@/components/disputes/file-dispute-dialog";
+import { MessageButton } from "@/components/chat/message-button";
 import { cn } from "@/lib/utils";
 import type { Order } from "@/lib/refine/types";
 
@@ -57,6 +58,19 @@ export default function BuyerOrderPage({ params }: { params: Promise<{ number: s
           <StatusBadge value={o.status} />
           <span className="ml-auto text-xl font-black tabular-nums">{formatUSD(o.total)}</span>
         </div>
+        {(o.stores ?? []).length > 0 ? (
+          <div className="flex flex-wrap gap-1.5">
+            {(o.stores ?? []).map((s: { id: string; name: string }) => (
+              <MessageButton
+                key={s.id}
+                orderId={o.id}
+                storeId={s.id}
+                label={`Message ${s.name}`}
+                basePath="/account/messages"
+              />
+            ))}
+          </div>
+        ) : null}
         {o.protectionUntil && new Date(o.protectionUntil) > new Date() && o.status === "DELIVERED" ? (
           <p className="flex items-center gap-2 rounded-lg bg-emerald-500/10 p-3 text-sm text-emerald-700 dark:text-emerald-400">
             <ShieldCheck className="size-4 shrink-0" />
