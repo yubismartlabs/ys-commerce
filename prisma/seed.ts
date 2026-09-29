@@ -153,6 +153,18 @@ async function main() {
     create: { code: "FREESHIP", type: "FREESHIP" },
   });
 
+  // Example staff roles (assignable in ys-admin → Users → Roles).
+  await prisma.staffRole.upsert({
+    where: { name: "Support" },
+    update: {},
+    create: { name: "Support", scopes: ["orders", "disputes", "vendors", "products", "users"] },
+  });
+  await prisma.staffRole.upsert({
+    where: { name: "Finance" },
+    update: {},
+    create: { name: "Finance", scopes: ["orders", "payouts", "coupons"] },
+  });
+
   const { defaultSettings, SETTING_GROUPS } = await import("../lib/settings");
   const defaults = defaultSettings();
   for (const group of SETTING_GROUPS) {

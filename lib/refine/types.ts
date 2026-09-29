@@ -120,12 +120,22 @@ export type Coupon = {
   redemptions?: Array<{ id: string; userId: string; orderId: string | null; amount: number; createdAt: string }>;
 };
 
+export type StaffRole = {
+  id: string;
+  name: string;
+  scopes: string[];
+  createdAt: string;
+  _count?: { users: number };
+  users?: Array<{ id: string; name: string | null; email: string }>;
+};
+
 export type AdminUser = {
   id: string;
   name: string | null;
   email: string;
   role: "BUYER" | "SELLER" | "ADMIN";
   scopes: string[];
+  staffRole: { id: string; name: string } | null;
   suspendedAt: string | null;
   suspendReason: string | null;
   createdAt: string;
@@ -135,6 +145,7 @@ export type AdminUser = {
 
 export type AdminUserDetail = AdminUser & {
   emailVerified: string | null;
+  staffRole: { id: string; name: string; scopes: string[] } | null;
   orderTotal: number;
   redemptions: number;
   stores: Array<{ id: string; name: string; slug: string; status: string }>;

@@ -16,7 +16,7 @@ export const GET = withAdmin(
     if (!coupon) return fail("NOT_FOUND", "Coupon not found", 404);
     return ok(coupon);
   }
-);
+, "coupons");
 
 export const PATCH = withAdmin(
   async (req, actor, { params }: { params: Promise<{ id: string }> }) => {
@@ -54,7 +54,7 @@ export const PATCH = withAdmin(
     await audit(actor.id, "coupon.update", "Coupon", id, { code: coupon.code });
     return ok(updated);
   }
-);
+, "coupons");
 
 export const DELETE = withAdmin(
   async (_req, actor, { params }: { params: Promise<{ id: string }> }) => {
@@ -66,4 +66,4 @@ export const DELETE = withAdmin(
     await audit(actor.id, "coupon.delete", "Coupon", id, { code: coupon.code });
     return ok({ deleted: true });
   }
-);
+, "coupons");

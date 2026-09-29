@@ -27,4 +27,4 @@ export const GET = withAdmin(async (req) => {
     }),
   ]);
   return ok(disputes, { page, pageSize, total });
-});
+}, "disputes");

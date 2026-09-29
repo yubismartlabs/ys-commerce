@@ -38,7 +38,7 @@ export const GET = withAdmin(
     });
     return ok({ ...order, buyer });
   }
-);
+, "orders");
 
 export const PATCH = withAdmin(
   async (req, actor, { params }: { params: Promise<{ id: string }> }) => {
@@ -69,4 +69,4 @@ export const PATCH = withAdmin(
       return transitionFail(e);
     }
   }
-);
+, "orders");

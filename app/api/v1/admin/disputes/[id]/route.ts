@@ -38,7 +38,7 @@ export const GET = withAdmin(
     });
     return ok({ ...dispute, holds });
   }
-);
+, "disputes");
 
 export const PATCH = withAdmin(
   async (req, actor, { params }: { params: Promise<{ id: string }> }) => {
@@ -114,4 +114,4 @@ export const PATCH = withAdmin(
 
     return ok({ ...updated, settlement });
   }
-);
+, "disputes");

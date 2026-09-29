@@ -25,4 +25,4 @@ export const GET = withAdmin(async (req) => {
     }),
   ]);
   return ok(orders, { page, pageSize, total });
-});
+}, "orders");

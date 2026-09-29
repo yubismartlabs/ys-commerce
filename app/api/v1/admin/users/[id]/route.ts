@@ -3,7 +3,7 @@ import { z } from "zod";
 import bcrypt from "bcryptjs";
 import { db } from "@/lib/db";
 import { fail, ok } from "@/lib/api/http";
-import { audit, withAdmin } from "@/lib/api/guard";
+import { audit, denyUnless, withAdmin } from "@/lib/api/guard";
 import { getEmailConfig, sendEmail } from "@/lib/email/send";
 import { accountReinstatedEmail, accountSuspendedEmail, adminPasswordResetEmail } from "@/lib/email/templates";
 import { notifyUser } from "@/lib/notifications/notify";
@@ -19,6 +19,7 @@ export const GET = withAdmin(
         email: true,
         role: true,
         scopes: true,
+        staffRole: { select: { id: true, name: true, scopes: true } },
         suspendedAt: true,
         suspendReason: true,
         emailVerified: true,
@@ -42,10 +43,11 @@ export const GET = withAdmin(
       auditRecent,
     });
   }
-);
+, "users");
 
 const patchSchema = z.union([
   z.object({ action: z.literal("role"), role: z.enum(["BUYER", "SELLER", "ADMIN"]) }),
+  z.object({ action: z.literal("staffRole"), staffRoleId: z.string().nullable() }),
   z.object({ action: z.literal("suspend"), reason: z.string().max(300).optional() }),
   z.object({ action: z.literal("unsuspend") }),
   z.object({ action: z.literal("resetPassword") }),
@@ -69,6 +71,7 @@ export const PATCH = withAdmin(
     const config = await getEmailConfig();
 
     if (parsed.data.action === "role") {
+      denyUnless(actor, "admin");
       if (parsed.data.role !== "ADMIN" && (await assertNotLastAdmin(id))) {
         return fail("CONFLICT", "Cannot demote the last admin", 409);
       }
@@ -83,9 +86,24 @@ export const PATCH = withAdmin(
       return ok({ id: updated.id, role: updated.role });
     }
 
+    if (parsed.data.action === "staffRole") {
+      denyUnless(actor, "admin");
+      if (parsed.data.staffRoleId) {
+        const role = await db.staffRole.findUnique({ where: { id: parsed.data.staffRoleId } });
+        if (!role) return fail("NOT_FOUND", "Staff role not found", 404);
+      }
+      const updated = await db.user.update({
+        where: { id },
+        data: { staffRoleId: parsed.data.staffRoleId },
+        select: { id: true, staffRole: { select: { id: true, name: true, scopes: true } } },
+      });
+      await audit(actor.id, "user.staffRole", "User", id, { staffRoleId: parsed.data.staffRoleId });
+      return ok(updated);
+    }
+
     if (parsed.data.action === "suspend") {
-      if (await assertNotLastAdmin(id)) return fail("CONFLICT", "Cannot suspend the last admin", 409);
-      if (user.suspendedAt) return fail("CONFLICT", "User is already suspended", 409);
+      denyUnless(actor, "admin");
+      if (await assertNotLastAdmin(id)) return fail("CONFLICT", "Cannot suspend the last admin", 409);      if (user.suspendedAt) return fail("CONFLICT", "User is already suspended", 409);
       // Full freeze: suspend APPROVED stores so listings go dark immediately.
       const approved = await db.store.findMany({ where: { ownerId: id, status: "APPROVED" }, select: { id: true } });
       await db.$transaction([
@@ -108,6 +126,7 @@ export const PATCH = withAdmin(
     }
 
     if (parsed.data.action === "unsuspend") {
+      denyUnless(actor, "admin");
       if (!user.suspendedAt) return fail("CONFLICT", "User is not suspended", 409);
       // Restore stores this suspension froze (recorded in the suspend audit).
       const lastSuspend = await db.auditLog.findFirst({
@@ -134,6 +153,7 @@ export const PATCH = withAdmin(
     }
 
     if (parsed.data.action === "resetPassword") {
+      denyUnless(actor, "admin");
       const temp = randomBytes(12).toString("base64url");
       await db.user.update({ where: { id }, data: { passwordHash: await bcrypt.hash(temp, 10) } });
       await audit(actor.id, "user.resetPassword", "User", id, {});
@@ -152,11 +172,12 @@ export const PATCH = withAdmin(
     await audit(actor.id, "user.profile", "User", id, { name: parsed.data.name });
     return ok({ id: updated.id, name: updated.name });
   }
-);
+, "users");
 
 export const DELETE = withAdmin(
   async (_req, actor, { params }: { params: Promise<{ id: string }> }) => {
     const { id } = await params;
+    denyUnless(actor, "admin");
     const user = await db.user.findUnique({
       where: { id },
       include: {
@@ -178,4 +199,4 @@ export const DELETE = withAdmin(
     await audit(actor.id, "user.delete", "User", id, { email: user.email });
     return ok({ deleted: true });
   }
-);
+, "users");

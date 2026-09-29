@@ -40,7 +40,7 @@ export const POST = withAdmin(async (req, actor) => {
   const url = `/uploads/${name}`;
   await audit(actor.id, "upload.create", "Upload", name, { type: file.type, size: file.size });
   return ok({ url, type: file.type, size: file.size }, undefined, 201);
-});
+}, "settings");
 
 export const GET = withAdmin(async () => {
   // Document the endpoint; listing lives on disk (dev-grade local storage).
@@ -57,4 +57,4 @@ export const GET = withAdmin(async () => {
       createdAt: r.createdAt,
     }))
   );
-});
+}, "settings");

@@ -20,7 +20,7 @@ import type {
  * Conventions:
  * - list:  ?page=&pageSize=&status=&q=  -> { data, pagination: { total } }
  * - errors: { error: { code, message } } -> Refine HttpError
- * - create/update/delete only exist for coupons (+ delete for users); other resources use bespoke pages
+ * - create/update/delete only exist for coupons, roles (+ delete for users); other resources use bespoke pages
  */
 
 const API = "/api/v1/admin";
@@ -35,6 +35,7 @@ const resourcePath: Record<string, string> = {
   emails: "emails",
   payouts: "payouts",
   users: "users",
+  roles: "roles",
 };
 
 function pathFor(resource: string): string {
@@ -113,7 +114,7 @@ export const dataProvider: DataProvider = {
     resource,
     variables,
   }: CreateParams<TVariables>): Promise<CreateResponse<TData>> => {
-    if (resource !== "coupons") throw notAllowed("Create", resource);
+    if (resource !== "coupons" && resource !== "roles") throw notAllowed("Create", resource);
     const data = await request<TData>(pathFor(resource), {
       method: "POST",
       body: JSON.stringify(variables),
@@ -125,7 +126,7 @@ export const dataProvider: DataProvider = {
     resource,
     id,
   }: DeleteOneParams<TVariables>): Promise<DeleteOneResponse<TData>> => {
-    if (resource !== "coupons" && resource !== "users") throw notAllowed("Delete", resource);
+    if (resource !== "coupons" && resource !== "users" && resource !== "roles") throw notAllowed("Delete", resource);
     const res = await fetch(`${pathFor(resource)}/${id}`, { method: "DELETE" });
     const json = await res.json().catch(() => null);
     if (!res.ok) {

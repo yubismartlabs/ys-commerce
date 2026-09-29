@@ -21,4 +21,4 @@ export const GET = withAdmin(async () => {
     activeProducts: products,
     currency: "USD",
   });
-});
+}, "ops");

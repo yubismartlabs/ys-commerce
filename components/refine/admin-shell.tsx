@@ -37,11 +37,12 @@ import {
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { initials } from "@/lib/format";
 import { cn } from "@/lib/utils";
+import { hasScope } from "@/lib/auth/permissions";
 import { NotificationBell } from "@/components/notifications/notification-bell";
 
-type Identity = { email?: string; name?: string | null };
+type Identity = { email?: string; name?: string | null; role?: string; scopes?: string[] };
 
-type NavLink = { href: string; label: string; icon: React.ReactNode };
+type NavLink = { href: string; label: string; icon: React.ReactNode; scope: string };
 type NavGroup = { key: string; label: string; icon: React.ReactNode; links: NavLink[] };
 
 const NAV_GROUPS: NavGroup[] = [
@@ -49,49 +50,62 @@ const NAV_GROUPS: NavGroup[] = [
     key: "users",
     label: "Users",
     icon: <Users className="size-4" />,
-    links: [{ href: "/ys-admin/users", label: "Users", icon: <Users className="size-4" /> }],
+    links: [
+      { href: "/ys-admin/users", label: "Users", icon: <Users className="size-4" />, scope: "users" },
+      { href: "/ys-admin/roles", label: "Roles", icon: <KeyRound className="size-4" />, scope: "users" },
+    ],
   },
   {
     key: "sellers",
     label: "Sellers",
     icon: <Store className="size-4" />,
-    links: [{ href: "/ys-admin/vendors", label: "Vendors", icon: <Store className="size-4" /> }],
+    links: [{ href: "/ys-admin/vendors", label: "Vendors", icon: <Store className="size-4" />, scope: "vendors" }],
   },
   {
     key: "catalog",
     label: "Catalog",
     icon: <Package className="size-4" />,
-    links: [{ href: "/ys-admin/products", label: "Products", icon: <Package className="size-4" /> }],
+    links: [{ href: "/ys-admin/products", label: "Products", icon: <Package className="size-4" />, scope: "products" }],
   },
   {
     key: "orders",
     label: "Orders",
     icon: <ShoppingCart className="size-4" />,
     links: [
-      { href: "/ys-admin/orders", label: "Orders", icon: <ShoppingCart className="size-4" /> },
-      { href: "/ys-admin/disputes", label: "Disputes", icon: <MessageSquareWarning className="size-4" /> },
+      { href: "/ys-admin/orders", label: "Orders", icon: <ShoppingCart className="size-4" />, scope: "orders" },
+      { href: "/ys-admin/disputes", label: "Disputes", icon: <MessageSquareWarning className="size-4" />, scope: "disputes" },
     ],
   },
   {
     key: "marketing",
     label: "Marketing",
     icon: <Tag className="size-4" />,
-    links: [{ href: "/ys-admin/coupons", label: "Coupons", icon: <Ticket className="size-4" /> }],
+    links: [{ href: "/ys-admin/coupons", label: "Coupons", icon: <Ticket className="size-4" />, scope: "coupons" }],
   },
   {
     key: "system",
     label: "System",
     icon: <Settings className="size-4" />,
     links: [
-      { href: "/ys-admin/notifications", label: "Notifications", icon: <Bell className="size-4" /> },
-      { href: "/ys-admin/payouts", label: "Payouts", icon: <Banknote className="size-4" /> },
-      { href: "/ys-admin/emails", label: "Email log", icon: <Mail className="size-4" /> },
-      { href: "/ys-admin/settings/site", label: "Site settings", icon: <Globe className="size-4" /> },
-      { href: "/ys-admin/settings/system", label: "System settings", icon: <SlidersHorizontal className="size-4" /> },
-      { href: "/ys-admin/api-tokens", label: "API tokens", icon: <KeyRound className="size-4" /> },
+      { href: "/ys-admin/notifications", label: "Notifications", icon: <Bell className="size-4" />, scope: "any" },
+      { href: "/ys-admin/payouts", label: "Payouts", icon: <Banknote className="size-4" />, scope: "payouts" },
+      { href: "/ys-admin/emails", label: "Email log", icon: <Mail className="size-4" />, scope: "emails" },
+      { href: "/ys-admin/settings/site", label: "Site settings", icon: <Globe className="size-4" />, scope: "settings" },
+      { href: "/ys-admin/settings/system", label: "System settings", icon: <SlidersHorizontal className="size-4" />, scope: "settings" },
+      { href: "/ys-admin/api-tokens", label: "API tokens", icon: <KeyRound className="size-4" />, scope: "admin" },
     ],
   },
 ];
+
+/** Hide links (and emptied groups) the signed-in staff may not access. */
+function visibleGroups(identity: Identity | undefined): NavGroup[] {
+  if (!identity) return NAV_GROUPS;
+  const scopes = identity.scopes ?? [];
+  return NAV_GROUPS.map((g) => ({
+    ...g,
+    links: g.links.filter((l) => l.scope === "any" || hasScope(scopes, l.scope)),
+  })).filter((g) => g.links.length > 0);
+}
 
 function findTitle(pathname: string): string {
   for (const g of NAV_GROUPS) {
@@ -101,13 +115,13 @@ function findTitle(pathname: string): string {
   return "ys-admin";
 }
 
-function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
+function SidebarNav({ groups, onNavigate }: { groups: NavGroup[]; onNavigate?: () => void }) {
   const pathname = usePathname() ?? "";
   const [forced, setForced] = useState<Record<string, boolean>>({});
 
   return (
     <div className="grid gap-1">
-      {NAV_GROUPS.map((group) => {
+      {groups.map((group) => {
         const isActive = group.links.some(
           (l) => pathname === l.href || pathname.startsWith(`${l.href}/`)
         );
@@ -169,6 +183,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
   if (segment === "login") return <>{children}</>;
 
   const name = identity?.name || identity?.email || "Admin";
+  const groups = visibleGroups(identity);
 
   return (
     <div className="flex min-h-screen bg-neutral-100 dark:bg-neutral-950">
@@ -179,7 +194,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
         </Link>
         <p className="mb-5 px-2 text-[11px] uppercase tracking-widest text-white/40">Marketplace console</p>
         <nav>
-          <SidebarNav />
+          <SidebarNav groups={groups} />
         </nav>
         <div className="mt-auto space-y-2 border-t border-white/10 pt-3">
           <Link href="/" className="flex items-center gap-1.5 px-2 text-xs text-white/50 hover:text-white">
@@ -202,7 +217,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
                 <span className="text-ali-red">ys</span>-admin
               </Link>
               <nav>
-                <SidebarNav onNavigate={() => setOpen(false)} />
+                <SidebarNav groups={groups} onNavigate={() => setOpen(false)} />
               </nav>
             </SheetContent>
           </Sheet>

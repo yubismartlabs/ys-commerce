@@ -23,4 +23,4 @@ export const GET = withAdmin(async (req) => {
     }),
   ]);
   return ok(products, { page, pageSize, total });
-});
+}, "products");

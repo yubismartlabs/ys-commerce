@@ -20,4 +20,4 @@ export const GET = withAdmin(async (req) => {
     }),
   ]);
   return ok(payouts, { page, pageSize, total });
-});
+}, "payouts");

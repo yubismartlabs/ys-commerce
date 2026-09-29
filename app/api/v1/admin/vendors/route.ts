@@ -19,4 +19,4 @@ export const GET = withAdmin(async (req) => {
     }),
   ]);
   return ok(vendors, { page, pageSize, total });
-});
+}, "vendors");

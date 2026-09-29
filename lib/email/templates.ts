@@ -281,3 +281,20 @@ export function adminPasswordResetEmail(opts: { siteName: string; tempPassword: 
     ]),
   };
 }
+
+export function accountInviteEmail(opts: { siteName: string; tempPassword: string; role: string }): EmailTemplate {
+  const title = `Your ${opts.siteName} ${opts.role.toLowerCase()} account`;
+  const body =
+    `<p>An admin created a ${opts.role.toLowerCase()} account for you on ${opts.siteName}.</p>` +
+    `<p>Sign in with this temporary password:</p>` +
+    `<p style="font-family:monospace;font-size:18px;font-weight:bold">${opts.tempPassword}</p>` +
+    `<p>Change it immediately from Account → Settings.</p>`;
+  return {
+    subject: `[${opts.siteName}] Your new account`,
+    html: layout(title, body),
+    text: textify(title, [
+      `Temporary password: ${opts.tempPassword}`,
+      "Sign in and change it immediately.",
+    ]),
+  };
+}

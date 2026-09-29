@@ -9,4 +9,4 @@ export const POST = withAdmin(async (_req, actor) => {
   const result = await runDigest();
   await audit(actor.id, "notifications.digest", "Notification", "digest", result.counts);
   return ok(result);
-});
+}, "ops");

@@ -3,6 +3,7 @@
 import { use, useState } from "react";
 import Link from "next/link";
 import { useShow, useDelete } from "@refinedev/core";
+import { useQuery } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import { Ban, CheckCircle2, Copy, KeyRound, Trash2 } from "lucide-react";
 import { toast } from "sonner";
@@ -14,7 +15,7 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { BackLink, ErrorState, Field, SectionTitle, TableSkeleton } from "@/components/refine/ui";
 import { formatUSD, timeAgo } from "@/lib/format";
-import type { AdminUserDetail } from "@/lib/refine/types";
+import type { AdminUserDetail, StaffRole } from "@/lib/refine/types";
 
 async function userAction(id: string, body: object): Promise<{ tempPassword?: string; emailed?: boolean }> {
   const res = await fetch(`/api/v1/admin/users/${id}`, {
@@ -33,10 +34,22 @@ export default function UserShowPage({ params }: { params: Promise<{ id: string 
   const { mutate: remove, mutation: deleting } = useDelete();
   const router = useRouter();
   const [role, setRole] = useState<string | null>(null);
+  const [staffRoleId, setStaffRoleId] = useState<string | null | undefined>(undefined);
   const [reason, setReason] = useState("");
   const [busy, setBusy] = useState(false);
   const [tempPassword, setTempPassword] = useState<string | null>(null);
   const u = query.data?.data;
+
+  const rolesQuery = useQuery({
+    queryKey: ["admin-roles"],
+    queryFn: async (): Promise<StaffRole[]> => {
+      const res = await fetch("/api/v1/admin/roles");
+      if (!res.ok) return [];
+      return (await res.json()).data as StaffRole[];
+    },
+    retry: false,
+  });
+  const staffRoles = rolesQuery.data ?? [];
 
   if (query.isLoading) return (<><BackLink href="/ys-admin/users" label="Users" /><Card className="p-0"><TableSkeleton rows={5} cols={2} /></Card></>);
   if (query.isError || !u) return (<><BackLink href="/ys-admin/users" label="Users" /><Card className="p-0"><ErrorState message="User not found." /></Card></>);
@@ -66,6 +79,11 @@ export default function UserShowPage({ params }: { params: Promise<{ id: string 
             <p className="text-sm text-neutral-500">{u.email}</p>
           </div>
           <Badge variant="outline" className="font-mono text-[11px]">{u.role}</Badge>
+          {u.staffRole ? (
+            <Badge variant="outline" className="bg-sky-500/10 font-mono text-[11px] text-sky-700 dark:text-sky-400">
+              {u.staffRole.name}
+            </Badge>
+          ) : null}
           {u.suspendedAt ? (
             <Badge variant="outline" className="bg-red-500/10 font-semibold text-red-700 ring-1 ring-inset ring-red-500/25 dark:text-red-400">
               SUSPENDED · {timeAgo(u.suspendedAt)}
@@ -112,6 +130,36 @@ export default function UserShowPage({ params }: { params: Promise<{ id: string 
             Save role
           </Button>
         </div>
+
+        <SectionTitle>Staff role</SectionTitle>
+        <div className="flex max-w-md gap-2">
+          <Select
+            value={staffRoleId === undefined ? (u.staffRole?.id ?? "none") : (staffRoleId ?? "none")}
+            onValueChange={(v) => setStaffRoleId(v === "none" ? null : v)}
+          >
+            <SelectTrigger><SelectValue placeholder="None" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="none">None</SelectItem>
+              {staffRoles.map((r) => (
+                <SelectItem key={r.id} value={r.id}>{r.name} ({r.scopes.length})</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Button
+            variant="outline"
+            disabled={busy || (staffRoleId === undefined || (staffRoleId ?? null) === (u.staffRole?.id ?? null))}
+            onClick={() => act({ action: "staffRole", staffRoleId: staffRoleId ?? null }, "Staff role updated. Takes effect on next sign-in.")}
+          >
+            Save
+          </Button>
+        </div>
+        {u.staffRole ? (
+          <p className="flex flex-wrap gap-1">
+            {u.staffRole.scopes.map((s) => (
+              <Badge key={s} variant="outline" className="font-mono text-[10px]">{s}</Badge>
+            ))}
+          </p>
+        ) : null}
 
         <SectionTitle>{u.suspendedAt ? "Reinstate" : "Suspend"}</SectionTitle>
         {u.suspendedAt ? (

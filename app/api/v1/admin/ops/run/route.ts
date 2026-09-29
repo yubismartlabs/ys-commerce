@@ -12,4 +12,4 @@ export const POST = withAdmin(async (_req, actor) => {
   const payouts = await runPayouts();
   await audit(actor.id, "ops.run", "Ops", "scheduler", { release, payouts });
   return ok({ release, payouts });
-});
+}, "ops");

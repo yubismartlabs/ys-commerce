@@ -51,7 +51,7 @@ export const PATCH = withAdmin(async (req, actor) => {
 
   await audit(actor.id, "settings.update", "Setting", updated.join(","), { groups: updated });
   return ok(maskSecrets(await getSettings()));
-});
+}, "settings");
 
 // resendApiKey is write-only: expose only whether a key is configured,
 // via env or DB, so the secret never leaves the server.

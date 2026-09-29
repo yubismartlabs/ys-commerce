@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useState } from "react";
 import { useTable } from "@refinedev/core";
-import { ChevronRight } from "lucide-react";
+import { ChevronRight, Plus } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
@@ -49,6 +49,11 @@ export default function UsersPage() {
       <PageHeader
         title="Users"
         description="Every account — roles, suspension, orders and stores at a glance."
+        actions={
+          <Button asChild className="bg-ali-red text-white hover:bg-ali-red-dark">
+            <Link href="/ys-admin/users/create"><Plus className="size-4" /> New user</Link>
+          </Button>
+        }
       />
       <div className="flex flex-wrap items-center gap-1.5">
         {roles.map((r) => (

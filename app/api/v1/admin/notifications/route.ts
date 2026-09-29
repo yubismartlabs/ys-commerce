@@ -2,10 +2,20 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { db } from "@/lib/db";
 import { getPagination, serialize, fail, ok } from "@/lib/api/http";
-import { audit, withAdmin } from "@/lib/api/guard";
+import { ApiError } from "@/lib/api/guard";
+import { requireUser } from "@/lib/api/identity";
+import { audit } from "@/lib/api/guard";
 
-// Own inbox for the signed-in admin (in-app only; buyers/sellers have no inbox UI).
-export const GET = withAdmin(async (req, actor) => {
+// Own inbox. Any signed-in user reads only their rows (buyers/sellers
+// accumulate notifications today; their UIs can adopt this later).
+export async function GET(req: Request) {
+  let actor;
+  try {
+    actor = await requireUser();
+  } catch (e) {
+    if (e instanceof ApiError) return fail(e.code, e.message, e.status);
+    throw e;
+  }
   const url = new URL(req.url);
   const type = url.searchParams.get("type");
   const unreadOnly = url.searchParams.get("unread") === "1";
@@ -29,14 +39,21 @@ export const GET = withAdmin(async (req, actor) => {
   return NextResponse.json(
     serialize({ data: items, pagination: { page, pageSize, total }, unreadCount })
   );
-});
+}
 
 const patchSchema = z.union([
   z.object({ ids: z.array(z.string()).min(1).max(100) }),
   z.object({ allRead: z.literal(true) }),
 ]);
 
-export const PATCH = withAdmin(async (req, actor) => {
+export async function PATCH(req: Request) {
+  let actor;
+  try {
+    actor = await requireUser();
+  } catch (e) {
+    if (e instanceof ApiError) return fail(e.code, e.message, e.status);
+    throw e;
+  }
   const parsed = patchSchema.safeParse(await req.json().catch(() => null));
   if (!parsed.success) return fail("VALIDATION", "Provide { ids: [...] } or { allRead: true }", 422);
 
@@ -47,4 +64,4 @@ export const PATCH = withAdmin(async (req, actor) => {
       : await db.notification.updateMany({ where: { userId: actor.id, readAt: null }, data });
   await audit(actor.id, "notifications.read", "Notification", "self", { count: updated.count });
   return ok({ read: updated.count });
-});
+}

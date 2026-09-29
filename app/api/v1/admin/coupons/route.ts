@@ -26,7 +26,7 @@ export const GET = withAdmin(async (req) => {
     }),
   ]);
   return ok(coupons, { page, pageSize, total });
-});
+}, "coupons");
 
 export const POST = withAdmin(async (req, actor) => {
   const parsed = couponInput.safeParse(await req.json().catch(() => null));
@@ -49,4 +49,4 @@ export const POST = withAdmin(async (req, actor) => {
   });
   await audit(actor.id, "coupon.create", "Coupon", coupon.id, { code: coupon.code });
   return ok(coupon, undefined, 201);
-});
+}, "coupons");

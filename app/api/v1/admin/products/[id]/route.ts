@@ -19,7 +19,7 @@ export const GET = withAdmin(
     if (!product) return fail("NOT_FOUND", "Product not found", 404);
     return ok(product);
   }
-);
+, "products");
 
 export const PATCH = withAdmin(
   async (req, actor, { params }: { params: Promise<{ id: string }> }) => {
@@ -52,4 +52,4 @@ export const PATCH = withAdmin(
     }
     return ok(updated);
   }
-);
+, "products");

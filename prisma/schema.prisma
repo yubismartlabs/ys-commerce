@@ -16,6 +16,18 @@ enum Role {
   ADMIN
 }
 
+// Custom staff roles (e.g. Support, Finance). A user's effective scopes =
+// role scopes + staff-role scopes + per-user overrides. ADMIN always has "*".
+model StaffRole {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  scopes    String[] @default([])
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  users User[]
+}
+
 enum StoreStatus {
   PENDING
   APPROVED
@@ -62,6 +74,8 @@ model User {
   // Staff-ready: roles stay in the enum; per-area scopes (when needed)
   // attach here without touching every guard (see lib/auth/permissions).
   scopes       String[]  @default([])
+  staffRoleId  String?
+  staffRole    StaffRole? @relation(fields: [staffRoleId], references: [id], onDelete: SetNull)
   suspendedAt  DateTime?
   suspendReason String?
   image        String?

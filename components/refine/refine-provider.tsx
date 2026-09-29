@@ -3,7 +3,7 @@
 import React from "react";
 import { Refine, type NotificationProvider } from "@refinedev/core";
 import routerProvider from "@refinedev/nextjs-router";
-import { Banknote, Bell, Mail, MessageSquareWarning, Package, ShoppingCart, Store, Ticket, Users } from "lucide-react";
+import { Banknote, Bell, KeyRound, Mail, MessageSquareWarning, Package, ShoppingCart, Store, Ticket, Users } from "lucide-react";
 import { toast } from "sonner";
 import { dataProvider } from "@/lib/refine/data-provider";
 import { authProvider } from "@/lib/refine/auth-provider";
@@ -33,7 +33,8 @@ export function RefineProvider({ children }: { children: React.ReactNode }) {
         { name: "notifications", list: "/ys-admin/notifications", meta: { label: "Notifications", icon: <Bell className="size-4" /> } },
         { name: "emails", list: "/ys-admin/emails", meta: { label: "Email log", icon: <Mail className="size-4" /> } },
         { name: "payouts", list: "/ys-admin/payouts", meta: { label: "Payouts", icon: <Banknote className="size-4" /> } },
-        { name: "users", list: "/ys-admin/users", show: "/ys-admin/users/show/:id", meta: { label: "Users", icon: <Users className="size-4" /> } },
+        { name: "roles", list: "/ys-admin/roles", meta: { label: "Roles", icon: <KeyRound className="size-4" /> } },
+        { name: "users", list: "/ys-admin/users", show: "/ys-admin/users/show/:id", create: "/ys-admin/users/create", meta: { label: "Users", icon: <Users className="size-4" /> } },
       ]}
       options={{ syncWithLocation: true, disableTelemetry: true }}
     >

@@ -30,7 +30,10 @@ export const authProvider: AuthProvider = {
   check: async () => {
     const res = await fetch("/api/auth/session");
     const session = await res.json().catch(() => null);
-    if (session?.user && (session.user as { role?: string }).role === "ADMIN") {
+    const role = (session?.user as { role?: string } | undefined)?.role;
+    const scopes = (session?.user as { scopes?: string[] } | undefined)?.scopes ?? [];
+    // Console-level gate (areas are enforced per page by middleware).
+    if (session?.user && (role === "ADMIN" || scopes.length > 0)) {
       return { authenticated: true };
     }
     return { authenticated: false, logout: true, redirectTo: "/ys-admin/login" };

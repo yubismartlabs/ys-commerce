@@ -1,36 +1,72 @@
 /**
  * Central role/permission model.
  *
- * Today roles are flat (BUYER / SELLER / ADMIN). To add staff roles later
- * (e.g. SUPPORT with orders+disputes scopes, FINANCE with payouts):
- *  1. extend the Prisma Role enum,
- *  2. add its scopes to ROLE_SCOPES below,
- *  3. assign per-user overrides via User.scopes.
- * No route guard changes needed — everything funnels through can().
+ * Account types stay flat (BUYER / SELLER / ADMIN) while staff access is
+ * scope-based: a user's effective scopes = role scopes + staff-role scopes
+ * + per-user overrides. ADMIN always resolves to ["*"].
+ *
+ * To add a new staff role: create a StaffRole row (ys-admin → Users → Roles)
+ * with any of the AREAS below. No code changes needed — every admin route
+ * declares its area via withAdmin(handler, "<area>") and the console +
+ * middleware gate on the same list.
  */
 
 export type Role = "BUYER" | "SELLER" | "ADMIN";
 
 export const ROLES: Role[] = ["BUYER", "SELLER", "ADMIN"];
 
-// "*" = full access. Scopes name admin areas (vendors, products, orders,
-// disputes, coupons, payouts, users, emails, settings, ops).
+/** Admin console areas. "admin" = superuser-only (tokens, destructive user ops). */
+export const AREAS = [
+  "vendors",
+  "products",
+  "orders",
+  "disputes",
+  "coupons",
+  "payouts",
+  "emails",
+  "settings",
+  "users",
+  "ops",
+  "admin",
+] as const;
+
+export type Area = (typeof AREAS)[number];
+
 const ROLE_SCOPES: Record<Role, string[]> = {
   ADMIN: ["*"],
   SELLER: ["selling"],
   BUYER: [],
 };
 
-export function scopesFor(role: Role, extra: string[] = []): string[] {
-  return [...new Set([...ROLE_SCOPES[role], ...extra])];
+/** Union of role scopes, staff-role scopes and per-user overrides. */
+export function effectiveScopes(input: {
+  role: Role | string;
+  scopes?: string[];
+  staffScopes?: string[];
+}): string[] {
+  const base = (ROLE_SCOPES as Record<string, string[]>)[input.role] ?? [];
+  return [...new Set([...base, ...(input.staffScopes ?? []), ...(input.scopes ?? [])])];
 }
 
-/** Does this role (+optional per-user scopes) grant an action/scope? */
-export function can(role: Role, scope: string, extra: string[] = []): boolean {
-  const scopes = scopesFor(role, extra);
-  return scopes.includes("*") || scopes.includes(scope);
+/** Does this effective scope set grant an area? */
+export function hasScope(effective: string[], area: string): boolean {
+  return effective.includes("*") || effective.includes(area);
+}
+
+export function can(
+  role: Role | string,
+  scope: string,
+  extra: string[] = [],
+  staffScopes: string[] = []
+): boolean {
+  return hasScope(effectiveScopes({ role, scopes: extra, staffScopes }), scope);
 }
 
 export function isAdmin(role: string | undefined, extra: string[] = []): boolean {
   return role === "ADMIN" && can("ADMIN", "*", extra);
+}
+
+/** Console-level access: full admins or anyone holding ≥1 scope. */
+export function canAccessConsole(role: string | undefined, effective: string[]): boolean {
+  return role === "ADMIN" || effective.length > 0;
 }

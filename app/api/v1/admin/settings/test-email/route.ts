@@ -38,4 +38,4 @@ export const POST = withAdmin(async (req, actor) => {
 
   await audit(actor.id, "settings.testEmail", "Setting", "notifications", { to: recipient });
   return ok({ id: result.id, to: recipient });
-});
+}, "settings");
