@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { useState } from "react";
 import {
-  Bell,
   Camera,
   ChevronDown,
   CircleHelp,
@@ -30,6 +29,7 @@ import { Badge } from "@/components/ui/badge";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { useCart } from "@/lib/store/cart";
 import { usePublicSettings } from "@/lib/public-settings";
+import { BuyerBell } from "@/components/notifications/buyer-bell";
 import { signOut, useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 
@@ -178,10 +178,7 @@ export function MarketplaceHeader() {
                 <Heart />
               </Link>
             </Button>
-            <Button variant="ghost" size="icon" className="relative" aria-label="Notifications">
-              <Bell />
-              <Badge className="absolute -right-0.5 -top-0.5 size-4 justify-center bg-ali-red p-0 text-[10px] text-white">3</Badge>
-            </Button>
+            <BuyerBell />
             <Button variant="ghost" size="icon" asChild className="relative" aria-label="Cart">
               <Link href="/cart">
                 <ShoppingCart />
@@ -228,7 +225,7 @@ export function MarketplaceHeader() {
               ))}
             </DropdownMenuContent>
           </DropdownMenu>
-          <Link href="/search" className="whitespace-nowrap hover:text-ali-red">Flash Deals</Link>
+          <Link href="/deals" className="whitespace-nowrap hover:text-ali-red">Flash Deals</Link>
           <Link href="/search" className="whitespace-nowrap hover:text-ali-red">Choice</Link>
           <Link href="/search" className="whitespace-nowrap hover:text-ali-red">SuperDeals</Link>
           <Link href="/selling/onboarding" className="whitespace-nowrap hover:text-ali-red">Sell on YS</Link>

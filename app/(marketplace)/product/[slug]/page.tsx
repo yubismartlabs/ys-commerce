@@ -5,7 +5,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
-import { Heart, Minus, Plus, ShieldCheck, ShoppingCart, Store, Truck, Zap } from "lucide-react";
+import { Minus, Plus, ShieldCheck, ShoppingCart, Store, Truck, Zap } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -15,6 +15,7 @@ import { discountPct, formatSold, formatUSD } from "@/lib/format";
 import { RatingStars } from "@/components/commerce/rating-stars";
 import { ApiProductCard, type ApiCardRow } from "@/components/commerce/api-product-card";
 import { ProductReviews } from "@/components/products/product-reviews";
+import { WishlistHeart } from "@/components/products/wishlist-heart";
 import { usePublicSettings } from "@/lib/public-settings";
 import { useCart } from "@/lib/store/cart";
 import { cn } from "@/lib/utils";
@@ -47,7 +48,8 @@ type LiveProduct = {
   distribution: Array<{ rating: number; count: number }>;
   related: ApiCardRow[];
   store: { id: string; name: string; slug: string };
-  viewer: { reviewed: boolean };
+  deal: { id: string; dealPrice: number; endsAt: string; stockCap: number | null; soldCount: number } | null;
+  viewer: { reviewed: boolean; wishlisted: boolean };
 };
 
 async function fetchProduct(slug: string): Promise<LiveProduct> {
@@ -102,8 +104,9 @@ export default function ProductPage({ params }: { params: Promise<{ slug: string
   const product = query.data;
   const gallery = product.images.length > 0 ? product.images : [product.image];
   const variant = product.variants.find((v) => v.id === variantId) ?? null;
-  const price = variant?.price ?? product.price;
-  const compareAt = !variant ? product.compareAt : null;
+  const basePrice = product.deal ? Number(product.deal.dealPrice) : product.price;
+  const price = variant?.price ?? basePrice;
+  const compareAt = !variant ? (product.deal ? product.price : product.compareAt) : null;
   const pct = discountPct(price, compareAt ?? undefined);
   const stock = variant ? variant.stock : null;
   const maxQty = stock !== null ? Math.max(1, Math.min(stock, 99)) : 99;
@@ -156,6 +159,13 @@ export default function ProductPage({ params }: { params: Promise<{ slug: string
             <span className="text-3xl font-black text-ali-red">{formatUSD(price)}</span>
             {compareAt ? <span className="text-sm text-neutral-400 line-through">{formatUSD(compareAt)}</span> : null}
           </div>
+          {product.deal ? (
+            <p className="flex items-center gap-2 rounded-lg bg-ali-red/10 px-3 py-2 text-sm font-bold text-ali-red">
+              <Zap className="size-4 fill-current" />
+              Flash deal ends {new Date(product.deal.endsAt).toLocaleString()}
+              {product.deal.stockCap ? ` · ${Math.max(0, product.deal.stockCap - product.deal.soldCount)} left` : ""}
+            </p>
+          ) : null}
 
           {product.variants.length > 0 ? (
             <div>
@@ -210,7 +220,7 @@ export default function ProductPage({ params }: { params: Promise<{ slug: string
             >
               <Zap /> Buy now
             </Button>
-            <Button size="icon-lg" variant="outline" aria-label="Wishlist"><Heart /></Button>
+            <WishlistHeart slug={product.slug} wishlisted={product.viewer.wishlisted} queryKey={["product", slug]} />
           </div>
 
           <Card>

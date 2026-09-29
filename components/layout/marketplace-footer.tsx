@@ -11,7 +11,7 @@ export function MarketplaceFooter() {
         <div>
           <p className="mb-2 font-semibold text-neutral-900">Buy</p>
           <div className="grid gap-1.5">
-            <Link href="/search">Flash Deals</Link>
+            <Link href="/deals">Flash Deals</Link>
             <Link href="/watchlist">Watchlist</Link>
             <Link href="/cart">Cart</Link>
             <Link href="/account">Track Order</Link>

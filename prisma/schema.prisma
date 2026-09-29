@@ -76,6 +76,8 @@ model User {
   scopes       String[]  @default([])
   staffRoleId  String?
   staffRole    StaffRole? @relation(fields: [staffRoleId], references: [id], onDelete: SetNull)
+  // Buyer lifecycle preferences, e.g. { lifecycle: false, priceAlerts: false }.
+  prefs        Json?
   suspendedAt  DateTime?
   suspendReason String?
   image        String?
@@ -171,6 +173,74 @@ model StoreFollow {
   @@index([userId])
 }
 
+model WishlistItem {
+  id          String   @id @default(cuid())
+  userId      String
+  productId   String
+  targetPrice Decimal? @db.Decimal(10, 2)
+  createdAt   DateTime @default(now())
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, productId])
+  @@index([userId, createdAt])
+  @@index([productId])
+}
+
+enum AlertKind {
+  PRICE_DROP
+  RESTOCK
+}
+
+// Queued buyer alerts (price targets, restock). sentAt = delivered once.
+model PriceAlert {
+  id        String    @id @default(cuid())
+  userId    String
+  productId String
+  kind      AlertKind
+  target    Decimal?  @db.Decimal(10, 2)
+  sentAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([userId, sentAt])
+  @@index([productId, kind, sentAt])
+}
+
+enum DealStatus {
+  SCHEDULED
+  ACTIVE
+  ENDED
+}
+
+// Admin-curated flash deals: one row per product, effective while ACTIVE
+// (window open + cap unmet). Pricing resolves via lib/deals/pricing.
+model Deal {
+  id        String     @id @default(cuid())
+  productId String     @unique
+  dealPrice Decimal    @db.Decimal(10, 2)
+  startsAt  DateTime
+  endsAt    DateTime
+  stockCap  Int?
+  soldCount Int        @default(0)
+  status    DealStatus @default(SCHEDULED)
+  createdAt DateTime   @default(now())
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([status, startsAt])
+  @@index([status, endsAt])
+}
+
+// Latest cart per signed-in buyer (written by the storefront) for
+// abandoned-cart recovery. Guests are never tracked.
+model CartSnapshot {
+  userId    String   @id
+  items     Json
+  updatedAt DateTime @updatedAt
+}
+
 model Product {
   id          String        @id @default(cuid())
   slug        String        @unique
@@ -196,6 +266,9 @@ model Product {
   variants ProductVariant[]
   items    OrderItem[]
   reviews  Review[]
+  wishlistItems WishlistItem[]
+  priceAlerts PriceAlert[]
+  deals    Deal[]
 
   @@index([category])
   @@index([status])

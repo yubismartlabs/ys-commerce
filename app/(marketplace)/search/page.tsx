@@ -47,6 +47,7 @@ function SearchBody() {
   const [maxPrice, setMaxPrice] = useState(params.get("maxPrice") ?? "");
   const [free, setFree] = useState(params.get("freeShipping") === "1");
   const [rated, setRated] = useState(params.get("minRating") === "4");
+  const [deals, setDeals] = useState(params.get("deals") === "1");
   const [sort, setSort] = useState(params.get("sort") ?? "newest");
   const [category, setCategory] = useState(params.get("category") ?? "");
 
@@ -73,6 +74,7 @@ function SearchBody() {
     if (maxPrice) q.set("maxPrice", maxPrice);
     if (free) q.set("freeShipping", "1");
     if (rated) q.set("minRating", "4");
+    if (deals) q.set("deals", "1");
     if (sort !== "newest") q.set("sort", sort);
     setPage(1);
     router.push(`/search?${q.toString()}`);
@@ -109,6 +111,9 @@ function SearchBody() {
             </label>
             <label className="flex cursor-pointer items-center gap-2 text-[13px]">
               <Checkbox checked={rated} onCheckedChange={(v) => setRated(v === true)} /> 4★ & up
+            </label>
+            <label className="flex cursor-pointer items-center gap-2 text-[13px]">
+              <Checkbox checked={deals} onCheckedChange={(v) => setDeals(v === true)} /> Flash deals
             </label>
           </div>
           <div>

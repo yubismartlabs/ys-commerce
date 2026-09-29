@@ -1,7 +1,7 @@
 import Link from "next/link";
 import Image from "next/image";
-import { Flame, Truck, BadgePercent, ShieldCheck, ChevronRight } from "lucide-react";
-import { Card, CardContent } from "@/components/ui/card";
+import { Flame, Truck, ShieldCheck, ChevronRight } from "lucide-react";
+import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -12,6 +12,7 @@ import {
   CarouselPrevious,
 } from "@/components/ui/carousel";
 import { ProductCard } from "@/components/commerce/product-card";
+import { HomeDeals } from "@/components/deals/home-deals";
 import { categories, products } from "@/lib/mocks/catalog";
 
 const heroSlides = [
@@ -98,23 +99,7 @@ export default function HomePage() {
       </section>
 
       {/* flash deals */}
-      <section>
-        <Card className="p-0">
-          <CardContent className="flex items-center gap-2 p-4">
-            <BadgePercent className="size-5 text-ali-red" />
-            <h2 className="text-lg font-extrabold text-ali-red">Flash Deals</h2>
-            <Badge variant="secondary">Ends in 12:34:56</Badge>
-            <Link href="/search" className="ml-auto inline-flex items-center text-[13px]">
-              More <ChevronRight className="size-4" />
-            </Link>
-          </CardContent>
-          <div className="grid grid-cols-2 gap-3 p-4 pt-0 sm:grid-cols-4 lg:grid-cols-8">
-            {flash.map((p) => (
-              <ProductCard key={p.slug} product={p} />
-            ))}
-          </div>
-        </Card>
-      </section>
+      <HomeDeals />
 
       {/* choice feed */}
       <section>

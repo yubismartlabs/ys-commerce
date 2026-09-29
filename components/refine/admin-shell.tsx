@@ -23,6 +23,7 @@ import {
   Tag,
   Ticket,
   Users,
+  Zap,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -80,7 +81,10 @@ const NAV_GROUPS: NavGroup[] = [
     key: "marketing",
     label: "Marketing",
     icon: <Tag className="size-4" />,
-    links: [{ href: "/ys-admin/coupons", label: "Coupons", icon: <Ticket className="size-4" />, scope: "coupons" }],
+    links: [
+      { href: "/ys-admin/coupons", label: "Coupons", icon: <Ticket className="size-4" />, scope: "coupons" },
+      { href: "/ys-admin/deals", label: "Flash deals", icon: <Zap className="size-4" />, scope: "deals" },
+    ],
   },
   {
     key: "system",

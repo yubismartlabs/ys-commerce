@@ -1,0 +1,85 @@
+import { z } from "zod";
+import { auth } from "@/auth";
+import { db } from "@/lib/db";
+import { fail, getPagination, ok } from "@/lib/api/http";
+
+/** Buyer's wishlist with live product rows. */
+export async function GET(req: Request) {
+  const session = await auth();
+  const userId = session?.user?.id;
+  if (!userId) return fail("UNAUTHORIZED", "Sign in required", 401);
+
+  const { page, pageSize, skip } = getPagination(new URL(req.url));
+  const where = { userId };
+  const [total, items] = await Promise.all([
+    db.wishlistItem.count({ where }),
+    db.wishlistItem.findMany({
+      where,
+      skip,
+      take: pageSize,
+      orderBy: { createdAt: "desc" },
+      include: {
+        product: {
+          select: {
+            slug: true, title: true, image: true, price: true, compareAt: true,
+            ratingAvg: true, ratingCount: true, soldCount: true, badge: true,
+            freeShipping: true, status: true,
+            variants: { select: { stock: true } },
+          },
+        },
+      },
+    }),
+  ]);
+  return ok(items, { page, pageSize, total });
+}
+
+const addSchema = z.object({
+  slug: z.string().min(1).max(120),
+  targetPrice: z.number().min(0.01).max(1000000).optional(),
+});
+
+/** Save an item; optional target price arms a price-drop alert. */
+export async function POST(req: Request) {
+  const session = await auth();
+  const userId = session?.user?.id;
+  if (!userId) return fail("UNAUTHORIZED", "Sign in required", 401);
+
+  const parsed = addSchema.safeParse(await req.json().catch(() => null));
+  if (!parsed.success) return fail("VALIDATION", "slug required", 422);
+
+  const product = await db.product.findUnique({
+    where: { slug: parsed.data.slug },
+    select: { id: true, status: true, variants: { select: { stock: true } } },
+  });
+  if (!product || product.status !== "ACTIVE") return fail("NOT_FOUND", "Product not found", 404);
+
+  const item = await db.wishlistItem.upsert({
+    where: { userId_productId: { userId, productId: product.id } },
+    update: { targetPrice: parsed.data.targetPrice ?? null },
+    create: { userId, productId: product.id, targetPrice: parsed.data.targetPrice ?? null },
+  });
+
+  // Arm alerts: price target, or restock when currently unavailable.
+  const outOfStock = product.variants.length > 0 && product.variants.every((v) => v.stock <= 0);
+  if (parsed.data.targetPrice) {
+    const existing = await db.priceAlert.findFirst({
+      where: { userId, productId: product.id, kind: "PRICE_DROP", sentAt: null },
+    });
+    if (existing) {
+      await db.priceAlert.update({ where: { id: existing.id }, data: { target: parsed.data.targetPrice } });
+    } else {
+      await db.priceAlert.create({
+        data: { userId, productId: product.id, kind: "PRICE_DROP", target: parsed.data.targetPrice },
+      });
+    }
+  }
+  if (outOfStock) {
+    const existing = await db.priceAlert.findFirst({
+      where: { userId, productId: product.id, kind: "RESTOCK", sentAt: null },
+    });
+    if (!existing) {
+      await db.priceAlert.create({ data: { userId, productId: product.id, kind: "RESTOCK" } });
+    }
+  }
+  return ok(item, undefined, 201);
+}

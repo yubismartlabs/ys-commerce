@@ -26,6 +26,16 @@ export async function resolveCart(
     select: { id: true, slug: true, title: true, image: true, price: true, category: true, status: true, storeId: true },
   });
   const bySlug = new Map(products.map((p) => [p.slug, p]));
+  // Flash deals override the base price while live (window open, cap unmet).
+  const now = new Date();
+  const deals = await db.deal.findMany({
+    where: { productId: { in: products.map((p) => p.id) }, status: "ACTIVE" },
+  });
+  const dealPrice = new Map(
+    deals
+      .filter((d) => d.startsAt <= now && d.endsAt > now && (d.stockCap === null || d.soldCount < d.stockCap))
+      .map((d) => [d.productId, Number(d.dealPrice)])
+  );
   return lines.map((l) => {
     const p = bySlug.get(l.slug);
     if (!p) throw new Error(`Product not found: ${l.slug}`);
@@ -34,7 +44,7 @@ export async function resolveCart(
       productId: p.id,
       storeId: p.storeId,
       category: p.category,
-      price: Number(p.price),
+      price: dealPrice.get(p.id) ?? Number(p.price),
       qty: l.qty,
       title: p.title,
       image: p.image,

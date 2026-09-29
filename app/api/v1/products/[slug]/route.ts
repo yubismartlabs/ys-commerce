@@ -2,6 +2,7 @@ import { auth } from "@/auth";
 import { db } from "@/lib/db";
 import { fail, ok } from "@/lib/api/http";
 import { parseSpecs, ratingDistribution } from "@/lib/products/ratings";
+import { getActiveDeal } from "@/lib/deals/pricing";
 
 export async function GET(_req: Request, { params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
@@ -19,7 +20,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ slug: s
   });
   if (!product || product.status !== "ACTIVE") return fail("NOT_FOUND", "Product not found", 404);
 
-  const [distribution, related] = await Promise.all([
+  const [distribution, related, deal] = await Promise.all([
     ratingDistribution(product.id),
     db.product.findMany({
       where: { status: "ACTIVE", category: product.category, id: { not: product.id } },
@@ -30,6 +31,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ slug: s
         ratingAvg: true, ratingCount: true, soldCount: true, badge: true, freeShipping: true,
       },
     }),
+    getActiveDeal(product.id),
   ]);
 
   const session = await auth();
@@ -39,12 +41,19 @@ export async function GET(_req: Request, { params }: { params: Promise<{ slug: s
         select: { id: true },
       })
     : null;
+  const wished = session?.user?.id
+    ? await db.wishlistItem.findUnique({
+        where: { userId_productId: { userId: session.user.id, productId: product.id } },
+        select: { id: true },
+      })
+    : null;
 
   return ok({
     ...product,
     specs: parseSpecs(product.specs),
     distribution,
     related,
-    viewer: { reviewed: !!mine },
+    deal: deal ? { ...deal, dealPrice: Number(deal.dealPrice) } : null,
+    viewer: { reviewed: !!mine, wishlisted: !!wished },
   });
 }

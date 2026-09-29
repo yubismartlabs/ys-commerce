@@ -3,6 +3,7 @@ import { auth } from "@/auth";
 import { MarketplaceHeader } from "@/components/layout/marketplace-header";
 import { MarketplaceFooter } from "@/components/layout/marketplace-footer";
 import { SiteBanners } from "@/components/layout/site-banners";
+import { CartTracker } from "@/components/lifecycle/cart-tracker";
 import { getSettings } from "@/lib/server-settings";
 
 export default async function MarketplaceLayout({ children }: { children: React.ReactNode }) {
@@ -17,6 +18,7 @@ export default async function MarketplaceLayout({ children }: { children: React.
   }
   return (
     <div className="flex min-h-screen flex-col bg-ali-bg">
+      <CartTracker />
       <SiteBanners
         maintenance={{ enabled: settings.maintenance.enabled, message: settings.maintenance.message }}
         announcement={settings.maintenance.announcement}

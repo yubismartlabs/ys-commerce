@@ -298,3 +298,109 @@ export function accountInviteEmail(opts: { siteName: string; tempPassword: strin
     ]),
   };
 }
+
+export function priceDropEmail(opts: {
+  productTitle: string;
+  productSlug: string;
+  was: number;
+  now: number;
+  target?: number;
+  siteName: string;
+}): EmailTemplate {
+  const title = `Price drop: ${opts.productTitle}`;
+  const body =
+    `<p>An item on your wishlist is now <strong>$${opts.now.toFixed(2)}</strong> (was $${opts.was.toFixed(2)}).</p>` +
+    (opts.target ? `<p>Your target was $${opts.target.toFixed(2)} — goal met.</p>` : "") +
+    `<p><a href="/product/${opts.productSlug}">Shop now on ${opts.siteName}</a> before it sells out.</p>`;
+  return {
+    subject: `[${opts.siteName}] Price dropped to $${opts.now.toFixed(2)}`,
+    html: layout(title, body),
+    text: textify(title, [
+      `${opts.productTitle}: now $${opts.now.toFixed(2)} (was $${opts.was.toFixed(2)}).`,
+      `Shop: /product/${opts.productSlug}`,
+    ]),
+  };
+}
+
+export function backInStockEmail(opts: {
+  productTitle: string;
+  productSlug: string;
+  siteName: string;
+}): EmailTemplate {
+  const title = `Back in stock: ${opts.productTitle}`;
+  const body =
+    `<p>Good news — <strong>${opts.productTitle}</strong> is back in stock on ${opts.siteName}.</p>` +
+    `<p><a href="/product/${opts.productSlug}">Grab yours</a> before it sells out again.</p>`;
+  return {
+    subject: `[${opts.siteName}] Back in stock: ${opts.productTitle}`,
+    html: layout(title, body),
+    text: textify(title, [`${opts.productTitle} is back in stock.`, `Shop: /product/${opts.productSlug}`]),
+  };
+}
+
+export function cartRecoveryEmail(opts: {
+  siteName: string;
+  lines: Array<{ title: string; qty: number; price: number }>;
+  total: number;
+}): EmailTemplate {
+  const title = `Your cart misses you`;
+  const body =
+    `<p>You left ${opts.lines.length} item(s) in your cart on ${opts.siteName}:</p>` +
+    `<ul>${opts.lines.map((l) => `<li>${l.title} ×${l.qty} — $${(l.price * l.qty).toFixed(2)}</li>`).join("")}</ul>` +
+    `<p><strong>Estimated total: $${opts.total.toFixed(2)}</strong></p><p><a href="/cart">Complete checkout</a></p>`;
+  return {
+    subject: `[${opts.siteName}] Still thinking it over?`,
+    html: layout(title, body),
+    text: textify(title, [
+      ...opts.lines.map((l) => `${l.title} x${l.qty} — $${(l.price * l.qty).toFixed(2)}`),
+      `Estimated total: $${opts.total.toFixed(2)}`,
+    ]),
+  };
+}
+
+export function reviewRequestEmail(opts: {
+  siteName: string;
+  items: Array<{ title: string; slug: string }>;
+}): EmailTemplate {
+  const title = `How was your order?`;
+  const body =
+    `<p>Your recent ${opts.siteName} order was delivered. Tap an item to review it:</p>` +
+    `<ul>${opts.items.map((i) => `<li><a href="/product/${i.slug}">${i.title}</a></li>`).join("")}</ul>`;
+  return {
+    subject: `[${opts.siteName}] Review your recent items`,
+    html: layout(title, body),
+    text: textify(title, opts.items.map((i) => `Review ${i.title}: /product/${i.slug}`)),
+  };
+}
+
+export function winbackEmail(opts: { siteName: string; code: string; amount: number }): EmailTemplate {
+  const title = `We miss you — $${opts.amount.toFixed(2)} off`;
+  const body =
+    `<p>It's been a while since your last ${opts.siteName} order. Here's <strong>$${opts.amount.toFixed(2)} off</strong> on us:</p>` +
+    `<p style="font-family:monospace;font-size:20px;font-weight:bold">${opts.code}</p>` +
+    `<p>Single use, just for you. <a href="/">Come back and shop</a>.</p>`;
+  return {
+    subject: `[${opts.siteName}] $${opts.amount.toFixed(2)} off — welcome back`,
+    html: layout(title, body),
+    text: textify(title, [`Code: ${opts.code} ($${opts.amount.toFixed(2)} off, single use).`]),
+  };
+}
+
+export function dealStartedEmail(opts: {
+  siteName: string;
+  productTitle: string;
+  productSlug: string;
+  dealPrice: number;
+  was: number;
+  endsAt: string;
+}): EmailTemplate {
+  const title = `Flash deal: ${opts.productTitle}`;
+  const body =
+    `<p>A flash deal just started on <strong>${opts.productTitle}</strong>: <strong>$${opts.dealPrice.toFixed(2)}</strong> (was $${opts.was.toFixed(2)}).</p>` +
+    `<p>Ends ${opts.endsAt}. <a href="/product/${opts.productSlug}">Shop the deal</a></p>`;
+  return {
+    subject: `[${opts.siteName}] Flash deal: $${opts.dealPrice.toFixed(2)} (was $${opts.was.toFixed(2)})`,
+    html: layout(title, body),
+    text: textify(title, [`${opts.productTitle}: $${opts.dealPrice.toFixed(2)} (was $${opts.was.toFixed(2)}). Ends ${opts.endsAt}.`]),
+  };
+}

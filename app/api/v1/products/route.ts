@@ -10,6 +10,7 @@ const querySchema = z.object({
   freeShipping: z.enum(["1", "true"]).optional(),
   minRating: z.coerce.number().min(0).max(5).optional(),
   badge: z.string().max(20).optional(),
+  deals: z.enum(["1", "true"]).optional(),
   sort: z.enum(["newest", "price_asc", "price_desc", "rating", "sold"]).default("newest"),
 });
 
@@ -38,6 +39,17 @@ export async function GET(req: Request) {
     ...(f.freeShipping ? { freeShipping: true } : {}),
     ...(f.minRating ? { ratingAvg: { gte: f.minRating } } : {}),
     ...(f.badge ? { badge: f.badge } : {}),
+    ...(f.deals
+      ? {
+          deals: {
+            some: {
+              status: "ACTIVE" as const,
+              startsAt: { lte: new Date() },
+              endsAt: { gt: new Date() },
+            },
+          },
+        }
+      : {}),
   };
   const [total, products, categories] = await Promise.all([
     db.product.count({ where }),

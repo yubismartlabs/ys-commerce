@@ -22,6 +22,7 @@ export const AREAS = [
   "orders",
   "disputes",
   "coupons",
+  "deals",
   "payouts",
   "emails",
   "settings",

@@ -138,6 +138,15 @@ export async function POST(req: Request) {
       for (const l of lines) {
         await tx.product.update({ where: { id: l.productId }, data: { soldCount: { increment: l.qty } } });
       }
+      // Flash-deal cap accounting (units sold per deal product).
+      const qtyByProduct = new Map<string, number>();
+      for (const l of lines) qtyByProduct.set(l.productId, (qtyByProduct.get(l.productId) ?? 0) + l.qty);
+      for (const [productId, qty] of qtyByProduct) {
+        await tx.deal.updateMany({
+          where: { productId, status: "ACTIVE" },
+          data: { soldCount: { increment: qty } },
+        });
+      }
       const qtyByStore = new Map<string, number>();
       for (const l of lines) qtyByStore.set(l.storeId, (qtyByStore.get(l.storeId) ?? 0) + l.qty);
       for (const [storeId, qty] of qtyByStore) {

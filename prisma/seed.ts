@@ -224,6 +224,21 @@ async function main() {
     create: { name: "Finance", scopes: ["orders", "payouts", "coupons"] },
   });
 
+  // Demo flash deals: one live, one scheduled (scheduler owns transitions).
+  const now = Date.now();
+  const dealSamples = [
+    { slug: "product-2", dealPrice: 14.99, startsAt: new Date(now - 86400000), endsAt: new Date(now + 2 * 86400000), stockCap: 50, status: "ACTIVE" as const },
+    { slug: "product-6", dealPrice: 29.99, startsAt: new Date(now + 2 * 86400000), endsAt: new Date(now + 5 * 86400000), stockCap: null, status: "SCHEDULED" as const },
+  ];
+  for (const d of dealSamples) {
+    const p = await prisma.product.findUnique({ where: { slug: d.slug } });
+    if (!p) continue;
+    await prisma.deal.deleteMany({ where: { productId: p.id } });
+    await prisma.deal.create({
+      data: { productId: p.id, dealPrice: d.dealPrice, startsAt: d.startsAt, endsAt: d.endsAt, stockCap: d.stockCap, status: d.status },
+    });
+  }
+
   const { defaultSettings, SETTING_GROUPS } = await import("../lib/settings");
   const defaults = defaultSettings();
   for (const group of SETTING_GROUPS) {
