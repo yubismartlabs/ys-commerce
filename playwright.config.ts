@@ -2,6 +2,22 @@ import { defineConfig, devices } from "@playwright/test";
 import { testDatabaseUrl } from "./tests/db-url";
 
 /**
+ * Point this process — and the workers it forks — at the throwaway database.
+ *
+ * This has to happen here, before any app module is imported. `lib/db` builds
+ * its Prisma client from `process.env.DATABASE_URL` at import time, so a spec
+ * that imports a lib module (the rate limiter, for one) would otherwise read
+ * and write the *developer's* database while asserting against the E2E one,
+ * with the two silently disagreeing. `dotenv` does not overwrite an existing
+ * value, so setting it after that import is what makes this stick.
+ */
+// Generate the per-run database name here, in the main process, and publish it
+// so forked workers resolve the same one. `testDatabaseUrl()` is what sets
+// E2E_DB_NAME; calling it first makes that explicit.
+testDatabaseUrl();
+process.env.DATABASE_URL = testDatabaseUrl();
+
+/**
  * Smoke suite for the seller inventory manager.
  *
  * Runs against a PRODUCTION build (`next build && next start`) rather than dev,
@@ -60,6 +76,14 @@ export default defineConfig({
       // refunds). They act as three different users, so they drive the API
       // through per-role contexts built from the saved sessions rather than
       // through a single page session.
+      // Library-level specs (the rate limiter) that need the database and an
+      // HTTP client but not a particular user session.
+      name: "lib",
+      use: { ...devices["Desktop Chrome"] },
+      dependencies: ["setup-seller"],
+      testMatch: /\.lib\.spec\.ts$/,
+    },
+    {
       name: "flow",
       use: { ...devices["Desktop Chrome"] },
       dependencies: ["setup-seller", "setup-seller2", "setup-buyer", "setup-admin"],
@@ -80,6 +104,9 @@ export default defineConfig({
         timeout: 240_000,
         // The app under test always points at the throwaway E2E database, so a
         // run can never write to the developer's data.
-        env: { AUTH_TRUST_HOST: "true", DATABASE_URL: testDatabaseUrl() },
+        env: {
+          AUTH_TRUST_HOST: "true",
+          DATABASE_URL: testDatabaseUrl(),
+        },
       },
 });

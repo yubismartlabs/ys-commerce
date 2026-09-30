@@ -5,6 +5,7 @@ import { fail, getPagination, ok } from "@/lib/api/http";
 import { audit } from "@/lib/api/guard";
 import { filingEligibility, freezeForOrder } from "@/lib/escrow/escrow";
 import { isSuspended } from "@/lib/api/identity";
+import { clientKey, limit } from "@/lib/api/rate-limit";
 import { evaluateMessage } from "@/lib/chat/safety";
 import { getEmailConfig } from "@/lib/email/send";
 import { disputeOpenedEmail } from "@/lib/email/templates";
@@ -55,6 +56,15 @@ export async function POST(req: Request) {
   const userId = session?.user?.id;
   if (!userId) return fail("UNAUTHORIZED", "Sign in required", 401);
   if (await isSuspended(userId)) return fail("SUSPENDED", "This account is suspended", 403);
+
+  // Filing freezes escrow, so a burst of these from one account is both a
+  // support-queue problem and a way to hold a seller's funds hostage.
+  const rl = await limit(clientKey(req, "disputes", userId), 5, 60 * 60 * 1000);
+  if (!rl.ok) {
+    return fail("RATE_LIMITED", "You've filed several dispute requests recently. Contact support.", 429, {
+      retryAfterSeconds: rl.retryAfterSeconds,
+    });
+  }
 
   const parsed = fileSchema.safeParse(await req.json().catch(() => null));
   if (!parsed.success) return fail("VALIDATION", "orderNumber, category and reason (10+ chars) required", 422);

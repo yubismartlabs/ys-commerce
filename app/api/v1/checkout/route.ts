@@ -1,7 +1,9 @@
 import { z } from "zod";
 import { auth } from "@/auth";
 import { db } from "@/lib/db";
+import { log } from "@/lib/logger";
 import { fail, ok } from "@/lib/api/http";
+import { clientKey, limit } from "@/lib/api/rate-limit";
 import { audit } from "@/lib/api/guard";
 import { validateCoupon } from "@/lib/coupons/engine";
 import { cartLineSchema, generateOrderNumber, resolveCart, shippingForLines } from "@/lib/coupons/cart";
@@ -34,6 +36,16 @@ export async function POST(req: Request) {
   const userId = session?.user?.id;
   if (!userId) return fail("UNAUTHORIZED", "Sign in to check out", 401);
   if (await isSuspended(userId)) return fail("SUSPENDED", "This account is suspended", 403);
+
+  // 10 checkouts per minute per account. A buyer retries after a declined
+  // card, so this is loose enough to be invisible and tight enough to stop
+  // coupon-code enumeration (the endpoint reports validity in its error text).
+  const rl = await limit(clientKey(req, "checkout", userId), 10, 60 * 1000);
+  if (!rl.ok) {
+    return fail("RATE_LIMITED", "Too many checkout attempts. Wait a moment and try again.", 429, {
+      retryAfterSeconds: rl.retryAfterSeconds,
+    });
+  }
 
   const parsed = schema.safeParse(await req.json().catch(() => null));
   if (!parsed.success) return fail("VALIDATION", "items[], couponCode and a shipping address are required", 422);
@@ -234,7 +246,7 @@ export async function POST(req: Request) {
     if (msg.startsWith("STOCK:")) return fail("STOCK", msg.slice("STOCK:".length), 422);
     if (msg.startsWith("VARIANT:")) return fail("VARIANT", msg.slice("VARIANT:".length), 422);
     if (msg.startsWith("SOLD_OUT:")) return fail("SOLD_OUT", msg.slice("SOLD_OUT:".length), 422);
-    console.error("[checkout] failed", msg);
+    log.error("checkout failed", { reason: msg, userId });
     return fail("CHECKOUT", "Checkout failed, please retry", 500);
   }
 

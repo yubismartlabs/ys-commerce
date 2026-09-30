@@ -15,7 +15,21 @@ import "dotenv/config";
  * Playwright reads `webServer.env` while loading this config, before any setup
  * hook runs.
  */
-export const TEST_DB_NAME = "ys_commerce_e2e";
+/**
+ * Unique per run, and identical in every process that needs it.
+ *
+ * A fixed name meant two overlapping `playwright test` invocations shared one
+ * database: whichever finished first ran its teardown and dropped it out from
+ * under the other, which then failed with "database does not exist" in a way
+ * that looked like an application fault.
+ *
+ * The name is generated ONCE by the main process and published in the
+ * environment, because deriving it from `process.pid` in each process is wrong:
+ * globalSetup runs in the main process while specs run in forked workers, and
+ * a per-process pid suffix made them disagree about which database existed.
+ */
+export const TEST_DB_NAME =
+  process.env.E2E_DB_NAME ?? (process.env.E2E_DB_NAME = `ys_commerce_e2e_${process.pid}`);
 
 export function baseDatabaseUrl(): string {
   const url = process.env.DATABASE_URL;

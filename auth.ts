@@ -4,6 +4,7 @@ import { PrismaAdapter } from "@auth/prisma-adapter";
 import bcrypt from "bcryptjs";
 import { z } from "zod";
 import { db } from "@/lib/db";
+import { clientKey, limit } from "@/lib/api/rate-limit";
 import { effectiveScopes } from "@/lib/auth/permissions";
 
 /** Distinct sign-in failure for suspended accounts (surfaces as code=SUSPENDED). */
@@ -37,10 +38,21 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     Credentials({
       name: "Admin login",
       credentials: { email: {}, password: {} },
-      async authorize(raw) {
+      async authorize(raw, req) {
         const parsed = credentialsSchema.safeParse(raw);
         if (!parsed.success) return null;
-        const user = await db.user.findUnique({ where: { email: parsed.data.email.toLowerCase() } });
+        const email = parsed.data.email.toLowerCase();
+
+        // Two budgets: one per account so one target cannot be ground down,
+        // and one per client so spraying many accounts from one host is also
+        // throttled. Counted before the password check, so a wrong guess costs
+        // the attacker their budget whether or not the account exists.
+        const byAccount = await limit(`authn:acct:${email}`, 10, 15 * 60 * 1000);
+        if (!byAccount.ok) return null;
+        const byClient = await limit(clientKey(req, "authn"), 30, 15 * 60 * 1000);
+        if (!byClient.ok) return null;
+
+        const user = await db.user.findUnique({ where: { email } });
         if (!user?.passwordHash) return null;
         const ok = await bcrypt.compare(parsed.data.password, user.passwordHash);
         if (!ok) return null;

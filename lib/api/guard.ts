@@ -1,6 +1,7 @@
 import { createHash } from "crypto";
 import { auth } from "@/auth";
 import { db } from "@/lib/db";
+import { log } from "@/lib/logger";
 import { fail } from "@/lib/api/http";
 import { canAccessConsole, effectiveScopes, hasScope } from "@/lib/auth/permissions";
 
@@ -140,6 +141,6 @@ export async function audit(actorId: string | null, action: string, entity: stri
       data: { actorId, action, entity, entityId, meta: (meta as object) ?? undefined },
     });
   } catch (e) {
-    console.error(`[audit] failed to record ${action} on ${entity} ${entityId}:`, e);
+    log.error("audit write failed", { action, entity, entityId, err: e });
   }
 }

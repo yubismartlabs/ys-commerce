@@ -77,6 +77,13 @@ export const notificationsSchema = z.object({
 export const securitySchema = z.object({
   passwordMinLength: z.number().int().min(8).max(32).default(8),
   allowAdminTokens: z.boolean().default(true),
+  /**
+   * Multiplier on every rate-limit ceiling. 1 = the coded budgets. Operators
+   * can widen them during a traffic spike or a support drive without a deploy;
+   * lowering below 1 tightens them, which is the useful direction when an
+   * endpoint is being abused.
+   */
+  rateLimitMultiplier: z.number().min(0.1).max(1000).default(1),
 });
 
 export const maintenanceSchema = z.object({

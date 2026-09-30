@@ -1,5 +1,6 @@
 import { ok } from "@/lib/api/http";
 import { audit, withAdmin } from "@/lib/api/guard";
+import { log } from "@/lib/logger";
 import { releaseDue, runPayouts } from "@/lib/escrow/escrow";
 import { runPriceAlerts } from "@/lib/lifecycle/alerts";
 import { runLifecycle } from "@/lib/lifecycle/lifecycle";
@@ -13,12 +14,12 @@ export const POST = withAdmin(async (_req, actor) => {
     releaseDue(),
     runPayouts(),
     runPriceAlerts().catch((e) => {
-      console.error("[ops] price alerts failed", e);
+      log.error("ops: price alerts failed", { err: e });
       return { priceDrops: 0, restocks: 0 };
     }),
     runLifecycle(),
     import("@/lib/deals/scheduler").then((m) => m.runDeals()).catch((e) => {
-      console.error("[ops] deals failed", e);
+      log.error("ops: deals failed", { err: e });
       return { started: 0, ended: 0, notified: 0 };
     }),
   ]);

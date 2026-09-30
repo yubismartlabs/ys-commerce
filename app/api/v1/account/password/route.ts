@@ -2,6 +2,7 @@ import { z } from "zod";
 import bcrypt from "bcryptjs";
 import { db } from "@/lib/db";
 import { fail, ok } from "@/lib/api/http";
+import { clientKey, limit } from "@/lib/api/rate-limit";
 import { ApiError } from "@/lib/api/guard";
 import { requireUser } from "@/lib/api/identity";
 import { getSettingGroup } from "@/lib/server-settings";
@@ -20,6 +21,16 @@ export async function POST(req: Request) {
     if (e instanceof ApiError) return fail(e.code, e.message, e.status);
     throw e;
   }
+  // Throttled after authentication, keyed on the account: the caller already
+  // holds a valid session but must still present the current password, so this
+  // is a guessing target with a known username.
+  const rl = await limit(clientKey(req, "password", actor.id), 10, 15 * 60 * 1000);
+  if (!rl.ok) {
+    return fail("RATE_LIMITED", "Too many attempts. Try again later.", 429, {
+      retryAfterSeconds: rl.retryAfterSeconds,
+    });
+  }
+
   const parsed = schema.safeParse(await req.json().catch(() => null));
   if (!parsed.success) return fail("VALIDATION", "Current and new password (8+ chars) required", 422);
 

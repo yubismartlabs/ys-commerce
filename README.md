@@ -129,10 +129,12 @@ create schema must use it.
 
 Deliberately incomplete — see the plan in the git history:
 
-- **Payments.** Mock only. No refunds are issued to a processor.
-- **Session lifetime** is a fixed 30 days. It cannot be made operator-configurable while the session strategy is JWT and `auth.ts` is imported by edge middleware; it needs database sessions.
+- **Payments.** Mock only. No refunds are issued to a processor. See "Wiring a real processor" below.
+- **No CI and no deploy config.** The build, lint and E2E suite are verified by hand only; nothing runs them on push and there is no Dockerfile or platform configuration.
+- **No error tracking or alerting.** `lib/logger.ts` emits structured JSON and `/api/health/{live,ready}` exist for a shipper and a probe to consume, but no provider is wired up and nothing pages anyone.
+- **Session lifetime** is a fixed 30 days. It cannot be made operator-configurable while the session strategy is JWT and `auth.ts` is imported by edge middleware; it needs database sessions. There is also no revocation list, so a session stays valid until it expires even after a password change.
 - **Review moderation** is not implemented. Reviews publish immediately.
-- **Chat uploads** are written to local disk and served publicly. They are not access-controlled, which is intentional for trust & safety but means they are not private. Use object storage for production.
+- **Chat uploads** are written to local disk and served publicly. They are not access-controlled, which is intentional for trust & safety but means they are not private. Use object storage for production — and note that more than one app instance will serve inconsistent files from local disk.
 - **Product taxonomy** is a free-text column, not a real category tree. `lib/categories.ts` provides a canonical slug list and alias normalization, and filters are case-insensitive, but sellers can still enter arbitrary category strings.
 - **The inventory manager has no scheduling.** Sellers can import up to 500 products per CSV at
   `/selling/listings/bulk` (dry-run preview, per-row errors, deterministic slugs), run bulk *updates* from
@@ -191,6 +193,26 @@ condition renders nothing to click rather than erroring — the same shape as th
 the reason this page is tested rather than assumed. It also pins that `Update tracking` stays disabled
 until a number is typed, and that fetching another store's order returns **404 rather than 403**: the
 route filters to the seller's own items, and a 403 would confirm a foreign order id is real.
+
+**Rate limiting** (`lib/api/rate-limit.ts`) is a fixed-window counter in Postgres, applied to
+registration, sign-in, password change, checkout, and return/dispute filing. It is in the database rather
+than in process memory because an in-memory budget is per-instance: with two replicas each enforced its
+own allowance, and a rolling deploy silently reset everyone's quota. Two properties are worth knowing:
+
+- The decision is one conditional `INSERT ... ON CONFLICT DO UPDATE ... WHERE count < budget`. The
+  obvious read-then-write version is check-then-act and let 30 concurrent requests through a budget of 10.
+- The window columns are `timestamptz`. As plain `timestamp without time zone`, a JS `Date` written
+  through raw SQL landed four hours in the past on this machine, so current windows compared as expired
+  and the pruner deleted *live* buckets — disabling rate limiting with no error anywhere.
+
+`security.rateLimitMultiplier` scales every ceiling, so operators can widen limits during a spike or
+tighten an endpoint under attack without a deploy.
+
+**Health and logging.** `/api/health/live` deliberately does not touch the database — if it did, a brief
+outage would make an orchestrator restart every healthy instance — while `/api/health/ready` does, and
+returns 503 so a load balancer stops sending traffic to a replica with a broken connection. API requests
+are access-logged as one JSON object per line with an `x-request-id` echoed back, which is what makes a
+user-reported failure traceable; health probes are excluded so they do not bury real traffic.
 
 **Audit writes are best-effort** (`lib/api/guard.ts`). Callers audit *after* the work is committed —
 checkout creates the order, then writes the trail — so an audit failure returned 500 for an order that

@@ -3,6 +3,7 @@ import { auth } from "@/auth";
 import { db } from "@/lib/db";
 import { fail, getPagination, ok } from "@/lib/api/http";
 import { isSuspended } from "@/lib/api/identity";
+import { clientKey, limit } from "@/lib/api/rate-limit";
 import { createReturn, ReturnError, RETURN_REASONS } from "@/lib/returns/returns";
 
 const createSchema = z.object({
@@ -44,6 +45,15 @@ export async function POST(req: Request) {
   const userId = session?.user?.id;
   if (!userId) return fail("UNAUTHORIZED", "Sign in required", 401);
   if (await isSuspended(userId)) return fail("SUSPENDED", "This account is suspended", 403);
+
+  // Filing freezes escrow, so a burst of these from one account is both a
+  // support-queue problem and a way to hold a seller's funds hostage.
+  const rl = await limit(clientKey(req, "returns", userId), 5, 60 * 60 * 1000);
+  if (!rl.ok) {
+    return fail("RATE_LIMITED", "You've filed several return requests recently. Contact support.", 429, {
+      retryAfterSeconds: rl.retryAfterSeconds,
+    });
+  }
 
   const parsed = createSchema.safeParse(await req.json().catch(() => null));
   if (!parsed.success) {

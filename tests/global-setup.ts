@@ -32,6 +32,14 @@ async function main() {
 
   prisma(["migrate", "deploy"]);
   execFileSync("npx", ["tsx", "prisma/seed.ts"], { cwd: repoRoot, env, stdio: "inherit" });
+
+  // The suite signs in, checks out and files after-sales requests dozens of
+  // times per minute against one session. Production ceilings would fail it for
+  // the wrong reason, so widen them here — the counting, windowing and row
+  // writes all still happen. tests/rate-limit.spec.ts puts the multiplier back
+  // to 1 to exercise the real ceilings, and tests the algorithm directly with
+  // explicit values.
+  execFileSync("npx", ["tsx", "prisma/relax-rate-limits.ts"], { cwd: repoRoot, env, stdio: "inherit" });
 }
 
 export default async function globalSetup() {

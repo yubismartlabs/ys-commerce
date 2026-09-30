@@ -27,7 +27,53 @@ function toLogin(req: { nextUrl: { clone(): URL } }, pathname: string) {
   return NextResponse.redirect(url);
 }
 
-export default auth((req) => {
+/**
+ * Access log for API traffic, plus a request id echoed back to the caller.
+ *
+ * Scoped to /api and deliberately skipping /api/health: a liveness probe runs
+ * every few seconds per replica, and logging it buries real traffic (and costs
+ * money at volume). The request id is what makes a report actionable — it ties
+ * an access line to the error line the route logged with the same id.
+ */
+async function withAccessLog(
+  req: Request & { nextUrl: URL },
+  // Matches what the auth wrapper actually returns, which may be void or a
+  // promise of one; normalised to a Response inside.
+  next: () => void | Response | Promise<void | Response>
+): Promise<Response> {
+  const { pathname } = req.nextUrl;
+  if (!pathname.startsWith("/api/") || pathname.startsWith("/api/health")) {
+    return (await next()) ?? NextResponse.next();
+  }
+
+  const requestId = req.headers.get("x-request-id") ?? crypto.randomUUID();
+  const startedAt = Date.now();
+  // The auth wrapper may hand back a plain Response whose headers are already
+  // sealed, so the request id is best-effort — losing it costs correlation on
+  // that one response, not correctness.
+  const res = (await next()) ?? NextResponse.next();
+
+  console.log(
+    JSON.stringify({
+      level: "info",
+      time: new Date().toISOString(),
+      msg: "api request",
+      requestId,
+      method: req.method,
+      path: pathname,
+      durationMs: Date.now() - startedAt,
+    })
+  );
+
+  try {
+    res.headers.set("x-request-id", requestId);
+  } catch {
+    /* headers already sealed */
+  }
+  return res;
+}
+
+const guard = auth((req) => {
   const { pathname } = req.nextUrl;
   if (!pathname.startsWith("/ys-admin")) return NextResponse.next();
   if (pathname === "/ys-admin/login" || pathname === "/ys-admin/no-access") return NextResponse.next();
@@ -47,6 +93,14 @@ export default auth((req) => {
   return NextResponse.next();
 });
 
+export default function middleware(
+  req: Parameters<typeof guard>[0],
+  event: Parameters<typeof guard>[1]
+) {
+  return withAccessLog(req, () => guard(req, event));
+}
+
 export const config = {
-  matcher: ["/ys-admin/:path*"],
+  // Was admin-only. API routes are included so access logging covers them.
+  matcher: ["/ys-admin/:path*", "/api/:path*"],
 };

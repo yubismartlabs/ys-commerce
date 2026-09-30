@@ -714,6 +714,23 @@ model ApiToken {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
+/// Fixed-window rate-limit counters. One row per (key, window); expired
+/// windows are removed by a time-range delete rather than a per-key scan.
+model RateLimitBucket {
+  key String
+  /// An absolute instant, so it must be timezone-aware. As a plain
+  /// `timestamp without time zone`, a JS Date passed through raw SQL was stored
+  /// shifted by the server's UTC offset — four hours behind on this machine —
+  /// which made current windows look expired and let the pruner delete live
+  /// buckets, disabling rate limiting without any visible error.
+  windowStart DateTime @db.Timestamptz(3)
+  count       Int      @default(0)
+  updatedAt   DateTime @updatedAt @db.Timestamptz(3)
+
+  @@id([key, windowStart])
+  @@index([windowStart])
+}
+
 model AuditLog {
   id        String   @id @default(cuid())
   actorId   String?
