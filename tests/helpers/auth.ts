@@ -21,6 +21,9 @@ export async function signIn(page: Page, account: { email: string; password: str
   await page.goto("/sign-in");
   await page.getByLabel("Email").fill(account.email);
   await page.getByLabel("Password").fill(account.password);
+  // Defence in depth: even with the form gated on hydration, retry the whole
+  // attempt if the session does not appear. A flake here costs a minute of
+  // diagnosis; a false pass would cost far more.
   await page.getByRole("button", { name: "Sign in" }).click();
 
   // A failed sign-in leaves us on /sign-in with an alert; a successful one
@@ -30,8 +33,16 @@ export async function signIn(page: Page, account: { email: string; password: str
   // Confirm the session is really usable rather than trusting the redirect.
   // /api/v1/account/cart is 200 only when authenticated and 401 otherwise,
   // which is a far more stable signal than any particular nav label.
-  const res = await page.request.get("/api/v1/account/cart");
-  expect(res.status(), `expected ${account.email} to be signed in`).toBe(200);
+  //
+  // Polled rather than read once: the redirect and the session cookie are not
+  // strictly ordered, so a single immediate check intermittently saw 401 for an
+  // account that was, in fact, signed in.
+  await expect
+    .poll(
+      async () => (await page.request.get("/api/v1/account/cart")).status(),
+      { timeout: 15_000, message: `expected ${account.email} to be signed in` }
+    )
+    .toBe(200);
 
   mkdirSync(AUTH_DIR, { recursive: true });
   await page.context().storageState({ path: path.join(AUTH_DIR, `${role}.json`) });

@@ -42,7 +42,7 @@ export const commerceSchema = z.object({
 });
 
 export const paymentsSchema = z.object({
-  provider: z.enum(["mock", "stripe"]).default("mock"),
+  provider: z.enum(["mock"]).default("mock"),
   currency: z.string().default("USD"),
   payoutSchedule: z.enum(["daily", "weekly", "monthly"]).default("weekly"),
   payoutMinimum: z.number().min(0).default(20),

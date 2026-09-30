@@ -1,0 +1,11 @@
+-- Drop the payment tracking table.
+--
+-- It was added for the Stripe/PayPal work, which has been removed again: those
+-- providers are the only thing that would have written it. Leaving the table in
+-- place would be worse than removing it — an empty "Payment" table reads as
+-- "we track payments" to the next person, and invites someone to trust
+-- reconciliation that does not exist.
+--
+-- The provider seam (lib/payments) is kept, so re-adding a processor means
+-- recreating this table alongside the provider rather than designing it again.
+DROP TABLE IF EXISTS "Payment";

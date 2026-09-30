@@ -119,7 +119,14 @@ create schema must use it.
 
 **Returns vs disputes.** They are deliberately separate. A return is ordinary after-sales and freezes escrow for the lines involved; a dispute is adversarial and settles via admin ruling. Money only moves on `REFUNDED`, which is admin-only — a seller cannot self-serve a refund.
 
-**Payments are simulated.** No card is collected or charged; orders are written as `PAID` immediately. `payments.provider` is `mock` only. Wire a real provider before taking money — see "Not yet built" below.
+**Payments are simulated.** No card is collected or charged; orders are written as `PAID` immediately and stock and escrow move in the same transaction. The provider seam lives in `lib/payments`: a `Provider` interface, a `mock` implementation, and `getConfiguredProvider()` as the single wiring point. A real processor plugs in there without touching checkout, orders, or refunds.
+
+The two rules a real provider must honour are written down in `lib/payments/types.ts`, because the mock cannot exercise them and the first implementation is the one that gets them wrong:
+
+- The amount is computed server-side from the resolved cart and sent *to* the provider. A provider's response is a status, never a price.
+- Confirmation arrives asynchronously out of band. An order may only be marked paid from a **verified webhook**, never from the browser returning from a payment page — that is a hint, not proof. Webhook handling must be idempotent, because providers redeliver by contract.
+
+Stripe and PayPal implementations were built against this interface and then removed again. `getConfiguredProvider` deliberately raises rather than falling back to mock when a provider is selected but unconfigured: a deployment that meant to take money but was missing a key would otherwise mark orders paid and charge nobody, while the storefront looked identical.
 
 **Query defaults** live in `components/layout/providers.tsx`: 30s `staleTime`, no refetch-on-focus, and a retry policy that skips 4xx (a 401 is not worth retrying three times).
 
@@ -129,7 +136,8 @@ create schema must use it.
 
 Deliberately incomplete — see the plan in the git history:
 
-- **Payments.** Mock only. No refunds are issued to a processor. See "Wiring a real processor" below.
+- **Payments.** Mock only, and the provider seam is in place but empty of real implementations. Nothing is charged and no refund is ever issued to a processor — a return marked `REFUNDED` updates our books and the escrow ledger, and no money moves anywhere. Buyer-facing copies say so.
+- **Refunds have no processor path.** `lib/payments/types.ts` defines `Provider.refund` and the interface is ready, but nothing calls it yet. When a provider lands, the buyer-win branch of `app/api/v1/admin/disputes/[id]/route.ts` and the `REFUNDED` transition in `lib/returns/returns.ts` are the two places that need to invoke it.
 - **No CI and no deploy config.** The build, lint and E2E suite are verified by hand only; nothing runs them on push and there is no Dockerfile or platform configuration.
 - **No error tracking or alerting.** `lib/logger.ts` emits structured JSON and `/api/health/{live,ready}` exist for a shipper and a probe to consume, but no provider is wired up and nothing pages anyone.
 - **Session lifetime** is a fixed 30 days. It cannot be made operator-configurable while the session strategy is JWT and `auth.ts` is imported by edge middleware; it needs database sessions. There is also no revocation list, so a session stays valid until it expires even after a password change.

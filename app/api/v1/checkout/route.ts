@@ -263,6 +263,7 @@ export async function POST(req: Request) {
     link: `/ys-admin/orders/show/${orderId}`,
     meta: { entityId: orderId, orderNumber: number },
   });
+
   const order = await db.order.findUnique({
     where: { id: orderId },
     include: { items: true, shipments: { include: { store: { select: { id: true, name: true, slug: true } } } } },

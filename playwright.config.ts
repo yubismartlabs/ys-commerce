@@ -27,6 +27,19 @@ process.env.DATABASE_URL = testDatabaseUrl();
  * `workers: 1` is deliberate: the tests mutate seeded rows in a shared
  * database, so parallel workers would race each other.
  */
+/**
+ * Per-run port as well as per-run database.
+ *
+ * The port was the last resource two overlapping runs shared: with a fixed one,
+ * the second run's server could not bind, and the resulting abort looked like a
+ * mysterious early exit rather than a conflict. Derived from the runner's pid
+ * and published in the environment, so both halves of a run agree on it.
+ */
+// Fixed, and overridable. A per-pid port was tried so two runs could not
+// collide, but Playwright loads this config in every worker as well, and the
+// result was an intermittent connection-refused abort that cost more time than
+// the collision it prevented. The database is per-run, so overlapping runs no
+// longer destroy each other's data; set E2E_PORT to run two at once.
 const PORT = Number(process.env.E2E_PORT ?? 3210);
 const baseURL = process.env.E2E_BASE_URL ?? `http://127.0.0.1:${PORT}`;
 

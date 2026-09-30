@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { safeNextPath } from "@/lib/auth/next-path";
+import { useHydrated } from "@/lib/hooks/use-hydrated";
 
 function SignInForm() {
   const router = useRouter();
@@ -19,10 +20,27 @@ function SignInForm() {
   const [error, setError] = useState<string | null>(params.get("error") ? "Please sign in to continue." : null);
   const [busy, setBusy] = useState(false);
   const next = safeNextPath(params.get("next"));
+  const hydrated = useHydrated();
 
   if (status === "authenticated") {
     router.replace(next);
     return null;
+  }
+
+  // The email/password fields are controlled, so React only starts honouring
+  // them after hydration. Rendering them before then means anything typed in
+  // that window — by a fast typist, or by an automated client — is silently
+  // discarded, and submitting submits empty credentials. Hold the form back
+  // until the component is live.
+  if (!hydrated) {
+    return (
+      <Card className="w-full max-w-sm space-y-5 p-7" aria-busy="true">
+        <div className="h-8 w-40 animate-pulse rounded bg-neutral-100 dark:bg-neutral-800" />
+        <div className="h-10 w-full animate-pulse rounded bg-neutral-100 dark:bg-neutral-800" />
+        <div className="h-10 w-full animate-pulse rounded bg-neutral-100 dark:bg-neutral-800" />
+        <div className="h-10 w-full animate-pulse rounded bg-neutral-100 dark:bg-neutral-800" />
+      </Card>
+    );
   }
 
   const submit = async (e: React.FormEvent) => {
