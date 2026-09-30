@@ -156,6 +156,16 @@ previous action will happily satisfy the next assertion. Specs create and delete
 they don't depend on specific seeded rows, and `workers: 1` is deliberate — they mutate a shared
 database.
 
+**Settlement and payouts** (`tests/settlements.flow.spec.ts`) cover the last untested money path. Two
+gates guard a seller's funds and neither is reachable through the API on a useful timescale — the
+settling buffer (14 days) after buyer protection closes, and the payout cadence plus a $20 minimum. The
+fixtures therefore backdate rows directly (see `tests/helpers/db.ts`, which exists for exactly this and
+for nothing else) and then drive the real scheduler endpoint, so every assertion is still made against
+what the API returns. Pinned: a hold is gross minus commission at the store's own rate; a coupon reduces
+the hold **pro-rata**, so the platform does not take commission on a price the buyer never paid; nothing
+releases while protection is open; the scheduler is idempotent; a payout under the minimum is not paid
+even past its cadence; and a payout is not paid before its cadence elapses.
+
 **Coupons** (`tests/coupons.flow.spec.ts`) assert the discount arithmetic against the stored order
 (`subtotal`, `discount`, `shipping`, `total`) rather than the quote the page displayed. The property
 worth most is the **store-scoped `FREESHIP`** rule: a buyer's code may only waive shipping for the
