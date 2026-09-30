@@ -108,6 +108,9 @@ Deliberately incomplete — see the plan in the git history:
 - **Product taxonomy** is a free-text column, not a real category tree. `lib/categories.ts` provides a canonical slug list and alias normalization, and filters are case-insensitive, but sellers can still enter arbitrary category strings.
 - **`Product` has no stock column.** A listing with no variants is treated as always in stock.
 - **Seller-side bulk tooling** (CSV import, inventory manager) does not exist.
+- **Seller coupons are manual**: no scheduled campaigns, no auto-apply, no stacking
+  (one coupon per order). A seller `FREESHIP` code waives only their own parcel's
+  shipping, never a peer's.
 - **Returns are manual end to end.** There are no return shipping labels or automated carrier integration; the seller marks an item received by hand and support releases the refund.
 
 ---

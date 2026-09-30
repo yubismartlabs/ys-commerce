@@ -51,7 +51,13 @@ export async function POST(req: Request) {
   let discount = 0;
   let shippingDiscount = 0;
   if (parsed.data.couponCode?.trim()) {
-    const v = await validateCoupon({ code: parsed.data.couponCode, items: lines, shipping, userId });
+    const v = await validateCoupon({
+      code: parsed.data.couponCode,
+      items: lines,
+      shipping,
+      shippingByStore: Object.fromEntries(shippingByStore),
+      userId,
+    });
     if (!v.ok) return fail("COUPON", v.error, 422);
     coupon = { id: v.coupon.id, code: v.coupon.code };
     discount = v.discount;

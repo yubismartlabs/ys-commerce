@@ -29,6 +29,7 @@ export async function POST(req: Request) {
     code: parsed.data.code,
     items: lines,
     shipping,
+    shippingByStore: Object.fromEntries(byStore),
     userId: userId ?? undefined,
   });
   if (!result.ok) return fail("COUPON", result.error, 422);

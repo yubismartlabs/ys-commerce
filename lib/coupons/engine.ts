@@ -47,7 +47,14 @@ function eligibleItems(coupon: CouponRow, items: QuoteItem[]): QuoteItem[] {
 export async function validateCoupon(opts: {
   code: string;
   items: QuoteItem[];
+  /** Total basket shipping. Used when no per-store breakdown is supplied. */
   shipping?: number;
+  /**
+   * Shipping per store. A store-scoped FREESHIP coupon may only waive the
+   * shipping for its OWN parcels — otherwise a buyer's coupon would waive a
+   * stranger's delivery fee, and the seller we'd have to reimburse.
+   */
+  shippingByStore?: Record<string, number>;
   userId?: string;
 }): Promise<Validation> {
   const code = opts.code.trim().toUpperCase();
@@ -90,7 +97,16 @@ export async function validateCoupon(opts: {
 
   const shipping = opts.shipping ?? 0;
   if (coupon.type === "FREESHIP") {
-    return { ok: true, coupon, discount: 0, shippingDiscount: round(shipping), eligibleSubtotal };
+    // Only waive the shipping this coupon is responsible for.
+    let waivable = shipping;
+    if (opts.shippingByStore) {
+      const entries = Object.entries(opts.shippingByStore);
+      // No storeIds on the coupon = platform-wide, so all of it is waivable.
+      waivable = coupon.storeIds.length > 0
+        ? entries.filter(([storeId]) => coupon.storeIds.includes(storeId)).reduce((a, [, cost]) => a + cost, 0)
+        : entries.reduce((a, [, cost]) => a + cost, 0);
+    }
+    return { ok: true, coupon, discount: 0, shippingDiscount: round(waivable), eligibleSubtotal };
   }
   const discount =
     coupon.type === "PERCENT"
