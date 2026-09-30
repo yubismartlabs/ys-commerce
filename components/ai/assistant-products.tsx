@@ -293,6 +293,76 @@ function FlatOverflow({
 }
 
 /**
+ * Order status cards for "where is my order" answers: number, status,
+ * items and per-parcel tracking, deep-linked to the orders tab.
+ */
+export type AssistantOrder = {
+  number: string;
+  status: string;
+  total: number;
+  createdAt: string;
+  items: Array<{ title: string; slug: string | null; qty: number; price: number }>;
+  shipments: Array<{ storeName: string; status: string; carrier: string | null; trackingNumber: string | null }>;
+};
+
+const STATUS_TINT: Record<string, string> = {
+  PAID: "bg-amber-100 text-amber-800",
+  SHIPPED: "bg-sky-100 text-sky-800",
+  IN_TRANSIT: "bg-sky-100 text-sky-800",
+  DELIVERED: "bg-emerald-100 text-emerald-800",
+  CANCELLED: "bg-neutral-200 text-neutral-600",
+  REFUNDED: "bg-neutral-200 text-neutral-600",
+};
+
+export function OrderCards({ orders }: { orders: AssistantOrder[] }) {
+  if (orders.length === 0) return null;
+  return (
+    <div className="space-y-2" aria-label="Your orders">
+      {orders.map((o) => (
+        <div key={o.number} className="ai-card space-y-2 rounded-[18px] p-3 ring-1 ring-black/5">
+          <div className="flex items-center gap-2">
+            <span className="flex size-8 items-center justify-center rounded-xl bg-ali-red/10 text-ali-red">
+              <Package className="size-4" />
+            </span>
+            <div className="min-w-0 flex-1 leading-tight">
+              <p className="text-[13px] font-extrabold text-neutral-900">Order {o.number}</p>
+              <p className="text-[11px] text-neutral-500">
+                {new Date(o.createdAt).toLocaleDateString([], { month: "short", day: "numeric" })} · {formatUSD(o.total)}
+              </p>
+            </div>
+            <span className={cn("rounded-full px-2 py-0.5 text-[11px] font-bold", STATUS_TINT[o.status] ?? "bg-neutral-100 text-neutral-600")}>
+              {o.status}
+            </span>
+          </div>
+          <ul className="space-y-0.5">
+            {o.items.map((i, k) => (
+              <li key={k} className="truncate text-xs text-neutral-600">
+                {i.qty}× {i.title}
+              </li>
+            ))}
+          </ul>
+          {o.shipments.map((s, k) => (
+            <p key={k} className="flex items-center gap-1.5 text-[11px] text-neutral-500">
+              <Truck className="size-3.5 shrink-0 text-emerald-600" />
+              <span className="truncate">
+                {s.storeName} · {s.status}
+                {s.trackingNumber ? ` · ${s.carrier ?? "carrier"} ${s.trackingNumber}` : ""}
+              </span>
+            </p>
+          ))}
+          <Link
+            href="/account?tab=orders"
+            className="flex items-center justify-center gap-1 rounded-full border border-neutral-200 py-1.5 text-[12px] font-bold text-neutral-800 transition hover:border-ali-red hover:text-ali-red"
+          >
+            View in orders <ArrowRight className="size-3.5" />
+          </Link>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/**
  * Side-by-side comparison for "X vs Y" questions: image-led columns,
  * price hero row, icon attribute rows, sticky verdict bar.
  */

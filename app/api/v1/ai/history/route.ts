@@ -18,15 +18,31 @@ export async function GET() {
     select: { id: true, role: true, content: true, citations: true, feedback: true, createdAt: true },
     take: 40,
   });
+  // citations is either a legacy product array or { products, orders }.
+  const split = (c: unknown): { products: unknown[]; orders: unknown[] } => {
+    if (Array.isArray(c)) return { products: c, orders: [] };
+    if (c && typeof c === "object") {
+      const o = c as { products?: unknown; orders?: unknown };
+      return {
+        products: Array.isArray(o.products) ? o.products : [],
+        orders: Array.isArray(o.orders) ? o.orders : [],
+      };
+    }
+    return { products: [], orders: [] };
+  };
   return ok(
-    rows.map((r) => ({
-      id: r.id,
-      role: r.role === "USER" ? "user" : "assistant",
-      content: r.content,
-      citations: Array.isArray(r.citations) ? r.citations : [],
-      feedback: r.feedback,
-      createdAt: r.createdAt,
-    }))
+    rows.map((r) => {
+      const { products, orders } = split(r.citations);
+      return {
+        id: r.id,
+        role: r.role === "USER" ? "user" : "assistant",
+        content: r.content,
+        citations: products,
+        orders,
+        feedback: r.feedback,
+        createdAt: r.createdAt,
+      };
+    })
   );
 }
 

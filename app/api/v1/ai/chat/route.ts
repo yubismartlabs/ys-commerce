@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import { fail, ok } from "@/lib/api/http";
 import { getAiConfig } from "@/lib/ai/config";
 import { tryAlertAction } from "@/lib/ai/actions";
+import { buyerOrders, wantsOrderCard } from "@/lib/ai/orders";
 import { matchMissionPack } from "@/lib/ai/missions";
 import { buildAiContext, resolveMentionedProducts } from "@/lib/ai/context";
 import { AiUpstreamError, chatWithHf } from "@/lib/ai/provider";
@@ -109,13 +110,15 @@ export async function POST(req: Request) {
     const reply = await chatWithHf({ token: cfg.token, model: cfg.model, messages, maxTokens: cfg.maxTokens, temperature: cfg.temperature });
     // Every mentioned product becomes a card, even ones retrieval missed.
     const citations = await resolveMentionedProducts(reply, ctx.citations);
+    // Order questions also carry structured cards (persisted with the message).
+    const orders = wantsOrderCard(userText) ? await buyerOrders(userId).catch(() => []) : [];
     const saved = await db.aiMessage
-      .create({ data: { userId, role: "ASSISTANT", content: reply, citations: citations as object } })
+      .create({ data: { userId, role: "ASSISTANT", content: reply, citations: { products: citations, orders } as object } })
       .catch((e) => {
         log.error("ai assistant message persist failed", { err: e });
         return null;
       });
-    return ok({ reply, citations, messageId: saved?.id ?? null }, undefined, 200, { model: cfg.model });
+    return ok({ reply, citations, orders, messageId: saved?.id ?? null }, undefined, 200, { model: cfg.model });
   } catch (e) {
     if (e instanceof AiUpstreamError) {
       // Quota/cold: still return catalog facts so the drawer stays useful.

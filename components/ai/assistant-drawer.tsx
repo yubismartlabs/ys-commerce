@@ -31,7 +31,7 @@ import { usePublicSettings } from "@/lib/public-settings";
 import { useAssistant } from "@/lib/store/assistant";
 import { cn } from "@/lib/utils";
 import { AssistantText, isCompareAnswer, splitVerdict } from "@/components/ai/assistant-markdown";
-import { CompareTable, ProductGroups, Section, type AssistantProduct } from "@/components/ai/assistant-products";
+import { CompareTable, OrderCards, ProductGroups, Section, type AssistantOrder, type AssistantProduct } from "@/components/ai/assistant-products";
 
 type ChatMsg = {
   id?: string;
@@ -42,6 +42,8 @@ type ChatMsg = {
   compare?: boolean;
   /** Mission-pack slot sections (off-grid network et al). */
   groups?: Array<{ title: string; note?: string; items: AssistantProduct[] }>;
+  /** Order status cards for tracking questions. */
+  orders?: AssistantOrder[];
   feedback?: 1 | -1 | null;
   /** Only live messages animate in — restored history appears settled. */
   fresh?: boolean;
@@ -153,6 +155,44 @@ function TypingDots() {
   );
 }
 
+/** Pipeline stages, cycled while waiting — each names real server work. */
+const THINK_STAGES = ["Searching the catalog…", "Reading reviews…", "Comparing picks…"];
+
+function ThinkingBubble({ name }: { name: string }) {
+  const [stage, setStage] = useState(0);
+  useEffect(() => {
+    const t = setInterval(() => setStage((s) => (s + 1) % THINK_STAGES.length), 2200);
+    return () => clearInterval(t);
+  }, []);
+  return (
+    <div className="ai-msg-in space-y-2" aria-label="Assistant is thinking" aria-live="polite">
+      <div className="flex items-center gap-1.5 text-[11px] text-neutral-500">
+        <AssistantAvatar />
+        <span className="font-semibold text-neutral-700">{name}</span>
+      </div>
+      <div className="ai-card w-fit rounded-[20px] rounded-tl-lg px-3 ring-1 ring-black/5">
+        <TypingDots />
+      </div>
+      <p key={stage} className="ai-msg-in pl-1 text-[11px] font-medium text-neutral-500">
+        {THINK_STAGES[stage]}
+      </p>
+      <div className="flex gap-2.5">
+        {[0, 1].map((k) => (
+          <div key={k} className="ai-card w-[216px] shrink-0 overflow-hidden rounded-[20px] ring-1 ring-black/5">
+            <div className="ai-shimmer flex aspect-[5/4] items-center justify-center bg-neutral-200/60">
+              <ImageIcon className="size-8 text-neutral-400" />
+            </div>
+            <div className="animate-pulse space-y-1.5 p-3">
+              <div className="h-2.5 w-full rounded bg-neutral-200/80" />
+              <div className="h-4 w-1/2 rounded bg-neutral-200/80" />
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function FeedbackRow({
   messageId,
   value,
@@ -194,10 +234,10 @@ export function AssistantDrawer() {
   const [loaded, setLoaded] = useState(false);
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const [dealPicks, setDealPicks] = useState<AssistantProduct[]>([]);
+  const [buyAgain, setBuyAgain] = useState<AssistantProduct[]>([]);
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
-  const [listening, setListening] = useState(false);
-  const [notice, setNotice] = useState<string | null>(null);
+  const [listening, setListening] = useState(false);  const [notice, setNotice] = useState<string | null>(null);
   const [showLatest, setShowLatest] = useState(false);
   const listRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -272,7 +312,7 @@ export function AssistantDrawer() {
       .then((j) => {
         const rows = (j?.data ?? []) as Array<{
           id: string; role: "user" | "assistant"; content: string;
-          citations: AssistantProduct[]; feedback: 1 | -1 | null; createdAt: string;
+          citations: AssistantProduct[]; orders?: AssistantOrder[]; feedback: 1 | -1 | null; createdAt: string;
         }>;
         let prevUser = "";
         setMessages(
@@ -286,6 +326,7 @@ export function AssistantDrawer() {
               time: new Date(r.createdAt).getTime(),
               citations: r.citations ?? [],
               compare,
+              orders: r.orders ?? [],
               feedback: r.feedback,
             };
           })
@@ -338,6 +379,13 @@ export function AssistantDrawer() {
               freeShipping: d.product.freeShipping,
             }))
         );
+      })
+      .catch(() => {});
+    // Quota-free: buy-again picks from the buyer's own order history.
+    fetch("/api/v1/ai/buy-again")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => {
+        if (Array.isArray(j?.data)) setBuyAgain(j.data as AssistantProduct[]);
       })
       .catch(() => {});
   }, [context.productSlug, context.searchQuery, status, aiEnabled]);
@@ -406,6 +454,7 @@ export function AssistantDrawer() {
         throw new Error(json?.error?.message ?? "Assistant unavailable.");
       }
       const citations = (Array.isArray(json.data.citations) ? json.data.citations : []) as AssistantProduct[];
+      const orders = (Array.isArray(json.data.orders) ? json.data.orders : []) as AssistantOrder[];
       const groups = (Array.isArray(json.data.groups) ? json.data.groups : undefined) as
         | Array<{ title: string; note?: string; items: AssistantProduct[] }>
         | undefined;
@@ -419,6 +468,7 @@ export function AssistantDrawer() {
           citations,
           compare: !groups && isCompareAnswer(content, citations.length),
           ...(groups && groups.length > 0 ? { groups } : {}),
+          ...(orders.length > 0 ? { orders } : {}),
           fresh: true,
         },
       ]);
@@ -581,6 +631,14 @@ export function AssistantDrawer() {
                   <ProductGroups items={dealPicks} onDrill={drill} sectioned={false} />
                 </div>
               ) : null}
+              {buyAgain.length > 0 ? (
+                <div className="ai-card space-y-2 rounded-[22px] p-3 ring-1 ring-black/5">
+                  <p className="flex items-center gap-1.5 px-1 text-xs font-bold">
+                    <RotateCcw className="size-3.5 text-ali-red" /> Buy again
+                  </p>
+                  <ProductGroups items={buyAgain} onDrill={drill} sectioned={false} />
+                </div>
+              ) : null}
             </div>
           ) : null}
           {messages.map((m, i) => {
@@ -638,6 +696,7 @@ export function AssistantDrawer() {
                     <ProductGroups items={m.citations} onDrill={drill} stagger={m.fresh} />
                   )
                 ) : null}
+                {m.orders && m.orders.length > 0 ? <OrderCards orders={m.orders} /> : null}
                   {showFollowups ? (
                     <div className="no-scrollbar flex gap-1.5 overflow-x-auto pb-0.5" aria-label="Follow-up questions">
                       {suggestions.map((s) => (
@@ -650,28 +709,7 @@ export function AssistantDrawer() {
             );
           })}
           {busy ? (
-            <div className="ai-msg-in space-y-2" aria-label="Assistant is thinking">
-              <div className="flex items-center gap-1.5 text-[11px] text-neutral-500">
-                <AssistantAvatar />
-                <span className="font-semibold text-neutral-700">{aiName}</span>
-              </div>
-              <div className="ai-card w-fit rounded-[20px] rounded-tl-lg px-3 ring-1 ring-black/5">
-                <TypingDots />
-              </div>
-              <div className="flex gap-2.5">
-                {[0, 1].map((k) => (
-                  <div key={k} className="ai-card w-[216px] shrink-0 overflow-hidden rounded-[20px] ring-1 ring-black/5">
-                    <div className="ai-shimmer flex aspect-[5/4] items-center justify-center bg-neutral-200/60">
-                      <ImageIcon className="size-8 text-neutral-400" />
-                    </div>
-                    <div className="animate-pulse space-y-1.5 p-3">
-                      <div className="h-2.5 w-full rounded bg-neutral-200/80" />
-                      <div className="h-4 w-1/2 rounded bg-neutral-200/80" />
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
+            <ThinkingBubble name={aiName} />
           ) : null}
           {notice ? (
             <p className="ai-msg-in flex items-start gap-1.5 rounded-2xl bg-amber-50 px-3.5 py-2.5 text-xs leading-5 text-amber-800 ring-1 ring-amber-200/60">
