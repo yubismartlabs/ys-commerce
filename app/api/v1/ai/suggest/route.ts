@@ -19,7 +19,7 @@ export async function GET(req: Request) {
         "Summarize the reviews for this product?",
         "How does this compare to similar items?",
         "Is this the best price right now?",
-        "What should I check before buying this?",
+        "Alert me when the price drops",
       ]
     : q
       ? [`Best ${q} under $25?`, `Compare top ${q} picks?`, "Show me flash deals?"]

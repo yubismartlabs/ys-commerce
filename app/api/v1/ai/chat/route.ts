@@ -3,6 +3,7 @@ import { auth } from "@/auth";
 import { db } from "@/lib/db";
 import { fail, ok } from "@/lib/api/http";
 import { getAiConfig } from "@/lib/ai/config";
+import { tryAlertAction } from "@/lib/ai/actions";
 import { buildAiContext, resolveMentionedProducts } from "@/lib/ai/context";
 import { AiUpstreamError, chatWithHf } from "@/lib/ai/provider";
 import { buildSystemPrompt, offlineFallback } from "@/lib/ai/prompt";
@@ -57,7 +58,31 @@ export async function POST(req: Request) {
     }),
   ]);
 
-  const prior = thread
+  // Persist the question first so a failed model call still keeps the thread.
+  await db.aiMessage.create({ data: { userId, role: "USER", content: userText } }).catch((e) => {
+    log.error("ai user message persist failed", { err: e });
+  });
+
+  // Agentic alert/restock requests resolve without model credits.
+  const lastAssistant = thread.find((m) => m.role === "ASSISTANT")?.content ?? null;
+  const action = await tryAlertAction({
+    userId,
+    text: userText,
+    focusSlug: parsed.data.context?.productSlug,
+    citations: ctx.citations,
+    lastAssistantText: lastAssistant,
+  }).catch((e) => {
+    log.error("ai alert action failed", { err: e });
+    return null;
+  });
+  if (action) {
+    const saved = await db.aiMessage
+      .create({ data: { userId, role: "ASSISTANT", content: action.reply, citations: action.citations as object } })
+      .catch(() => null);
+    return ok({ reply: action.reply, citations: action.citations, messageId: saved?.id ?? null });
+  }
+
+  const prior = [...thread]
     .reverse()
     .slice(-8)
     .map((m) => ({ role: m.role === "USER" ? ("user" as const) : ("assistant" as const), content: m.content }));
@@ -66,11 +91,6 @@ export async function POST(req: Request) {
     ...prior,
     { role: "user" as const, content: `CATALOG CONTEXT:\n${ctx.text || "none"}\n\nQUESTION: ${userText}` },
   ];
-
-  // Persist the question first so a failed model call still keeps the thread.
-  await db.aiMessage.create({ data: { userId, role: "USER", content: userText } }).catch((e) => {
-    log.error("ai user message persist failed", { err: e });
-  });
 
   try {
     const reply = await chatWithHf({ token: cfg.token, model: cfg.model, messages, maxTokens: cfg.maxTokens, temperature: cfg.temperature });

@@ -9,6 +9,7 @@ import {
   Eye,
   Gift,
   ImageIcon,
+  Mic,
   Package,
   Plus,
   RotateCcw,
@@ -193,11 +194,64 @@ export function AssistantDrawer() {
   const [dealPicks, setDealPicks] = useState<AssistantProduct[]>([]);
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
+  const [listening, setListening] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const [showLatest, setShowLatest] = useState(false);
   const listRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const recogRef = useRef<{ stop: () => void } | null>(null);
   const pinnedRef = useRef(true);
+
+  type SpeechWindow = Window & {
+    SpeechRecognition?: new () => {
+      lang: string;
+      interimResults: boolean;
+      onresult: ((e: { results: Array<Array<{ transcript: string }>> }) => void) | null;
+      onend: (() => void) | null;
+      onerror: (() => void) | null;
+      start: () => void;
+      stop: () => void;
+    };
+    webkitSpeechRecognition?: new () => {
+      lang: string;
+      interimResults: boolean;
+      onresult: ((e: { results: Array<Array<{ transcript: string }>> }) => void) | null;
+      onend: (() => void) | null;
+      onerror: (() => void) | null;
+      start: () => void;
+      stop: () => void;
+    };
+  };
+  const canVoice =
+    typeof window !== "undefined" &&
+    Boolean((window as unknown as SpeechWindow).SpeechRecognition ?? (window as unknown as SpeechWindow).webkitSpeechRecognition);
+
+  /** Browser-native dictation (no cost, no key). Hidden where unsupported. */
+  const toggleVoice = () => {
+    if (listening) {
+      recogRef.current?.stop();
+      return;
+    }
+    const w = window as unknown as SpeechWindow;
+    const SR = w.SpeechRecognition ?? w.webkitSpeechRecognition;
+    if (!SR) return;
+    const r = new SR();
+    r.lang = "en-US";
+    r.interimResults = false;
+    r.onresult = (e) => {
+      const t = e.results[0]?.[0]?.transcript?.trim();
+      if (t) setInput((v) => (v ? `${v} ${t}` : t));
+    };
+    r.onend = () => setListening(false);
+    r.onerror = () => setListening(false);
+    recogRef.current = r;
+    try {
+      r.start();
+      setListening(true);
+    } catch {
+      setListening(false);
+    }
+  };
 
   useEffect(() => {
     inputRef.current?.focus();
@@ -621,6 +675,21 @@ export function AssistantDrawer() {
         }}
         className="flex items-center gap-2 border-t bg-white/95 p-3 backdrop-blur"
       >
+        {canVoice ? (
+          <button
+            type="button"
+            onClick={toggleVoice}
+            aria-label={listening ? "Stop dictation" : "Dictate with voice"}
+            aria-pressed={listening}
+            title="Dictate with voice"
+            className={cn(
+              "flex size-11 shrink-0 items-center justify-center rounded-full transition active:scale-90",
+              listening ? "animate-pulse bg-ali-red text-white shadow-sm" : "text-neutral-500 hover:bg-neutral-100 hover:text-neutral-700"
+            )}
+          >
+            <Mic className="size-4" />
+          </button>
+        ) : null}
         <input
           ref={inputRef}
           value={input}

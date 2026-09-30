@@ -14,6 +14,10 @@ export type AiCitation = {
   ratingCount: number;
   badge: string | null;
   freeShipping: boolean;
+  /** Seller identity for user-initiated quick-add (absent = cart groups as "Your items"). */
+  storeId?: string | null;
+  storeName?: string | null;
+  storeSlug?: string | null;
 };
 
 export type AiContext = { text: string; citations: AiCitation[] };
@@ -58,7 +62,11 @@ type CardProduct = {
 };
 
 /** One shoppable citation, deal-aware (deal price wins, base becomes was). */
-export function toCitation(p: CardProduct, dealPrice?: number | null): AiCitation {
+export function toCitation(
+  p: CardProduct,
+  dealPrice?: number | null,
+  store?: { id: string; name: string; slug: string } | null
+): AiCitation {
   return {
     slug: p.slug,
     title: p.title,
@@ -70,6 +78,7 @@ export function toCitation(p: CardProduct, dealPrice?: number | null): AiCitatio
     ratingCount: p.ratingCount,
     badge: p.badge,
     freeShipping: p.freeShipping,
+    ...(store ? { storeId: store.id, storeName: store.name, storeSlug: store.slug } : {}),
   };
 }
 
@@ -96,11 +105,12 @@ export async function resolveMentionedProducts(
         slug: true, title: true, price: true, compareAt: true, image: true,
         ratingAvg: true, ratingCount: true, soldCount: true, badge: true,
         freeShipping: true, status: true, id: true,
+        store: { select: { id: true, name: true, slug: true } },
       },
     });
     if (!p || p.status !== "ACTIVE") continue;
     const deal = await getActiveDeal(p.id);
-    out.push(toCitation(p, deal ? Number(deal.dealPrice) : null));
+    out.push(toCitation(p, deal ? Number(deal.dealPrice) : null, p.store));
   }
   return out;
 }
@@ -123,7 +133,7 @@ export async function buildAiContext(opts: {
   if (slugMatch) {
     const p = await db.product.findUnique({
       where: { slug: slugMatch },
-      include: { store: { select: { name: true } }, variants: { select: { name: true, price: true, stock: true }, take: 5 } },
+      include: { store: { select: { id: true, name: true, slug: true } }, variants: { select: { name: true, price: true, stock: true }, take: 5 } },
     });
     if (p && p.status === "ACTIVE") {
       const deal = await getActiveDeal(p.id);
@@ -142,7 +152,7 @@ export async function buildAiContext(opts: {
           ` desc: ${clip(p.description, 300)} || ${snip}`
       );
       citations.push(
-        toCitation(p, deal ? Number(deal.dealPrice) : null)
+        toCitation(p, deal ? Number(deal.dealPrice) : null, p.store)
       );
     }
   }
