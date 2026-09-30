@@ -31,7 +31,7 @@ import { usePublicSettings } from "@/lib/public-settings";
 import { useAssistant } from "@/lib/store/assistant";
 import { cn } from "@/lib/utils";
 import { AssistantText, isCompareAnswer, splitVerdict } from "@/components/ai/assistant-markdown";
-import { CompareTable, ProductGroups, type AssistantProduct } from "@/components/ai/assistant-products";
+import { CompareTable, ProductGroups, Section, type AssistantProduct } from "@/components/ai/assistant-products";
 
 type ChatMsg = {
   id?: string;
@@ -40,6 +40,8 @@ type ChatMsg = {
   time: number;
   citations?: AssistantProduct[];
   compare?: boolean;
+  /** Mission-pack slot sections (off-grid network et al). */
+  groups?: Array<{ title: string; note?: string; items: AssistantProduct[] }>;
   feedback?: 1 | -1 | null;
   /** Only live messages animate in — restored history appears settled. */
   fresh?: boolean;
@@ -404,6 +406,9 @@ export function AssistantDrawer() {
         throw new Error(json?.error?.message ?? "Assistant unavailable.");
       }
       const citations = (Array.isArray(json.data.citations) ? json.data.citations : []) as AssistantProduct[];
+      const groups = (Array.isArray(json.data.groups) ? json.data.groups : undefined) as
+        | Array<{ title: string; note?: string; items: AssistantProduct[] }>
+        | undefined;
       setMessages([
         ...next,
         {
@@ -412,7 +417,8 @@ export function AssistantDrawer() {
           content: json.data.reply as string,
           time: Date.now(),
           citations,
-          compare: isCompareAnswer(content, citations.length),
+          compare: !groups && isCompareAnswer(content, citations.length),
+          ...(groups && groups.length > 0 ? { groups } : {}),
           fresh: true,
         },
       ]);
@@ -619,7 +625,13 @@ export function AssistantDrawer() {
                       </span>
                     ) : null}
                   </div>
-                {m.citations && m.citations.length > 0 ? (
+                {m.groups && m.groups.length > 0 ? (
+                  <div className="space-y-3">
+                    {m.groups.map((g, gi) => (
+                      <Section key={g.title} title={g.title} note={g.note} items={g.items} onDrill={drill} stagger={m.fresh} baseDelay={60 + gi * 120} />
+                    ))}
+                  </div>
+                ) : m.citations && m.citations.length > 0 ? (
                   m.compare ? (
                     <CompareTable items={m.citations} verdict={verdict} onDrill={drill} />
                   ) : (

@@ -79,6 +79,19 @@ export function ProductView({ product, shippingFee }: { product: ProductDetail; 
 
   return (
     <div className="space-y-6">
+      {product.source ? (
+        <p className="rounded-xl border border-dashed border-neutral-300 bg-neutral-100 px-4 py-2.5 text-xs text-neutral-600">
+          Test catalog import
+          {product.sourceUrl ? (
+            <>
+              {" "}from <a href={product.sourceUrl} target="_blank" rel="nofollow noopener noreferrer" className="font-semibold text-ali-red underline">the original {product.source} listing</a>
+            </>
+          ) : (
+            <> from {product.source}</>
+          )}{" "}
+          — demo data for evaluation, not a live offer.
+        </p>
+      ) : null}
       <div className="grid gap-4 lg:grid-cols-2">
         <Card className="overflow-hidden p-0">
           <div className="relative aspect-square bg-neutral-100">

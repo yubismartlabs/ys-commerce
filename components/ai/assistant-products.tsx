@@ -148,14 +148,16 @@ function ProductRow({
   );
 }
 
-function Section({
+export function Section({
   title,
+  note,
   items,
   onDrill,
   stagger,
   baseDelay,
 }: {
   title: string;
+  note?: string;
   items: AssistantProduct[];
   onDrill: (p: AssistantProduct) => void;
   stagger?: boolean;
@@ -165,8 +167,11 @@ function Section({
   const visible = expanded ? items : items.slice(0, 3);
   return (
     <section aria-label={title} className="space-y-2">
-      <div className="flex items-center justify-between px-1">
-        <h4 className="text-[13px] font-extrabold tracking-tight text-neutral-900">{title}</h4>
+      <div className="flex items-start justify-between gap-2 px-1">
+        <div>
+          <h4 className="text-[13px] font-extrabold tracking-tight text-neutral-900">{title}</h4>
+          {note ? <p className="text-[11px] text-neutral-500">{note}</p> : null}
+        </div>
         {items.length > 3 ? (
           <button
             onClick={() => setExpanded((v) => !v)}

@@ -48,6 +48,9 @@ export type ProductDetail = {
   store: { id: string; name: string; slug: string; ratingAvg: number; followerCount: number };
   deal: { id: string; dealPrice: number; endsAt: string | Date; stockCap: number | null; soldCount: number } | null;
   viewer: { reviewed: boolean; wishlisted: boolean };
+  /** Test-catalog provenance (null for seller listings). Drives the demo banner. */
+  source: string | null;
+  sourceUrl: string | null;
 };
 
 /** Throws a 404 ApiError when the product is missing, draft, or taken down. */
@@ -112,5 +115,7 @@ export async function loadProduct(slug: string): Promise<ProductDetail> {
     related,
     deal: deal ? { ...deal, dealPrice: Number(deal.dealPrice) } : null,
     viewer: { reviewed: !!mine, wishlisted: !!wished },
+    source: product.source,
+    sourceUrl: product.sourceUrl,
   };
 }

@@ -268,6 +268,16 @@ model Product {
   // Seller-declared brand ("Apple", "Nike"). Nullable so existing listings
   // keep working; powers the assistant's grouped sections ("Top Apple").
   brand       String?
+  // Test-catalog provenance (see scripts/import-catalog/README). Scraped rows
+  // are temporary and must be removed or re-licensed before production:
+  // source names the origin site, sourceUrl the origin page, externalId the
+  // origin item id used to make re-imports idempotent.
+  source      String?
+  sourceUrl   String?
+  externalId  String?
+  // Use-case tags ("offgrid", "camping", "gaming", "giftable"). Powers
+  // mission answers and tag-overlap lookup (FTS column is off-limits).
+  tags        String[]    @default([])
   badge       String?
   freeShipping Boolean      @default(true)
   // Stock for variantless listings. Previously a product with no variants was
@@ -422,6 +432,38 @@ model OrderItem {
 
   @@index([shipmentId])
   @@index([storeId])
+  // Co-purchase affinity scans ("orders containing X also contain Y").
+  @@index([productId])
+}
+
+// Curated mission packs ("robust off-grid network"): trigger phrases match a
+// buyer's mission-style question, and each slot resolves to live products.
+// Editorial half of bundling; the data-driven half is ProductAffinity.
+// slots: [{ label, note?, tag?, category?, brand?, maxPrice? }]
+model Mission {
+  id          String   @id @default(cuid())
+  slug        String   @unique
+  title       String
+  description String?
+  triggers    String[] @default([])
+  slots       Json
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+// Frequently-bought-together, recomputed from real baskets by
+// lib/affinity/recompute.ts (see the ops scheduler). count is the shared
+// order count; the assistant reads the top rows per product. Cold products
+// fall back to same-store bestsellers at read time.
+model ProductAffinity {
+  id        String   @id @default(cuid())
+  aId       String
+  bId       String
+  count     Int      @default(0)
+  updatedAt DateTime @updatedAt
+
+  @@unique([aId, bId])
+  @@index([aId, count])
 }
 
 // ---------------------------------------------------------------------------

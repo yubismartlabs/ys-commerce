@@ -7,10 +7,10 @@ import { runLifecycle } from "@/lib/lifecycle/lifecycle";
 
 /**
  * Ops scheduler (wire to cron later): escrow release, auto-payouts,
- * price alerts and lifecycle emails. Idempotent — reruns are safe.
+ * price alerts, lifecycle emails and affinity rebuild. Idempotent — reruns are safe.
  */
 export const POST = withAdmin(async (_req, actor) => {
-  const [release, payouts, alerts, lifecycle, deals] = await Promise.all([
+  const [release, payouts, alerts, lifecycle, deals, affinity] = await Promise.all([
     releaseDue(),
     runPayouts(),
     runPriceAlerts().catch((e) => {
@@ -22,7 +22,11 @@ export const POST = withAdmin(async (_req, actor) => {
       log.error("ops: deals failed", { err: e });
       return { started: 0, ended: 0, notified: 0 };
     }),
+    import("@/lib/affinity/recompute").then((m) => m.runAffinity()).catch((e) => {
+      log.error("ops: affinity failed", { err: e });
+      return { pairs: 0 };
+    }),
   ]);
-  await audit(actor.id, "ops.run", "Ops", "scheduler", { release, payouts, alerts, lifecycle, deals });
-  return ok({ release, payouts, alerts, lifecycle, deals });
+  await audit(actor.id, "ops.run", "Ops", "scheduler", { release, payouts, alerts, lifecycle, deals, affinity });
+  return ok({ release, payouts, alerts, lifecycle, deals, affinity });
 }, "ops");

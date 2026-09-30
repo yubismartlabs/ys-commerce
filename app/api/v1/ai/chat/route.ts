@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import { fail, ok } from "@/lib/api/http";
 import { getAiConfig } from "@/lib/ai/config";
 import { tryAlertAction } from "@/lib/ai/actions";
+import { matchMissionPack } from "@/lib/ai/missions";
 import { buildAiContext, resolveMentionedProducts } from "@/lib/ai/context";
 import { AiUpstreamError, chatWithHf } from "@/lib/ai/provider";
 import { buildSystemPrompt, offlineFallback } from "@/lib/ai/prompt";
@@ -80,6 +81,18 @@ export async function POST(req: Request) {
       .create({ data: { userId, role: "ASSISTANT", content: action.reply, citations: action.citations as object } })
       .catch(() => null);
     return ok({ reply: action.reply, citations: action.citations, messageId: saved?.id ?? null });
+  }
+
+  // Mission packs resolve quota-free with slot sections.
+  const pack = await matchMissionPack(userText).catch((e) => {
+    log.error("ai mission match failed", { err: e });
+    return null;
+  });
+  if (pack) {
+    const saved = await db.aiMessage
+      .create({ data: { userId, role: "ASSISTANT", content: pack.reply, citations: pack.citations as object } })
+      .catch(() => null);
+    return ok({ reply: pack.reply, citations: pack.citations, groups: pack.groups, messageId: saved?.id ?? null });
   }
 
   const prior = [...thread]

@@ -1,6 +1,8 @@
 import { db } from "@/lib/db";
 import { searchProducts } from "@/lib/search/engine";
 import { getActiveDeal } from "@/lib/deals/pricing";
+import { pairsFor } from "@/lib/affinity/recompute";
+import { parseSpecs } from "@/lib/products/ratings";
 import { safeImageSrc } from "@/lib/images";
 
 export type AiCitation = {
@@ -26,6 +28,24 @@ export type AiContext = { text: string; citations: AiCitation[] };
 
 const clip = (s: string | null | undefined, n: number) =>
   (s ?? "").replace(/\s+/g, " ").trim().slice(0, n);
+
+/** Seller tag vocabulary, cached: tag matching must not cost a scan per chat. */
+let cachedTags: { tags: string[]; at: number } | null = null;
+const TAGS_TTL_MS = 60_000;
+
+async function knownTags(): Promise<string[]> {
+  const now = Date.now();
+  if (cachedTags && now - cachedTags.at < TAGS_TTL_MS) return cachedTags.tags;
+  try {
+    const rows = await db.product.findMany({ where: { status: "ACTIVE" }, select: { tags: true }, take: 500 });
+    const set = new Set<string>();
+    for (const r of rows) for (const t of r.tags) if (t.trim()) set.add(t.trim().toLowerCase());
+    cachedTags = { tags: [...set], at: now };
+    return cachedTags.tags;
+  } catch {
+    return cachedTags?.tags ?? [];
+  }
+}
 
 /** Truncated Q&A + review snippets for one product. */
 async function productSnippets(productId: string): Promise<string> {
@@ -139,7 +159,10 @@ export async function buildAiContext(opts: {
   if (slugMatch) {
     const p = await db.product.findUnique({
       where: { slug: slugMatch },
-      include: { store: { select: { id: true, name: true, slug: true } }, variants: { select: { name: true, price: true, stock: true }, take: 5 } },
+      include: {
+        store: { select: { id: true, name: true, slug: true, shippingPolicy: true, returnPolicy: true } },
+        variants: { select: { name: true, price: true, stock: true }, take: 8 },
+      },
     });
     if (p && p.status === "ACTIVE") {
       const deal = await getActiveDeal(p.id);
@@ -150,16 +173,64 @@ export async function buildAiContext(opts: {
         take: 5,
       });
       const snip = await productSnippets(p.id);
+      const specs = parseSpecs(p.specs)
+        .slice(0, 8)
+        .map((s) => `${s.k}: ${s.v}`)
+        .join("; ");
+      const stockLine =
+        p.variants.length > 0
+          ? `options: ${p.variants.map((v) => `${v.name}${v.price != null ? ` $${Number(v.price)}` : ""} (${v.stock > 0 ? `${v.stock} in stock` : "out of stock"})`).join("; ")}`
+          : p.trackStock
+            ? `stock: ${p.stock > 0 ? `${p.stock} in stock` : "out of stock"}`
+            : `stock: not tracked`;
       parts.push(
         `FOCUS PRODUCT: ${p.title} (${p.slug}) $${Number(p.price)}${p.compareAt ? ` was $${Number(p.compareAt)}` : ""}` +
           ` rating ${p.ratingAvg} (${p.ratingCount}) sold ${p.soldCount} store ${p.store.name}` +
+          `${p.brand ? ` brand ${p.brand}` : ""} category ${p.category}` +
           `${deal ? ` DEAL $${Number(deal.dealPrice)} ends ${deal.endsAt.toISOString()}` : ""}` +
           `${history.length ? ` price-history ${history.map((h) => `$${Number(h.price)}`).join(">")}` : ""}` +
+          ` ${stockLine}` +
+          `${specs ? ` specs: ${clip(specs, 400)}` : ""}` +
+          `${p.store.shippingPolicy ? ` ship-policy: ${clip(p.store.shippingPolicy, 160)}` : ""}` +
+          `${p.store.returnPolicy ? ` return-policy: ${clip(p.store.returnPolicy, 160)}` : ""}` +
           ` desc: ${clip(p.description, 300)} || ${snip}`
       );
       citations.push(
         toCitation(p, deal ? Number(deal.dealPrice) : null, p.store)
       );
+      // Frequently-bought-together (real baskets; same-store fallback cold).
+      // Mentioned slugs resolve to cards downstream, so pairings surface
+      // automatically whenever the answer names them.
+      try {
+        let pairs = await pairsFor(p.id, 4);
+        if (pairs.length === 0) {
+          const fallback = await db.product.findMany({
+            where: { status: "ACTIVE", storeId: p.storeId, id: { not: p.id } },
+            orderBy: { soldCount: "desc" },
+            select: {
+              id: true, slug: true, title: true, price: true, compareAt: true, image: true,
+              ratingAvg: true, ratingCount: true, soldCount: true, badge: true,
+              freeShipping: true, brand: true, category: true,
+              store: { select: { id: true, name: true, slug: true } },
+            },
+            take: 2,
+          });
+          pairs = fallback.map((product) => ({ product, count: 0 }));
+        }
+        if (pairs.length > 0) {
+          parts.push(
+            `PAIRS WELL WITH: ` +
+              pairs.map(({ product: b, count }) => `${b.title} (${b.slug}) $${Number(b.price)}${count > 0 ? ` (together in ${count} orders)` : ""}`).join(" | ")
+          );
+          for (const { product: b } of pairs) {
+            if (citations.length >= 9 || citations.some((c) => c.slug === b.slug)) continue;
+            const bDeal = await getActiveDeal(b.id);
+            citations.push(toCitation(b, bDeal ? Number(bDeal.dealPrice) : null, b.store));
+          }
+        }
+      } catch {
+        // Affinity must never break the assistant.
+      }
     }
   }
 
@@ -183,6 +254,37 @@ export async function buildAiContext(opts: {
     } catch {
       // Search must never break the assistant.
     }
+  }
+
+  // Use-case tag overlap (FTS column is off-limits, so this runs separately):
+  // "offgrid setup" matches tag offgrid even when no title contains it.
+  try {
+    const words = new Set(opts.lastUserText.toLowerCase().split(/[^a-z0-9]+/).filter((w) => w.length > 2));
+    const matched = (await knownTags()).filter((t) => words.has(t));
+    if (matched.length > 0) {
+      const tagged = await db.product.findMany({
+        where: { status: "ACTIVE", tags: { hasSome: matched } },
+        select: {
+          slug: true, title: true, price: true, compareAt: true, image: true,
+          ratingAvg: true, ratingCount: true, soldCount: true, badge: true,
+          freeShipping: true, brand: true, category: true,
+        },
+        take: 5,
+      });
+      const fresh = tagged.filter((p) => !citations.some((c) => c.slug === p.slug));
+      if (fresh.length > 0) {
+        parts.push(
+          `TAG MATCH (${matched.join(",")}): ` +
+            fresh.map((p) => `${p.title} (${p.slug}) $${Number(p.price)}`).join(" | ")
+        );
+        for (const p of fresh) {
+          if (citations.length >= 9) break;
+          citations.push(toCitation(p));
+        }
+      }
+    }
+  } catch {
+    // Tag lookup must never break the assistant.
   }
 
   // Personal signals (signed-in only route, so these are the buyer's own rows).
@@ -219,14 +321,58 @@ export async function buildAiContext(opts: {
     parts.push(`WATCHLIST: ${wishlist.map((w) => `${w.product.title} (${w.product.slug}) $${Number(w.product.price)}`).join(" | ")}`);
   }
 
-  const liveDeals = await db.deal.findMany({
-    where: { status: "ACTIVE", startsAt: { lte: new Date() }, endsAt: { gt: new Date() } },
-    select: { product: { select: { slug: true, title: true } }, dealPrice: true, endsAt: true },
-    take: 3,
-  });
+  const [liveDeals, coupons, shipments] = await Promise.all([
+    db.deal.findMany({
+      where: { status: "ACTIVE", startsAt: { lte: new Date() }, endsAt: { gt: new Date() } },
+      select: { product: { select: { slug: true, title: true } }, dealPrice: true, endsAt: true },
+      take: 3,
+    }),
+    db.coupon.findMany({
+      where: {
+        active: true,
+        OR: [{ startsAt: null }, { startsAt: { lte: new Date() } }],
+        AND: [{ OR: [{ endsAt: null }, { endsAt: { gt: new Date() } }] }],
+      },
+      select: { code: true, type: true, pctOff: true, amountOff: true, minSubtotal: true },
+      take: 6,
+    }),
+    db.shipment.findMany({
+      where: { order: { buyerId: opts.userId } },
+      orderBy: { updatedAt: "desc" },
+      select: {
+        status: true, carrier: true, trackingNumber: true, shippedAt: true, deliveredAt: true,
+        store: { select: { name: true } },
+        order: { select: { number: true } },
+      },
+      take: 4,
+    }),
+  ]);
   if (liveDeals.length > 0) {
     parts.push(`LIVE DEALS: ${liveDeals.map((d) => `${d.product.title} (${d.product.slug}) $${Number(d.dealPrice)}`).join(" | ")}`);
   }
+  if (coupons.length > 0) {
+    parts.push(
+      `COUPONS (suggest the best fit, never invent codes): ` +
+        coupons
+          .map((c) => {
+            const off = c.type === "PERCENT" ? `${c.pctOff}% off` : c.type === "FIXED" ? `$${Number(c.amountOff)} off` : "free shipping";
+            return `${c.code}: ${off}${c.minSubtotal != null ? ` min $${Number(c.minSubtotal)}` : ""}`;
+          })
+          .join(" | ")
+    );
+  }
+  if (shipments.length > 0) {
+    parts.push(
+      `SHIPMENTS (buyer's own parcels, newest first): ` +
+        shipments
+          .map((s) => {
+            const track = s.trackingNumber ? ` ${s.carrier ?? "carrier"} ${s.trackingNumber}` : "";
+            const when = s.deliveredAt ? ` delivered ${new Date(s.deliveredAt).toISOString().slice(0, 10)}` : s.shippedAt ? ` shipped ${new Date(s.shippedAt).toISOString().slice(0, 10)}` : "";
+            return `order ${s.order.number} [${s.store.name}] ${s.status}${track}${when}`;
+          })
+          .join(" | ")
+    );
+  }
 
-  return { text: parts.join("\n").slice(0, 4000), citations: citations.slice(0, 9) };
+  return { text: parts.join("\n").slice(0, 4400), citations: citations.slice(0, 9) };
 }

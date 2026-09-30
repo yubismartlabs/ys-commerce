@@ -5,31 +5,10 @@ import bcrypt from "bcryptjs";
 
 const prisma = new PrismaClient();
 
-const catalog: Array<{
-  title: string;
-  category: string;
-  brand: string;
-  price: number;
-  compareAt?: number;
-  badge?: string;
-}> = [
-  { title: "Wireless Bluetooth 5.3 Earbuds with Noise Cancellation Charging Case", category: "electronics", brand: "SonicWave", price: 12.49, compareAt: 29.99, badge: "Choice" },
-  { title: "Men's Lightweight Running Sneakers Breathable Casual Shoes", category: "fashion", brand: "StrideX", price: 19.99, compareAt: 45.0, badge: "Hot" },
-  { title: "LED Strip Lights 10M RGB Music Sync with Remote + App Control", category: "home", brand: "LumiGlow", price: 8.79, compareAt: 19.99, badge: "Sale" },
-  { title: "Stainless Steel Electric Lint Remover Rechargeable Fabric Shaver", category: "home", brand: "FabricPro", price: 6.59, compareAt: 13.99 },
-  { title: "Women's Summer Floral Maxi Dress Beach Boho Sundress", category: "fashion", brand: "BellaModa", price: 14.29, compareAt: 32.5, badge: "Choice" },
-  { title: "4K Action Camera Waterproof Sports Cam with Dual Screen", category: "electronics", brand: "VoltCam", price: 39.99, compareAt: 89.99, badge: "Hot" },
-  { title: "Vitamin C Brightening Serum Hyaluronic Acid Facial Skincare 30ml", category: "beauty", brand: "GlowLab", price: 4.99, compareAt: 12.99, badge: "Choice" },
-  { title: "Portable Mini Blender USB Rechargeable Fruit Juicer 380ml", category: "home", brand: "NutriMix", price: 11.59, compareAt: 24.99 },
-  { title: "Smart Watch Fitness Tracker Heart Rate Blood Oxygen 1.85\" Display", category: "electronics", brand: "PulseFit", price: 16.99, compareAt: 39.99, badge: "Sale" },
-  { title: "Building Blocks City Set 1200pcs STEM Educational Toy Gift", category: "toys", brand: "BuildJoy", price: 21.49, compareAt: 42.0 },
-  { title: "Car Vacuum Cleaner Portable Wireless Handheld 120W High Power", category: "automotive", brand: "TurboVac", price: 22.99, compareAt: 49.99 },
-  { title: "Magnetic Phone Case with Stand for iPhone Samsung Shockproof", category: "phones", brand: "ShieldCase", price: 3.29, compareAt: 9.99, badge: "Choice" },
-  { title: "Yoga Mat Non-Slip Exercise Fitness Mat with Carry Strap 6mm", category: "sports", brand: "FlexFlow", price: 13.99, compareAt: 27.99 },
-  { title: "Solar Outdoor String Lights 12M Waterproof Garden Decor", category: "home", brand: "SunGlow", price: 9.49, compareAt: 21.99, badge: "Sale" },
-  { title: "Mechanical Gaming Keyboard RGB Backlit Wired 87 Keys", category: "electronics", brand: "KeyStrike", price: 24.59, compareAt: 55.0, badge: "Hot" },
-  { title: "Waterproof Hiking Backpack 50L Travel Camping Rucksack", category: "sports", brand: "TrailPack", price: 18.79, compareAt: 38.99 },
-];
+// NOTE: the mock catalog lived here and was removed (full replace). The live
+// catalog is the scraped test import — see scripts/import-catalog/README.
+// Seed anchors demo orders/disputes/deals to the first ACTIVE products found,
+// and skips them with a message when the catalog is empty.
 
 async function main() {
   const adminEmail = process.env.ADMIN_EMAIL ?? "admin@ys.local";
@@ -74,50 +53,29 @@ async function main() {
     });
   }
 
-  const stores = await prisma.store.findMany();
-  for (const [i, item] of catalog.entries()) {
-    const store = stores[i % stores.length];
-    const slug = `product-${i + 1}`;
-    const gallery = [0, 1, 2].map((g) => `https://picsum.photos/seed/ys-product-${i + 1}-${g}/800/800`);
-    await prisma.product.upsert({
-      where: { slug },
-      update: {
-        brand: item.brand,
-        images: gallery,
-        specs: [
-          { k: "Brand", v: "YS Choice" },
-          { k: "Category", v: item.category },
-          { k: "Warranty", v: "12 months" },
-          { k: "Ships from", v: "United States" },
-        ],
-      },
-      create: {
-        slug,
-        title: item.title,
-        description: "Mock description seeded for admin development.",
-        brand: item.brand,
-        image: `https://picsum.photos/seed/ys-product-${i + 1}/600/600`,
-        images: gallery,
-        specs: [
-          { k: "Brand", v: "YS Choice" },
-          { k: "Category", v: item.category },
-          { k: "Warranty", v: "12 months" },
-          { k: "Ships from", v: "United States" },
-        ],
-        price: item.price,
-        compareAt: item.compareAt,
-        category: item.category,
-        badge: item.badge,
-        freeShipping: i % 3 !== 2,
-        status: "ACTIVE",
-        storeId: store.id,
-      },
-    });
+  // Full replace: mock catalog rows are wiped every run; the live catalog is
+  // the scraped test import (see scripts/import-catalog). Seeded demo orders,
+  // disputes and deals re-anchor to whatever is present. Seeded disputes and
+  // YS- demo orders are removed first (dev only). No reviews or Q&A are
+  // seeded — fabricated UGC would poison AI evaluation; depth accrues live.
+  await prisma.returnRequest.deleteMany({});
+  await prisma.dispute.deleteMany({});
+  await prisma.order.deleteMany({ where: { number: { startsWith: "YS-" } } });
+  await prisma.deal.deleteMany({});
+  const wiped = await prisma.product.deleteMany({ where: { source: null } });
+  if (wiped.count > 0) console.log(`Removed ${wiped.count} mock product rows.`);
+
+  const products = await prisma.product.findMany({
+    where: { status: "ACTIVE" },
+    orderBy: { createdAt: "asc" },
+    take: 4,
+  });
+  if (products.length === 0) {
+    console.log("No ACTIVE products — run the test-catalog importer first (see scripts/import-catalog/README).");
   }
 
   // Demo orders spanning vendors + one dispute
-  const products = await prisma.product.findMany({ take: 4 });
-  for (let n = 1; n <= 3; n++) {
+  for (let n = 1; n <= Math.min(3, products.length); n++) {
     const number = `YS-100${n}`;
     const p = products[n - 1];
     const existing = await prisma.order.findUnique({ where: { number } });
@@ -172,33 +130,9 @@ async function main() {
     create: { code: "FREESHIP", type: "FREESHIP" },
   });
 
-  // Sample verified reviews on the demo orders' products + aggregates.
+  // Rating aggregates (no seeded reviews — see note above).
   const { recalcProductRating, recalcStoreRating } = await import("../lib/products/ratings");
-  const reviewSamples = [
-    { slug: "product-1", rating: 5, title: "Exceeded expectations", body: "Sound quality is great for the price. Shipping took 9 days." },
-    { slug: "product-2", rating: 4, title: "Good value", body: "Comfortable and true to size. Slight glue smell at first." },
-    { slug: "product-3", rating: 5, title: "Love the app control", body: "Bright colors, easy install behind the TV." },
-  ];
-  for (const r of reviewSamples) {
-    const p = await prisma.product.findUnique({ where: { slug: r.slug } });
-    if (!p) continue;
-    const exists = await prisma.review.findUnique({
-      where: { productId_authorId: { productId: p.id, authorId: buyer.id } },
-    });
-    if (!exists) {
-      await prisma.review.create({
-        data: {
-          productId: p.id,
-          storeId: p.storeId,
-          authorId: buyer.id,
-          rating: r.rating,
-          title: r.title,
-          body: r.body,
-          verified: true,
-          helpful: r.rating === 5 ? 12 : 4,
-        },
-      });
-    }
+  for (const p of products) {
     await recalcProductRating(p.id);
   }
 
@@ -227,18 +161,22 @@ async function main() {
     create: { name: "Finance", scopes: ["orders", "payouts", "coupons"] },
   });
 
-  // Demo flash deals: one live, one scheduled (scheduler owns transitions).
+  // Demo flash deals anchored to live products (scheduler owns transitions).
+  // dealPrice is 75% of the listing price so it always reads as a markdown.
   const now = Date.now();
-  const dealSamples = [
-    { slug: "product-2", dealPrice: 14.99, startsAt: new Date(now - 86400000), endsAt: new Date(now + 2 * 86400000), stockCap: 50, status: "ACTIVE" as const },
-    { slug: "product-6", dealPrice: 29.99, startsAt: new Date(now + 2 * 86400000), endsAt: new Date(now + 5 * 86400000), stockCap: null, status: "SCHEDULED" as const },
-  ];
-  for (const d of dealSamples) {
-    const p = await prisma.product.findUnique({ where: { slug: d.slug } });
-    if (!p) continue;
+  const dealTargets = products.slice(0, 2);
+  for (const [di, p] of dealTargets.entries()) {
+    const dealPrice = Math.max(0.99, Math.round(Number(p.price) * 0.75 * 100) / 100);
     await prisma.deal.deleteMany({ where: { productId: p.id } });
     await prisma.deal.create({
-      data: { productId: p.id, dealPrice: d.dealPrice, startsAt: d.startsAt, endsAt: d.endsAt, stockCap: d.stockCap, status: d.status },
+      data: {
+        productId: p.id,
+        dealPrice,
+        startsAt: new Date(now - 86400000 + di * 4 * 86400000),
+        endsAt: new Date(now + 2 * 86400000 + di * 4 * 86400000),
+        stockCap: di === 0 ? 50 : null,
+        status: di === 0 ? "ACTIVE" : "SCHEDULED",
+      },
     });
   }
 
@@ -249,6 +187,81 @@ async function main() {
       where: { key: group },
       update: {},
       create: { key: group, value: defaults[group] as object },
+    });
+  }
+
+  // Curated mission packs for the assistant's mission-style answers.
+  const missions: Array<{
+    slug: string;
+    title: string;
+    description: string;
+    triggers: string[];
+    slots: Array<{ label: string; note?: string; tag?: string; category?: string; brand?: string; maxPrice?: number }>;
+  }> = [
+    {
+      slug: "offgrid-network",
+      title: "Robust off-grid network",
+      description: "Stay connected beyond the grid: a connectivity hub to share one uplink across the site, off-grid power to run it, and outdoor-rated essentials to survive the weather.",
+      triggers: ["offgrid network", "off grid internet", "off-grid internet", "starlink setup", "remote cabin internet", "rv internet", "cabin wifi", "offgrid setup"],
+      slots: [
+        { label: "Connectivity hub", note: "Share one uplink across every device on site", tag: "networking" },
+        { label: "Off-grid power", note: "Keep the gear running with no mains power", tag: "power" },
+        { label: "Outdoor essentials", note: "Weatherproof the setup", tag: "outdoors" },
+      ],
+    },
+    {
+      slug: "home-gym-starter",
+      title: "Home gym starter",
+      description: "Train at home with the essentials: fitness gear for the workout and fuel for recovery.",
+      triggers: ["home gym", "workout setup", "home workout", "gym at home"],
+      slots: [
+        { label: "Training gear", tag: "fitness" },
+        { label: "Fuel & recovery", note: "Post-workout nutrition", tag: "smoothies" },
+      ],
+    },
+    {
+      slug: "gaming-setup",
+      title: "Gaming setup",
+      description: "Level up the battlestation: responsive gear, immersive lighting and audio that keeps up.",
+      triggers: ["gaming setup", "gaming station", "gaming desk", "streaming setup"],
+      slots: [
+        { label: "Gear", tag: "gaming" },
+        { label: "Audio", tag: "audio" },
+      ],
+    },
+    {
+      slug: "indoor-garden",
+      title: "Indoor garden",
+      description: "Grow inside year-round: light for growth and warmth for mood.",
+      triggers: ["indoor garden", "grow plants", "plant setup", "grow lights"],
+      slots: [
+        { label: "Grow lighting", tag: "home-decor" },
+        { label: "Garden glow", tag: "garden" },
+      ],
+    },
+    {
+      slug: "gift-under-20",
+      title: "Gifts under $20",
+      description: "Thoughtful picks that stay under budget.",
+      triggers: ["gift ideas", "gift under", "gifts under", "present ideas", "birthday gift"],
+      slots: [{ label: "Gift picks", tag: "giftable", maxPrice: 20 }],
+    },
+    {
+      slug: "smoothie-station",
+      title: "Smoothie station",
+      description: "Blend and fuel: everything for daily smoothies.",
+      triggers: ["smoothie", "smoothies", "juice cleanse", "protein shakes"],
+      slots: [
+        { label: "Blending", tag: "kitchen" },
+        { label: "Active fuel", tag: "fitness" },
+      ],
+    },
+  ];
+  for (const m of missions) {
+    await prisma.mission.upsert({
+      where: { slug: m.slug },
+      update: { title: m.title, description: m.description, triggers: m.triggers, slots: m.slots as object, active: true },
+      create: { slug: m.slug, title: m.title, description: m.description, triggers: m.triggers, slots: m.slots as object },
     });
   }
 
