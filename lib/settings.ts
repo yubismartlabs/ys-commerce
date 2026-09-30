@@ -25,12 +25,12 @@ const siteImage = z
   .default("");
 
 export const siteSchema = z.object({
-  siteName: z.string().min(1).max(60).default("ys-commerce"),
+  siteName: z.string().min(1).max(60).default("7Krave"),
   logoUrl: siteImage,
   faviconUrl: siteImage,
   supportEmail: z.string().email().or(z.literal("")).default(""),
-  seoTitle: z.string().max(80).default("ys-commerce | Multi-vendor marketplace"),
-  seoDescription: z.string().max(200).default("AliExpress-style multi-vendor marketplace."),
+  seoTitle: z.string().max(80).default("7Krave | Multi-vendor marketplace"),
+  seoDescription: z.string().max(200).default("Shop electronics, fashion, home and more with buyer protection on every order."),
 });
 
 export const commerceSchema = z.object({

@@ -41,7 +41,7 @@ export default async function HomePage() {
     safely("categories", () => categoryCounts(), {} as Record<string, number>),
     safely("site settings", () => getSettingGroup("site"), null),
   ]);
-  const siteName = site?.siteName || "ys-commerce";
+  const siteName = site?.siteName || "7Krave";
 
   // De-dupe: the "fresh" rail can overlap the best-seller grid.
   const bestSlugs = new Set(best.map((p) => p.slug));

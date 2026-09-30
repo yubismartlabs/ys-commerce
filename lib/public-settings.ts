@@ -16,7 +16,7 @@ type PublicSettings = {
 };
 
 const FALLBACK: PublicSettings = {
-  siteName: "ys-commerce",
+  siteName: "7Krave",
   logoUrl: "",
   announcement: "",
   buyerProtectionText: "Full refund if your order doesn't arrive.",

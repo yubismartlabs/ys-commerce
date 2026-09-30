@@ -51,7 +51,7 @@ export async function POST(req: Request) {
       searchQuery: parsed.data.context?.searchQuery,
       lastUserText: userText,
     }),
-    getSettingGroup("site").catch(() => ({ siteName: "ys-commerce" })),
+    getSettingGroup("site").catch(() => ({ siteName: "7Krave" })),
     db.aiMessage.findMany({
       where: { userId },
       orderBy: { createdAt: "desc" },
@@ -101,7 +101,7 @@ export async function POST(req: Request) {
     .slice(-8)
     .map((m) => ({ role: m.role === "USER" ? ("user" as const) : ("assistant" as const), content: m.content }));
   const messages = [
-    { role: "system" as const, content: buildSystemPrompt({ siteName: (site as { siteName: string }).siteName ?? "ys-commerce", assistantName: cfg.name }) },
+    { role: "system" as const, content: buildSystemPrompt({ siteName: (site as { siteName: string }).siteName ?? "7Krave", assistantName: cfg.name }) },
     ...prior,
     { role: "user" as const, content: `CATALOG CONTEXT:\n${ctx.text || "none"}\n\nQUESTION: ${userText}` },
   ];

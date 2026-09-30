@@ -139,7 +139,7 @@ export function evaluateMessage(text: string): SafetyResult {
     return {
       level: "block",
       hits: blockHits,
-      message: `Blocked: no ${kinds} in chat. Keep deals on ys-commerce — off-platform orders lose buyer protection and seller escrow.`,
+      message: `Blocked: no ${kinds} in chat. Keep deals on 7Krave — off-platform orders lose buyer protection and seller escrow.`,
     };
   }
   if (profanity.length > 0) {

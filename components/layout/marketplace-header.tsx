@@ -83,7 +83,7 @@ export function MarketplaceHeader() {
               </Button>
             </SheetTrigger>
             <SheetContent side="left" className="w-72">
-              <p className="mb-3 text-lg font-extrabold text-ali-red">ys-commerce</p>
+              <p className="mb-3 text-lg font-extrabold text-ali-red">{siteName}</p>
               <div className="grid gap-1">
                 {aiEnabled ? (
                   <SheetClose asChild>

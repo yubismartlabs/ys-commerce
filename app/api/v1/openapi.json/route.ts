@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 const spec = {
   openapi: "3.1.0",
   info: {
-    title: "ys-commerce API",
+    title: "7Krave API",
     version: "1.0.0",
     description:
       "Versioned REST API shared by the Next.js storefront, ys-admin and the future mobile app. Auth: session cookie (web) or `Authorization: Bearer <token>` (mobile).",

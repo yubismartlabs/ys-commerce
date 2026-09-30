@@ -15,7 +15,7 @@ const inter = Inter({ subsets: ["latin"], variable: "--font-sans" });
  */
 export async function generateMetadata(): Promise<Metadata> {
   const site = await getSettingGroup("site").catch(() => null);
-  const title = site?.seoTitle?.trim() || "ys-commerce | Multi-vendor marketplace";
+  const title = site?.seoTitle?.trim() || "7Krave | Multi-vendor marketplace";
   const description =
     site?.seoDescription?.trim() || "Multi-vendor marketplace. Buy and sell with buyer protection on every order.";
   const icon = site?.faviconUrl?.trim() ? safeImageSrc(site.faviconUrl) : undefined;
