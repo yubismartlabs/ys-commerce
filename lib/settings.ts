@@ -10,6 +10,7 @@ export const SETTING_GROUPS = [
   "notifications",
   "security",
   "maintenance",
+  "ai",
 ] as const;
 
 export type SettingGroup = (typeof SETTING_GROUPS)[number];
@@ -92,6 +93,31 @@ export const maintenanceSchema = z.object({
   announcement: z.string().max(300).default(""),
 });
 
+/**
+ * Shopping-assistant (Alexa-for-Shopping style) configuration.
+ * Hugging Face free tier is credit-metered (~$0.10/mo, ~1k req/day, <10B
+ * params, cold starts), so defaults are conservative: disabled until an
+ * operator opts in, small maxTokens, and per-user + global daily caps.
+ * hfApiKey is write-only like notifications.resendApiKey.
+ */
+export const FREE_AI_MODELS = [
+  "meta-llama/Meta-Llama-3.1-8B-Instruct",
+  "google/gemma-3-4b-it",
+  "Qwen/Qwen2.5-7B-Instruct",
+  "mistralai/Mistral-7B-Instruct-v0.3",
+] as const;
+
+export const aiSchema = z.object({
+  enabled: z.boolean().default(false),
+  provider: z.enum(["huggingface"]).default("huggingface"),
+  model: z.string().min(1).max(120).default("meta-llama/Meta-Llama-3.1-8B-Instruct"),
+  hfApiKey: z.string().max(200).default(""),
+  maxTokens: z.number().int().min(128).max(1024).default(350),
+  temperature: z.number().min(0).max(1).default(0.2),
+  dailyLimitPerUser: z.number().int().min(1).max(200).default(20),
+  globalDailyCap: z.number().int().min(10).max(10000).default(800),
+});
+
 export const groupSchemas: Record<SettingGroup, z.ZodTypeAny> = {
   site: siteSchema,
   commerce: commerceSchema,
@@ -100,6 +126,7 @@ export const groupSchemas: Record<SettingGroup, z.ZodTypeAny> = {
   notifications: notificationsSchema,
   security: securitySchema,
   maintenance: maintenanceSchema,
+  ai: aiSchema,
 };
 
 export type Settings = {
@@ -110,6 +137,7 @@ export type Settings = {
   notifications: z.infer<typeof notificationsSchema>;
   security: z.infer<typeof securitySchema>;
   maintenance: z.infer<typeof maintenanceSchema>;
+  ai: z.infer<typeof aiSchema>;
 };
 
 /** Defaults applied on seed and used as fallback when a row is missing. */
@@ -122,6 +150,7 @@ export function defaultSettings(): Settings {
     notifications: notificationsSchema.parse({}),
     security: securitySchema.parse({}),
     maintenance: maintenanceSchema.parse({}),
+    ai: aiSchema.parse({}),
   };
 }
 
@@ -137,4 +166,5 @@ export const publicSettingsSchema = z.object({
   etaText: z.string(),
   shipFrom: z.string(),
   maintenance: z.object({ enabled: z.boolean(), message: z.string() }),
+  aiEnabled: z.boolean(),
 });

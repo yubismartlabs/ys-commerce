@@ -34,7 +34,7 @@ export const PATCH = withAdmin(async (req, actor) => {
     const validated = Object.fromEntries(
       Object.entries(result.data as unknown as Prisma.JsonObject).filter(([k]) => sent.has(k))
     );
-    // resendApiKey is write-only: blank means "keep the stored key", never wipe it.
+    // resendApiKey / hfApiKey are write-only: blank means "keep the stored key", never wipe it.
     if (g === "notifications" && typeof validated.resendApiKey === "string" && validated.resendApiKey === "") {
       const current = await db.setting.findUnique({ where: { key: g } });
       const existing = (current?.value as Prisma.JsonObject | null)?.resendApiKey;
@@ -42,6 +42,15 @@ export const PATCH = withAdmin(async (req, actor) => {
         validated.resendApiKey = existing;
       } else {
         delete validated.resendApiKey;
+      }
+    }
+    if (g === "ai" && typeof (validated as Record<string, unknown>).hfApiKey === "string" && (validated as Record<string, unknown>).hfApiKey === "") {
+      const current = await db.setting.findUnique({ where: { key: g } });
+      const existing = (current?.value as Prisma.JsonObject | null)?.hfApiKey;
+      if (typeof existing === "string" && existing !== "") {
+        (validated as Record<string, unknown>).hfApiKey = existing;
+      } else {
+        delete (validated as Record<string, unknown>).hfApiKey;
       }
     }
     const current = await db.setting.findUnique({ where: { key: g } });
@@ -58,12 +67,14 @@ export const PATCH = withAdmin(async (req, actor) => {
   return ok(maskSecrets(await getSettings()));
 }, "settings");
 
-// resendApiKey is write-only: expose only whether a key is configured,
-// via env or DB, so the secret never leaves the server.
+// resendApiKey / hfApiKey are write-only: expose only whether a key is
+// configured, via env or DB, so the secret never leaves the server.
 function maskSecrets(settings: Awaited<ReturnType<typeof getSettings>>) {
   const hasResendKey = Boolean(process.env.RESEND_API_KEY) || Boolean(settings.notifications.resendApiKey);
+  const hasHfKey = Boolean(process.env.HUGGINGFACE_API_KEY) || Boolean(settings.ai.hfApiKey);
   return {
     ...settings,
     notifications: { ...settings.notifications, resendApiKey: "", hasResendKey },
+    ai: { ...settings.ai, hfApiKey: "", hasHfKey },
   };
 }

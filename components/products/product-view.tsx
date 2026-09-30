@@ -4,7 +4,7 @@ import { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Minus, Plus, ShieldCheck, ShoppingCart, Store, Truck, Zap } from "lucide-react";
+import { Minus, Plus, ShieldCheck, ShoppingCart, Sparkles, Store, Truck, Zap } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -18,6 +18,7 @@ import { ProductQuestions } from "@/components/products/product-questions";
 import { PriceHistory } from "@/components/products/price-history";
 import { WishlistHeart } from "@/components/products/wishlist-heart";
 import { MessageButton } from "@/components/chat/message-button";
+import { useAssistant } from "@/lib/store/assistant";
 import { usePublicSettings } from "@/lib/public-settings";
 import { useCart } from "@/lib/store/cart";
 import { cn } from "@/lib/utils";
@@ -31,7 +32,8 @@ import type { ProductDetail } from "@/lib/products/detail";
 export function ProductView({ product, shippingFee }: { product: ProductDetail; shippingFee: number }) {
   const router = useRouter();
   const add = useCart((s) => s.add);
-  const { buyerProtectionText, buyerProtectionDays, etaText, shipFrom } = usePublicSettings();
+  const openWith = useAssistant((s) => s.openWith);
+  const { buyerProtectionText, buyerProtectionDays, etaText, shipFrom, aiEnabled } = usePublicSettings();
   const [imgIdx, setImgIdx] = useState(0);
   const [variantId, setVariantId] = useState<string | null>(null);
   const [qty, setQty] = useState(1);
@@ -243,6 +245,16 @@ export function ProductView({ product, shippingFee }: { product: ProductDetail; 
                 <Store className="size-4" /> {product.store.name} · {product.store.ratingAvg.toFixed(1)} ★
               </Link>
               <MessageButton productId={product.id} label="Ask about this product" basePath="/account/messages" />
+              {aiEnabled ? (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => openWith({ productSlug: product.slug })}
+                  className="gap-1.5 border-ali-red text-ali-red"
+                >
+                  <Sparkles className="size-3.5" /> Ask AI about this product
+                </Button>
+              ) : null}
             </CardContent>
           </Card>
         </div>

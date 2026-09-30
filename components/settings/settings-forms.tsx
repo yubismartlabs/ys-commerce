@@ -166,6 +166,28 @@ export function SecurityFields({ control }: { control: C }) {
   );
 }
 
+export function AiFields({ control, hasHfKey }: { control: C; hasHfKey?: boolean }) {
+  return (
+    <>
+      <SwitchRow control={control} name="enabled" label="Shopping assistant" hint="Show the left push-drawer assistant to signed-in buyers. Off hides it everywhere." />
+      <SelectRow control={control} name="provider" label="Provider" hint="Hugging Face free tier via the OpenAI-compatible router." options={["huggingface"]} />
+      <TextRow control={control} name="model" label="Model" hint="Free-tier allowlist: Meta-Llama-3.1-8B-Instruct, gemma-3-4b-it, Qwen2.5-7B-Instruct, Mistral-7B-Instruct-v0.3." />
+      <TextRow
+        control={control}
+        name="hfApiKey"
+        label="Hugging Face token"
+        hint={hasHfKey ? "A token is saved. Enter a new one to replace it; blank keeps it. HUGGINGFACE_API_KEY env also works." : "Paste a fine-grained token with Inference Providers permission (hf_...). Stored server-side, never shown again."}
+        type="password"
+        placeholder={hasHfKey ? "••••••••" : "hf_..."}
+      />
+      <NumberRow control={control} name="maxTokens" label="Max tokens" hint="Cap per reply to protect free credits (128–1024)." min={128} />
+      <NumberRow control={control} name="temperature" label="Temperature" hint="0 = factual, 1 = creative. Keep low for shopping." step="0.1" min={0} />
+      <NumberRow control={control} name="dailyLimitPerUser" label="Daily chats per buyer" hint="Quota guard for the $0.10/mo free tier (1–200)." min={1} />
+      <NumberRow control={control} name="globalDailyCap" label="Global daily cap" hint="Kill-switch across all buyers before credits burn (10–10000)." min={10} />
+    </>
+  );
+}
+
 export function TestEmailButton({ defaultTo }: { defaultTo?: string }) {
   const [to, setTo] = useState("");
   const [sending, setSending] = useState(false);

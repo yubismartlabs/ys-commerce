@@ -16,5 +16,6 @@ export async function GET() {
     etaText: s.shipping.etaText,
     shipFrom: s.shipping.shipFrom,
     maintenance: { enabled: s.maintenance.enabled, message: s.maintenance.message },
+    aiEnabled: s.ai.enabled,
   });
 }

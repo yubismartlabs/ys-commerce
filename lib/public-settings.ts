@@ -11,6 +11,7 @@ type PublicSettings = {
   etaText: string;
   shipFrom: string;
   maintenance: { enabled: boolean; message: string };
+  aiEnabled: boolean;
 };
 
 const FALLBACK: PublicSettings = {
@@ -22,6 +23,7 @@ const FALLBACK: PublicSettings = {
   etaText: "Delivery in 7–12 days",
   shipFrom: "",
   maintenance: { enabled: false, message: "" },
+  aiEnabled: false,
 };
 
 async function fetchPublicSettings(): Promise<PublicSettings> {

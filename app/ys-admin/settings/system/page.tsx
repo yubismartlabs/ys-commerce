@@ -1,11 +1,12 @@
 "use client";
 
-import { Bell, CreditCard, ShieldCheck, ShoppingBag, Truck } from "lucide-react";
+import { Bell, CreditCard, ShieldCheck, ShoppingBag, Sparkles, Truck } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { EmptyState, ErrorState, PageHeader, TableSkeleton } from "@/components/refine/ui";
 import { groupSchemas } from "@/lib/settings";
 import {
+  AiFields,
   CommerceFields,
   GroupForm,
   NotificationsFields,
@@ -50,6 +51,7 @@ export default function SystemSettingsPage() {
           <TabsTrigger value="shipping" className="gap-1.5"><Truck className="size-4" /> Shipping</TabsTrigger>
           <TabsTrigger value="notifications" className="gap-1.5"><Bell className="size-4" /> Notifications</TabsTrigger>
           <TabsTrigger value="security" className="gap-1.5"><ShieldCheck className="size-4" /> Security</TabsTrigger>
+          <TabsTrigger value="ai" className="gap-1.5"><Sparkles className="size-4" /> AI Assistant</TabsTrigger>
         </TabsList>
         <TabsContent value="commerce">
           <GroupForm group="commerce" schema={groupSchemas.commerce} values={s.commerce}>
@@ -75,6 +77,11 @@ export default function SystemSettingsPage() {
         <TabsContent value="security">
           <GroupForm group="security" schema={groupSchemas.security} values={s.security}>
             {(c) => <SecurityFields control={c} />}
+          </GroupForm>
+        </TabsContent>
+        <TabsContent value="ai">
+          <GroupForm group="ai" schema={groupSchemas.ai} values={s.ai}>
+            {(c) => <AiFields control={c} hasHfKey={(s.ai as { hasHfKey?: boolean }).hasHfKey} />}
           </GroupForm>
         </TabsContent>
       </Tabs>

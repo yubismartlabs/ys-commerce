@@ -28,6 +28,7 @@ import { CATEGORIES, categoryHref } from "@/lib/categories";
 import { usePublicSettings } from "@/lib/public-settings";
 import { BuyerBell } from "@/components/notifications/buyer-bell";
 import { SearchBox } from "@/components/search/search-box";
+import { AssistantHeaderButton } from "@/components/ai/assistant-shell";
 import { signOut, useSession } from "next-auth/react";
 
 export function MarketplaceHeader() {
@@ -147,6 +148,7 @@ export function MarketplaceHeader() {
               </Link>
             </Button>
             <BuyerBell />
+            <AssistantHeaderButton />
             <Button variant="ghost" size="icon" asChild className="relative" aria-label="Cart">
               <Link href="/cart">
                 <ShoppingCart />

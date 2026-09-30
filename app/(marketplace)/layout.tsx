@@ -4,6 +4,7 @@ import { MarketplaceHeader } from "@/components/layout/marketplace-header";
 import { MarketplaceFooter } from "@/components/layout/marketplace-footer";
 import { SiteBanners } from "@/components/layout/site-banners";
 import { CartTracker } from "@/components/lifecycle/cart-tracker";
+import { AssistantShell } from "@/components/ai/assistant-shell";
 import { getSettings } from "@/lib/server-settings";
 
 export default async function MarketplaceLayout({ children }: { children: React.ReactNode }) {
@@ -24,6 +25,7 @@ export default async function MarketplaceLayout({ children }: { children: React.
     if (role !== "ADMIN") redirect("/maintenance");
   }
   return (
+    <AssistantShell>
     <div className="flex min-h-screen flex-col bg-ali-bg">
       {/* Keyboard users otherwise tab through ~15 header controls on every page. */}
       <a
@@ -43,5 +45,6 @@ export default async function MarketplaceLayout({ children }: { children: React.
       </main>
       <MarketplaceFooter />
     </div>
+    </AssistantShell>
   );
 }
