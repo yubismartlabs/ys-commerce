@@ -156,6 +156,15 @@ previous action will happily satisfy the next assertion. Specs create and delete
 they don't depend on specific seeded rows, and `workers: 1` is deliberate — they mutate a shared
 database.
 
+**Coupons** (`tests/coupons.flow.spec.ts`) assert the discount arithmetic against the stored order
+(`subtotal`, `discount`, `shipping`, `total`) rather than the quote the page displayed. The property
+worth most is the **store-scoped `FREESHIP`** rule: a buyer's code may only waive shipping for the
+seller's own parcels, because waiving a stranger's fee means the platform has to reimburse a seller who
+shipped for less than they were paid. It is asserted directly against a two-store basket — one parcel's
+fee waived, the other's still charged — rather than inferred. Also pinned: a fixed discount is clamped
+to the subtotal so a total can never go negative, a category-scoped coupon only discounts eligible
+items, `minSubtotal` and `perUserLimit` are enforced, and redemption increments `usedCount`.
+
 **Disputes** (`tests/disputes.flow.spec.ts`) are the adversarial counterpart to returns: support rules
 and money moves to one side. The invariant worth most is the one spanning two features — a return and a
 dispute are **mutually exclusive** on the same order, because both draw on the same escrow. Neither

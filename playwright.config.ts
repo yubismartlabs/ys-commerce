@@ -72,7 +72,11 @@ export default defineConfig({
     : {
         command: `npm run build && npx next start -p ${PORT}`,
         url: baseURL,
-        reuseExistingServer: !process.env.CI,
+        // Never reuse a running server: globalSetup drops and recreates the
+        // database, and a reused server keeps pooled connections to the dropped
+        // one. That produced PrismaClientInitializationError on every request
+        // and let the previous run's rows survive into the next.
+        reuseExistingServer: false,
         timeout: 240_000,
         // The app under test always points at the throwaway E2E database, so a
         // run can never write to the developer's data.
