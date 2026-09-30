@@ -180,9 +180,41 @@
   .ai-dot {
     animation: ai-dot-bounce 1.2s ease-in-out infinite;
   }
+  /* Shimmer sweep for image-shaped skeletons while cards resolve. */
+  @keyframes ai-shimmer {
+    from {
+      transform: translateX(-100%);
+    }
+    to {
+      transform: translateX(100%);
+    }
+  }
+  .ai-shimmer {
+    position: relative;
+    overflow: hidden;
+  }
+  .ai-shimmer::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    transform: translateX(-100%);
+    background: linear-gradient(100deg, transparent 20%, rgba(255, 255, 255, 0.65) 50%, transparent 80%);
+    animation: ai-shimmer 1.4s ease-in-out infinite;
+  }
+  /* Warm assistant canvas + one diffuse card shadow, reused across the panel. */
+  .ai-canvas {
+    background: #f6f5f3;
+  }
+  .ai-card {
+    background: #fff;
+    box-shadow:
+      0 1px 2px rgba(20, 16, 12, 0.05),
+      0 6px 20px rgba(20, 16, 12, 0.06);
+  }
   @media (prefers-reduced-motion: reduce) {
     .ai-msg-in,
-    .ai-dot {
+    .ai-dot,
+    .ai-shimmer::after {
       animation: none;
     }
   }

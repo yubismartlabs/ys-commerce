@@ -29,3 +29,13 @@ export async function GET() {
     }))
   );
 }
+
+/** Clear the buyer's assistant thread (new chat). */
+export async function DELETE() {
+  const session = await auth().catch(() => null);
+  const userId = session?.user ? (session.user as { id: string }).id : null;
+  if (!userId) return fail("UNAUTHORIZED", "Sign in to use the shopping assistant.", 401);
+
+  const { count } = await db.aiMessage.deleteMany({ where: { userId } });
+  return ok({ cleared: count });
+}
