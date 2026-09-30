@@ -89,6 +89,10 @@ dropping the order-level tracking columns.
 
 **Split fulfilment.** A multi-seller basket is N separate parcels, so tracking lives on `Shipment` (one row per store per order), not on `Order`. `Order.carrier`/`trackingNumber`/`shippedAt`/`deliveredAt` were removed rather than left behind, to avoid a second source of truth. `Order.status` is derived: `DELIVERED` only once every parcel has arrived, and the buyer-protection clock starts at the *last* delivery. A seller's transition only moves their own parcels.
 
+**Product Q&A** (`ProductQuestion`/`ProductAnswer`) is public and shared, deliberately unlike chat: chat is E2EE and private to its two parties, so one buyer's answer can't help the next visitor. One question per buyer per product — it's a thread, not a support ticket. Sellers hide rather than delete, so answers other shoppers rely on survive.
+
+**Price history** (`PriceSnapshot`) records a row only when the price or compare-at actually moves, so the storefront sparkline shows real changes rather than padding with edits. The migration seeds a baseline point per product.
+
 **Returns vs disputes.** They are deliberately separate. A return is ordinary after-sales and freezes escrow for the lines involved; a dispute is adversarial and settles via admin ruling. Money only moves on `REFUNDED`, which is admin-only — a seller cannot self-serve a refund.
 
 **Payments are simulated.** No card is collected or charged; orders are written as `PAID` immediately. `payments.provider` is `mock` only. Wire a real provider before taking money — see "Not yet built" below.
@@ -112,6 +116,7 @@ Deliberately incomplete — see the plan in the git history:
   (one coupon per order). A seller `FREESHIP` code waives only their own parcel's
   shipping, never a peer's.
 - **Returns are manual end to end.** There are no return shipping labels or automated carrier integration; the seller marks an item received by hand and support releases the refund.
+- **Flash-deal prices aren't in price history.** `PriceSnapshot` records seller edits; deal pricing is resolved at read time, so a temporary deal price won't appear as a data point.
 
 ---
 

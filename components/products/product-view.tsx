@@ -14,6 +14,8 @@ import { discountPct, formatSold, formatUSD } from "@/lib/format";
 import { RatingStars } from "@/components/commerce/rating-stars";
 import { ApiProductCard } from "@/components/commerce/api-product-card";
 import { ProductReviews } from "@/components/products/product-reviews";
+import { ProductQuestions } from "@/components/products/product-questions";
+import { PriceHistory } from "@/components/products/price-history";
 import { WishlistHeart } from "@/components/products/wishlist-heart";
 import { MessageButton } from "@/components/chat/message-button";
 import { usePublicSettings } from "@/lib/public-settings";
@@ -119,6 +121,7 @@ export function ProductView({ product, shippingFee }: { product: ProductDetail; 
             <span className="text-3xl font-black text-ali-red">{formatUSD(price)}</span>
             {compareAt ? <span className="text-sm text-neutral-500 line-through">{formatUSD(compareAt)}</span> : null}
           </div>
+          <PriceHistory slug={product.slug} />
           {product.deal ? (
             <p className="flex flex-wrap items-center gap-2 rounded-lg bg-ali-red/10 px-3 py-2 text-sm font-bold text-ali-red">
               <Zap className="size-4 fill-current" />
@@ -245,6 +248,7 @@ export function ProductView({ product, shippingFee }: { product: ProductDetail; 
         <TabsList>
           <TabsTrigger value="description">Description</TabsTrigger>
           <TabsTrigger value="specs">Specifications</TabsTrigger>
+          <TabsTrigger value="questions">Q&amp;A</TabsTrigger>
           <TabsTrigger value="reviews" id="reviews">Reviews ({product.ratingCount.toLocaleString()})</TabsTrigger>
         </TabsList>
         <TabsContent value="description">
@@ -267,6 +271,9 @@ export function ProductView({ product, shippingFee }: { product: ProductDetail; 
               </dl>
             )}
           </Card>
+        </TabsContent>
+        <TabsContent value="questions">
+          <ProductQuestions slug={product.slug} />
         </TabsContent>
         <TabsContent value="reviews">
           <Card className="p-4">

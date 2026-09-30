@@ -91,6 +91,8 @@ model User {
   reviews   Review[]
   disputes  Dispute[]  @relation("DisputeBuyer")
   returns   ReturnRequest[] @relation("ReturnBuyer")
+  questions ProductQuestion[]
+  answers   ProductAnswer[]
   auditLogs AuditLog[] @relation("AuditActor")
   apiTokens ApiToken[]
   notifications Notification[]
@@ -159,6 +161,7 @@ model Store {
   followers StoreFollow[]
   shipments Shipment[]
   returns  ReturnRequest[]
+  questions ProductQuestion[]
 
   @@index([status])
   @@index([ratingAvg])
@@ -278,6 +281,8 @@ model Product {
   wishlistItems WishlistItem[]
   priceAlerts PriceAlert[]
   deals    Deal[]
+  questions ProductQuestion[]
+  priceHistory PriceSnapshot[]
 
   @@index([category])
   @@index([status])
@@ -627,6 +632,68 @@ model ReviewVote {
   review Review @relation(fields: [reviewId], references: [id], onDelete: Cascade)
 
   @@unique([reviewId, userId])
+}
+
+// ---------------------------------------------------------------------------
+// Product Q&A
+//
+// Public and persisted, unlike chat: chat is E2EE and private to the two
+// parties, so one buyer's answer can't help the next buyer. "Is this really
+// 3.5mm?" is the single most-asked pre-purchase question on a marketplace and
+// it needs a shared, indexable thread.
+// ---------------------------------------------------------------------------
+
+model ProductQuestion {
+  id        String   @id @default(cuid())
+  productId String
+  storeId   String
+  authorId  String
+  body      String
+  // Moderation: seller-reported questions wait here.
+  hidden    Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  product Product          @relation(fields: [productId], references: [id], onDelete: Cascade)
+  store   Store            @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  author  User             @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  answers ProductAnswer[]
+
+  // One question per user per product, so a buyer can't spam the thread.
+  @@unique([productId, authorId])
+  @@index([productId, hidden, createdAt])
+  @@index([storeId, createdAt])
+}
+
+model ProductAnswer {
+  id         String   @id @default(cuid())
+  questionId String
+  authorId   String?
+  body       String
+  // Seller-authored answers are marked so buyers can weight them.
+  fromSeller Boolean  @default(false)
+  createdAt  DateTime @default(now())
+
+  question ProductQuestion @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  author   User?           @relation(fields: [authorId], references: [id], onDelete: SetNull)
+
+  @@index([questionId, createdAt])
+}
+
+// Buyer price-history. Appended whenever a seller's effective price changes,
+// so the storefront can show whether a "was $45" is a real markdown.
+model PriceSnapshot {
+  id        String   @id @default(cuid())
+  productId String
+  price     Decimal  @db.Decimal(10, 2)
+  compareAt Decimal? @db.Decimal(10, 2)
+  // Why the row exists: seller edit, flash deal, deal ended.
+  source    String   @default("edit")
+  createdAt DateTime @default(now())
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([productId, createdAt])
 }
 
 model ApiToken {

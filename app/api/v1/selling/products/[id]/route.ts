@@ -96,11 +96,30 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     if (variants) {
       await syncVariants(tx, id, variants, product.variants);
     }
-    return tx.product.update({
+    const saved = await tx.product.update({
       where: { id },
       data: { ...rest, ...(specs ? { specs: specs as object } : {}) },
       include: { variants: true },
     });
+
+    // Record a price-history point ONLY when the price actually moved, so the
+    // buyer-facing chart shows real changes instead of padding with edits.
+    const nextPrice = rest.price !== undefined ? rest.price : Number(product.price);
+    const nextCompareAt = rest.compareAt !== undefined ? rest.compareAt : product.compareAt;
+    const compareChanged =
+      (rest.compareAt !== undefined ? Number(rest.compareAt ?? 0) : Number(product.compareAt ?? 0)) !==
+      Number(product.compareAt ?? 0);
+    if (nextPrice !== Number(product.price) || compareChanged) {
+      await tx.priceSnapshot.create({
+        data: {
+          productId: id,
+          price: nextPrice,
+          compareAt: nextCompareAt === null ? null : nextCompareAt,
+          source: "edit",
+        },
+      });
+    }
+    return saved;
   });
   await audit(userId, "product.update", "Product", id, { via: "seller" });
   return ok(updated);

@@ -7,6 +7,7 @@ const links = [
   { href: "/selling/listings", label: "Listings" },
   { href: "/selling/orders", label: "Orders" },
   { href: "/selling/coupons", label: "Coupons" },
+  { href: "/selling/questions", label: "Q&A" },
   { href: "/selling/disputes", label: "Disputes" },
   { href: "/selling/returns", label: "Returns" },
   { href: "/selling/messages", label: "Messages" },
