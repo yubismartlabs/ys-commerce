@@ -77,8 +77,9 @@ export function DisputeThread({
       )}
       {canReply ? (
         <div className="flex gap-2 pt-1">
-          <Textarea value={body} onChange={(e) => setBody(e.target.value)} placeholder="Write a reply…" rows={2} className="flex-1" />
-          <Button onClick={send} disabled={sending || !body.trim()} className="shrink-0">
+          <label htmlFor="dispute-reply" className="sr-only">Write a reply</label>
+          <Textarea id="dispute-reply" value={body} onChange={(e) => setBody(e.target.value)} placeholder="Write a reply…" rows={2} className="flex-1" />
+          <Button onClick={send} disabled={sending || !body.trim()} className="shrink-0" aria-label="Send reply">
             {sending ? <Loader2 className="size-4 animate-spin" /> : <Send className="size-4" />}
           </Button>
         </div>

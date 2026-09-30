@@ -39,7 +39,7 @@ export default function CheckoutPage() {
   if (items.length === 0) {
     return (
       <Card className="p-10 text-center">
-        <p className="text-lg font-bold">Your cart is empty</p>
+        <h1 className="text-lg font-bold">Your cart is empty</h1>
         <p className="mt-1 text-sm text-neutral-500">Add something before checking out.</p>
         <Button asChild className="mt-4 bg-ali-red text-white hover:bg-ali-red-dark">
           <Link href="/">Start shopping</Link>
@@ -118,7 +118,7 @@ export default function CheckoutPage() {
         </Card>
       </div>
       <Card className="h-fit space-y-3 p-4">
-        <p className="font-bold">Place order</p>
+        <h1 className="font-bold">Place order</h1>
         <ul className="space-y-1.5 text-sm">
           {items.map((i) => (
             <li key={i.slug + (i.variant ?? "")} className="flex justify-between gap-2">

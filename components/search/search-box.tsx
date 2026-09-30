@@ -38,7 +38,9 @@ export function SearchBox({ inputClassName = "", className = "" }: { inputClassN
   const [debounced, setDebounced] = useState("");
   const [open, setOpen] = useState(false);
   const [recents, setRecents] = useState<string[]>(() => readRecents());
+  const [activeId, setActiveId] = useState<string>("");
   const boxRef = useRef<HTMLDivElement>(null);
+  const listboxId = "ys-search-suggestions";
 
   useEffect(() => {
     const t = setTimeout(() => setDebounced(q.trim()), 180);
@@ -57,6 +59,7 @@ export function SearchBox({ inputClassName = "", className = "" }: { inputClassN
     retry: false,
   });
   const suggestions = suggestionsQuery.data ?? [];
+  const showPanel = open && (suggestions.length > 0 || recents.length > 0);
 
   useEffect(() => {
     const close = (e: MouseEvent) => {
@@ -83,7 +86,7 @@ export function SearchBox({ inputClassName = "", className = "" }: { inputClassN
 
   return (
     <div ref={boxRef} className={`relative w-full ${className}`}>
-      <form onSubmit={submit} className="flex flex-1 items-center">
+      <form onSubmit={submit} className="flex flex-1 items-center" role="search">
         <div className="flex w-full items-stretch overflow-hidden rounded-full border-2 border-ali-red bg-white">
           <input
             value={q}
@@ -95,23 +98,37 @@ export function SearchBox({ inputClassName = "", className = "" }: { inputClassN
               setRecents(readRecents());
               setOpen(true);
             }}
+            onKeyDown={(e) => {
+              if (e.key === "Escape") setOpen(false);
+            }}
             placeholder="wireless earbuds, summer dress, led lights..."
-            className={`h-11 flex-1 bg-transparent px-4 text-sm outline-none ${inputClassName}`}
+            className={`h-11 flex-1 bg-transparent px-4 text-sm outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ali-red ${inputClassName}`}
             aria-label="Search products"
+            // Combobox semantics: without these, a screen reader is never told
+            // that suggestions exist or that a popup is open.
+            role="combobox"
+            aria-expanded={open && showPanel}
+            aria-controls={listboxId}
+            aria-autocomplete="list"
+            aria-activedescendant={activeId || undefined}
           />
           <button type="submit" className="flex shrink-0 items-center gap-1 bg-ali-red px-6 text-sm font-bold text-white hover:bg-ali-red-dark" aria-label="Search">
             <Search className="size-4" /> <span className="hidden lg:inline">Search</span>
           </button>
         </div>
       </form>
-      {open && (suggestions.length > 0 || recents.length > 0) ? (
+      {showPanel ? (
         <div className="absolute inset-x-0 top-full z-50 mt-1 overflow-hidden rounded-xl border bg-white shadow-xl">
           {suggestions.length > 0 ? (
-            <ul className="max-h-64 overflow-y-auto py-1">
+            <ul id={listboxId} role="listbox" aria-label="Search suggestions" className="max-h-64 overflow-y-auto py-1">
               {suggestions.map((s, i) => (
                 <li key={`${s.type}-${s.text}-${i}`}>
                   <Link
+                    id={`${listboxId}-${i}`}
+                    role="option"
+                    aria-selected={activeId === `${listboxId}-${i}`}
                     href={hrefFor(s)}
+                    onMouseEnter={() => setActiveId(`${listboxId}-${i}`)}
                     onClick={() => {
                       pushRecent(s.text);
                       setOpen(false);

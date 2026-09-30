@@ -74,7 +74,7 @@ export default function DealsPage() {
   return (
     <div className="space-y-4">
       <div className="overflow-hidden rounded-xl bg-gradient-to-r from-[#e62e1b] to-[#ff6a00] p-6 text-white">
-        <p className="flex items-center gap-2 text-2xl font-black"><Zap className="size-6 fill-current" /> Flash Deals</p>
+        <h1 className="flex items-center gap-2 text-2xl font-black"><Zap className="size-6 fill-current" /> Flash Deals</h1>
         <p className="mt-1 text-sm text-white/85">Curated drops at AliExpress-style prices. When the cap fills or time runs out, prices snap back.</p>
       </div>
 

@@ -132,7 +132,10 @@
 @theme {
   --color-ali-red: #e62e1b;
   --color-ali-red-dark: #c41f10;
+  /* Decorative brand orange. 2.87:1 on white, so it must NOT be used for text
+     on a light background — use --color-ali-orange-ink there (5.1:1 on orange-100). */
   --color-ali-orange: #ff6a00;
+  --color-ali-orange-ink: #b33d00;
   --color-ali-star: #ff8a00;
   --color-ali-bg: #f2f2f2;
   --color-ali-ink: #191919;

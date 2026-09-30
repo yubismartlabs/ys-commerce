@@ -43,7 +43,7 @@ export default function CartPage() {
       <>
         <SavedCartBanner />
         <Card className="p-10 text-center">
-          <p className="text-lg font-bold">Your cart is empty</p>
+          <h1 className="text-lg font-bold">Your cart is empty</h1>
           <p className="mt-1 text-sm text-neutral-500">Discover flash deals and Choice picks.</p>
           <Button asChild className="mt-4 bg-ali-red text-white hover:bg-ali-red-dark">
             <Link href="/">Start shopping</Link>
@@ -90,7 +90,7 @@ export default function CartPage() {
         </div>
       </Card>
       <Card className="h-fit space-y-3 p-4">
-        <p className="font-bold">Order summary</p>
+        <h1 className="font-bold">Order summary</h1>
         <div className="flex justify-between text-sm"><span>Subtotal</span><span>{formatUSD(total)}</span></div>
         <CouponBox lines={lines} />
         {quote.data ? (

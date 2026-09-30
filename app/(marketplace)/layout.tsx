@@ -25,13 +25,22 @@ export default async function MarketplaceLayout({ children }: { children: React.
   }
   return (
     <div className="flex min-h-screen flex-col bg-ali-bg">
+      {/* Keyboard users otherwise tab through ~15 header controls on every page. */}
+      <a
+        href="#main"
+        className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-50 focus:rounded-lg focus:bg-ali-red focus:px-4 focus:py-2 focus:text-sm focus:font-semibold focus:text-white"
+      >
+        Skip to content
+      </a>
       <CartTracker />
       <SiteBanners
         maintenance={{ enabled: settings.maintenance.enabled, message: settings.maintenance.message }}
         announcement={settings.maintenance.announcement}
       />
       <MarketplaceHeader />
-      <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-4">{children}</main>
+      <main id="main" tabIndex={-1} className="mx-auto w-full max-w-7xl flex-1 px-4 py-4 focus:outline-none">
+        {children}
+      </main>
       <MarketplaceFooter />
     </div>
   );

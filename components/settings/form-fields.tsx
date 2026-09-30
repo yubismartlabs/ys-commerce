@@ -6,16 +6,45 @@ import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
-function Row({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
+/**
+ * Label + hint + control in one row.
+ *
+ * The label was a `<p>`, so EVERY settings field in the console had no
+ * accessible name. It is now a real `<label htmlFor>` wired to the control's
+ * id, with the hint linked via aria-describedby.
+ */
+function Row({
+  label,
+  hint,
+  id,
+  children,
+}: {
+  label: string;
+  hint?: string;
+  id: string;
+  children: React.ReactNode;
+}) {
+  const hintId = hint ? `${id}-hint` : undefined;
   return (
     <div className="grid gap-1.5 py-3 sm:grid-cols-[220px_1fr] sm:gap-4">
       <div>
-        <p className="text-sm font-medium">{label}</p>
-        {hint ? <p className="text-xs text-neutral-500">{hint}</p> : null}
+        <label htmlFor={id} className="text-sm font-medium">
+          {label}
+        </label>
+        {hint ? (
+          <p id={hintId} className="text-xs text-neutral-500">
+            {hint}
+          </p>
+        ) : null}
       </div>
       <div>{children}</div>
     </div>
   );
+}
+
+/** Shared aria wiring so every control announces its label and hint. */
+function desc(id: string, hint?: string): string | undefined {
+  return hint ? `${id}-hint` : undefined;
 }
 
 export function TextRow<T extends FieldValues>({
@@ -33,13 +62,22 @@ export function TextRow<T extends FieldValues>({
   placeholder?: string;
   type?: string;
 }) {
+  const id = String(name);
   return (
-    <Row label={label} hint={hint}>
+    <Row label={label} hint={hint} id={id}>
       <Controller
         control={control}
         name={name}
         render={({ field }) => (
-          <Input {...field} type={type ?? "text"} value={field.value ?? ""} placeholder={placeholder} className="max-w-md" />
+          <Input
+            {...field}
+            id={id}
+            type={type ?? "text"}
+            value={field.value ?? ""}
+            placeholder={placeholder}
+            aria-describedby={desc(id, hint)}
+            className="max-w-md"
+          />
         )}
       />
     </Row>
@@ -61,17 +99,20 @@ export function NumberRow<T extends FieldValues>({
   step?: string;
   min?: number;
 }) {
+  const id = String(name);
   return (
-    <Row label={label} hint={hint}>
+    <Row label={label} hint={hint} id={id}>
       <Controller
         control={control}
         name={name}
         render={({ field }) => (
           <Input
+            id={id}
             type="number"
             step={step ?? "any"}
             min={min}
             value={field.value ?? ""}
+            aria-describedby={desc(id, hint)}
             onChange={(e) => field.onChange(e.target.value === "" ? 0 : Number(e.target.value))}
             className="max-w-40"
           />
@@ -94,13 +135,22 @@ export function TextareaRow<T extends FieldValues>({
   hint?: string;
   placeholder?: string;
 }) {
+  const id = String(name);
   return (
-    <Row label={label} hint={hint}>
+    <Row label={label} hint={hint} id={id}>
       <Controller
         control={control}
         name={name}
         render={({ field }) => (
-          <Textarea {...field} value={field.value ?? ""} placeholder={placeholder} rows={3} className="max-w-xl" />
+          <Textarea
+            {...field}
+            id={id}
+            value={field.value ?? ""}
+            placeholder={placeholder}
+            aria-describedby={desc(id, hint)}
+            rows={3}
+            className="max-w-xl"
+          />
         )}
       />
     </Row>
@@ -118,13 +168,14 @@ export function SwitchRow<T extends FieldValues>({
   label: string;
   hint?: string;
 }) {
+  const id = String(name);
   return (
-    <Row label={label} hint={hint}>
+    <Row label={label} hint={hint} id={id}>
       <Controller
         control={control}
         name={name}
         render={({ field }) => (
-          <Switch checked={!!field.value} onCheckedChange={field.onChange} />
+          <Switch id={id} checked={!!field.value} aria-describedby={desc(id, hint)} onCheckedChange={field.onChange} />
         )}
       />
     </Row>
@@ -144,17 +195,22 @@ export function SelectRow<T extends FieldValues>({
   hint?: string;
   options: readonly string[];
 }) {
+  const id = String(name);
   return (
-    <Row label={label} hint={hint}>
+    <Row label={label} hint={hint} id={id}>
       <Controller
         control={control}
         name={name}
         render={({ field }) => (
           <Select value={String(field.value ?? "")} onValueChange={field.onChange}>
-            <SelectTrigger className="max-w-60"><SelectValue /></SelectTrigger>
+            <SelectTrigger id={id} aria-describedby={desc(id, hint)} className="max-w-60">
+              <SelectValue />
+            </SelectTrigger>
             <SelectContent>
               {options.map((o) => (
-                <SelectItem key={o} value={o}>{o}</SelectItem>
+                <SelectItem key={o} value={o}>
+                  {o}
+                </SelectItem>
               ))}
             </SelectContent>
           </Select>

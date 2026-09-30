@@ -69,10 +69,18 @@ export function BuyerBell() {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="ghost" size="icon" className="relative" aria-label="Notifications">
+        <Button
+          variant="ghost"
+          size="icon"
+          className="relative"
+          aria-label={unread > 0 ? `Notifications, ${unread} unread` : "Notifications"}
+        >
           <Bell />
           {unread > 0 ? (
-            <Badge className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-ali-red p-0 px-0.5 text-[10px] text-white">
+            <Badge
+              className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-ali-red p-0 px-0.5 text-[10px] text-white"
+              aria-live="polite"
+            >
               {unread > 99 ? "99+" : unread}
             </Badge>
           ) : null}

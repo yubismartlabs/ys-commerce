@@ -141,34 +141,34 @@ export default function StoreSettingsPage() {
       <form onSubmit={save}>
         <Card className="grid gap-3 p-5">
           <div className="grid gap-1">
-            <label className="text-sm font-medium">Store name</label>
-            <Input value={f.name} onChange={(e) => set("name", e.target.value)} maxLength={80} />
+            <label htmlFor="st-name" className="text-sm font-medium">Store name</label>
+            <Input id="st-name" value={f.name} onChange={(e) => set("name", e.target.value)} maxLength={80} />
           </div>
           <div className="grid gap-1">
-            <label className="text-sm font-medium">Description</label>
-            <Textarea value={f.description} onChange={(e) => set("description", e.target.value)} rows={3} maxLength={2000} />
+            <label htmlFor="st-description" className="text-sm font-medium">Description</label>
+            <Textarea id="st-description" value={f.description} onChange={(e) => set("description", e.target.value)} rows={3} maxLength={2000} />
           </div>
           <div className="grid gap-2 sm:grid-cols-2">
             <div className="grid gap-1">
-              <label className="text-sm font-medium">Logo URL</label>
-              <Input value={f.logo} onChange={(e) => set("logo", e.target.value)} placeholder="https://…" />
+              <label htmlFor="st-logo" className="text-sm font-medium">Logo URL</label>
+              <Input id="st-logo" value={f.logo} onChange={(e) => set("logo", e.target.value)} placeholder="https://…" />
             </div>
             <div className="grid gap-1">
-              <label className="text-sm font-medium">Banner URL</label>
-              <Input value={f.banner} onChange={(e) => set("banner", e.target.value)} placeholder="https://…" />
+              <label htmlFor="st-banner" className="text-sm font-medium">Banner URL</label>
+              <Input id="st-banner" value={f.banner} onChange={(e) => set("banner", e.target.value)} placeholder="https://…" />
             </div>
           </div>
           <div className="grid gap-1">
-            <label className="text-sm font-medium">Announcement <span className="font-normal text-neutral-400">(banner strip on your store page)</span></label>
-            <Input value={f.announcement} onChange={(e) => set("announcement", e.target.value)} maxLength={300} />
+            <label htmlFor="st-announcement" className="text-sm font-medium">Announcement <span className="font-normal text-neutral-400">(banner strip on your store page)</span></label>
+            <Input id="st-announcement" value={f.announcement} onChange={(e) => set("announcement", e.target.value)} maxLength={300} />
           </div>
           <div className="grid gap-1">
-            <label className="text-sm font-medium">Shipping policy</label>
-            <Textarea value={f.shippingPolicy} onChange={(e) => set("shippingPolicy", e.target.value)} rows={2} maxLength={2000} />
+            <label htmlFor="st-shippingPolicy" className="text-sm font-medium">Shipping policy</label>
+            <Textarea id="st-shippingPolicy" value={f.shippingPolicy} onChange={(e) => set("shippingPolicy", e.target.value)} rows={2} maxLength={2000} />
           </div>
           <div className="grid gap-1">
-            <label className="text-sm font-medium">Return policy</label>
-            <Textarea value={f.returnPolicy} onChange={(e) => set("returnPolicy", e.target.value)} rows={2} maxLength={2000} />
+            <label htmlFor="st-returnPolicy" className="text-sm font-medium">Return policy</label>
+            <Textarea id="st-returnPolicy" value={f.returnPolicy} onChange={(e) => set("returnPolicy", e.target.value)} rows={2} maxLength={2000} />
           </div>
           <div>
             <Button type="submit" disabled={saving} className="bg-ali-red text-white hover:bg-ali-red-dark">

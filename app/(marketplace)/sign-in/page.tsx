@@ -44,20 +44,51 @@ function SignInForm() {
   return (
     <Card className="w-full max-w-sm space-y-5 p-7">
       <div className="space-y-1 text-center">
-        <p className="text-2xl font-black tracking-tight"><span className="text-ali-red">ys</span>-commerce</p>
+        <h1 className="text-2xl font-black tracking-tight">
+          <span className="text-ali-red">ys</span>-commerce
+        </h1>
         <p className="text-sm text-neutral-500">Welcome back — sign in to shop and sell.</p>
       </div>
+      {/* role=alert so a screen reader announces the failure, not just shows it. */}
       {error ? (
-        <p className="rounded-lg bg-red-500/10 px-3 py-2 text-center text-sm font-medium text-red-600">{error}</p>
+        <p role="alert" aria-live="assertive" id="signin-error" className="rounded-lg bg-red-500/10 px-3 py-2 text-center text-sm font-medium text-red-600">
+          {error}
+        </p>
       ) : null}
       <form className="space-y-3" onSubmit={submit}>
         <div className="relative">
-          <Mail className="absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-neutral-400" />
-          <Input type="email" placeholder="Email" autoComplete="email" required value={email} onChange={(e) => setEmail(e.target.value)} className="pl-9" />
+          {/* A placeholder is not a label: it vanishes on focus and is skipped
+              by several screen readers. */}
+          <label htmlFor="signin-email" className="sr-only">Email</label>
+          <Mail className="absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-neutral-400" aria-hidden />
+          <Input
+            id="signin-email"
+            type="email"
+            placeholder="Email"
+            autoComplete="email"
+            required
+            value={email}
+            aria-invalid={!!error}
+            aria-describedby={error ? "signin-error" : undefined}
+            onChange={(e) => setEmail(e.target.value)}
+            className="pl-9"
+          />
         </div>
         <div className="relative">
-          <Lock className="absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-neutral-400" />
-          <Input type="password" placeholder="Password" autoComplete="current-password" required value={password} onChange={(e) => setPassword(e.target.value)} className="pl-9" />
+          <label htmlFor="signin-password" className="sr-only">Password</label>
+          <Lock className="absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-neutral-400" aria-hidden />
+          <Input
+            id="signin-password"
+            type="password"
+            placeholder="Password"
+            autoComplete="current-password"
+            required
+            value={password}
+            aria-invalid={!!error}
+            aria-describedby={error ? "signin-error" : undefined}
+            onChange={(e) => setPassword(e.target.value)}
+            className="pl-9"
+          />
         </div>
         <Button type="submit" disabled={busy} className="w-full bg-ali-red text-white hover:bg-ali-red-dark">
           {busy ? (<><Loader2 className="size-4 animate-spin" /> Signing in…</>) : "Sign in"}

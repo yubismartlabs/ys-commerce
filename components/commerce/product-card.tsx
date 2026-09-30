@@ -43,7 +43,7 @@ export function ProductCard({ product }: { product: CardProduct }) {
               variant="secondary"
               className={cn(
                 "absolute right-2 top-2 rounded-md px-1.5 text-[11px] font-semibold",
-                product.badge === "Choice" && "bg-orange-100 text-ali-orange"
+                product.badge === "Choice" && "bg-orange-100 text-ali-orange-ink"
               )}
             >
               {product.badge}

@@ -115,9 +115,9 @@ export function ProductForm({
       <Card className="grid gap-3 p-5">
         {isCreate ? (
           <div className="grid gap-1">
-            <label className="text-sm font-medium">Store</label>
+            <label htmlFor="pf-storeId" className="text-sm font-medium">Store</label>
             <Select value={v.storeId} onValueChange={(x) => set("storeId", x)}>
-              <SelectTrigger><SelectValue placeholder="Pick a store" /></SelectTrigger>
+              <SelectTrigger id="pf-storeId"><SelectValue placeholder="Pick a store" /></SelectTrigger>
               <SelectContent>
                 {stores.map((s) => (
                   <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
@@ -127,9 +127,9 @@ export function ProductForm({
           </div>
         ) : (
           <div className="grid gap-1">
-            <label className="text-sm font-medium">Status</label>
+            <label htmlFor="pf-status" className="text-sm font-medium">Status</label>
             <Select value={v.status} onValueChange={(x) => set("status", x)}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectTrigger id="pf-status"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="DRAFT">DRAFT</SelectItem>
                 <SelectItem value="ACTIVE">ACTIVE</SelectItem>
@@ -138,47 +138,47 @@ export function ProductForm({
           </div>
         )}
         <div className="grid gap-1">
-          <label className="text-sm font-medium">Title</label>
-          <Input value={v.title} onChange={(e) => set("title", e.target.value)} maxLength={140} placeholder="Wireless Bluetooth Earbuds…" />
+          <label htmlFor="pf-title" className="text-sm font-medium">Title</label>
+          <Input id="pf-title" value={v.title} onChange={(e) => set("title", e.target.value)} maxLength={140} placeholder="Wireless Bluetooth Earbuds…" />
         </div>
         <div className="grid gap-1">
-          <label className="text-sm font-medium">Description</label>
-          <Textarea value={v.description} onChange={(e) => set("description", e.target.value)} rows={4} maxLength={5000} />
+          <label htmlFor="pf-description" className="text-sm font-medium">Description</label>
+          <Textarea id="pf-description" value={v.description} onChange={(e) => set("description", e.target.value)} rows={4} maxLength={5000} />
         </div>
         <div className="grid gap-2 sm:grid-cols-3">
           <div className="grid gap-1">
-            <label className="text-sm font-medium">Price (USD)</label>
-            <Input value={v.price} onChange={(e) => set("price", e.target.value)} inputMode="decimal" placeholder="12.49" />
+            <label htmlFor="pf-price" className="text-sm font-medium">Price (USD)</label>
+            <Input id="pf-price" value={v.price} onChange={(e) => set("price", e.target.value)} inputMode="decimal" placeholder="12.49" />
           </div>
           <div className="grid gap-1">
-            <label className="text-sm font-medium">Compare-at (USD)</label>
-            <Input value={v.compareAt} onChange={(e) => set("compareAt", e.target.value)} inputMode="decimal" placeholder="29.99" />
+            <label htmlFor="pf-compareAt" className="text-sm font-medium">Compare-at (USD)</label>
+            <Input id="pf-compareAt" value={v.compareAt} onChange={(e) => set("compareAt", e.target.value)} inputMode="decimal" placeholder="29.99" />
           </div>
           <div className="grid gap-1">
-            <label className="text-sm font-medium">Category</label>
-            <Input value={v.category} onChange={(e) => set("category", e.target.value)} placeholder="electronics" maxLength={60} />
+            <label htmlFor="pf-category" className="text-sm font-medium">Category</label>
+            <Input id="pf-category" value={v.category} onChange={(e) => set("category", e.target.value)} placeholder="electronics" maxLength={60} />
           </div>
         </div>
         <div className="grid gap-2 sm:grid-cols-2">
           <div className="grid gap-1">
-            <label className="text-sm font-medium">Cover image URL</label>
-            <Input value={v.image} onChange={(e) => set("image", e.target.value)} placeholder="https://…" />
+            <label htmlFor="pf-image" className="text-sm font-medium">Cover image URL</label>
+            <Input id="pf-image" value={v.image} onChange={(e) => set("image", e.target.value)} placeholder="https://…" />
           </div>
           <div className="grid gap-1">
-            <label className="text-sm font-medium">Badge (optional)</label>
-            <Input value={v.badge} onChange={(e) => set("badge", e.target.value)} placeholder="Hot" maxLength={20} />
+            <label htmlFor="pf-badge" className="text-sm font-medium">Badge (optional)</label>
+            <Input id="pf-badge" value={v.badge} onChange={(e) => set("badge", e.target.value)} placeholder="Hot" maxLength={20} />
           </div>
         </div>
         <div className="grid gap-1">
-          <label className="text-sm font-medium">Gallery URLs (one per line, max 10)</label>
-          <Textarea value={v.imagesText} onChange={(e) => set("imagesText", e.target.value)} rows={3} placeholder={"https://…/1.jpg\nhttps://…/2.jpg"} />
+          <label htmlFor="pf-images" className="text-sm font-medium">Gallery URLs (one per line, max 10)</label>
+          <Textarea id="pf-images" value={v.imagesText} onChange={(e) => set("imagesText", e.target.value)} rows={3} placeholder={"https://…/1.jpg\nhttps://…/2.jpg"} />
         </div>
         <div className="grid gap-1">
-          <label className="text-sm font-medium">Specs JSON (optional)</label>
-          <Textarea value={v.specsText} onChange={(e) => set("specsText", e.target.value)} rows={2} className="font-mono text-xs" placeholder='[{"k":"Brand","v":"YS"}]' />
+          <label htmlFor="pf-specs" className="text-sm font-medium">Specs JSON (optional)</label>
+          <Textarea id="pf-specs" value={v.specsText} onChange={(e) => set("specsText", e.target.value)} rows={2} className="font-mono text-xs" placeholder='[{"k":"Brand","v":"YS"}]' />
         </div>
-        <label className="flex cursor-pointer items-center gap-2 text-sm">
-          <Checkbox checked={v.freeShipping} onCheckedChange={(x) => set("freeShipping", x === true)} /> Free shipping
+        <label htmlFor="pf-freeShipping" className="flex cursor-pointer items-center gap-2 text-sm">
+          <Checkbox id="pf-freeShipping" checked={v.freeShipping} onCheckedChange={(x) => set("freeShipping", x === true)} /> Free shipping
         </label>
 
         <div className="grid gap-2 border-t pt-4">

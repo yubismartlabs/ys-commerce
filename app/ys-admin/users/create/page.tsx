@@ -69,7 +69,7 @@ export default function NewUserPage() {
           <p className="text-sm font-bold text-emerald-700 dark:text-emerald-400">Account created. Share this password once:</p>
           <p className="inline-flex items-center gap-2 rounded-lg bg-neutral-100 px-3 py-2 font-mono text-lg font-bold dark:bg-neutral-800">
             {temp}
-            <Button size="sm" variant="ghost" className="h-6 px-1.5" onClick={() => { void navigator.clipboard?.writeText(temp); toast.success("Copied."); }}>
+            <Button size="sm" variant="ghost" className="h-6 px-1.5" aria-label="Copy password" onClick={() => { void navigator.clipboard?.writeText(temp); toast.success("Copied."); }}>
               <Copy className="size-3.5" />
             </Button>
           </p>

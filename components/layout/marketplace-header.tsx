@@ -67,7 +67,7 @@ export function MarketplaceHeader() {
         <div className="mx-auto flex max-w-7xl items-center gap-3 px-4 py-3">
           <Sheet>
             <SheetTrigger asChild>
-              <Button variant="ghost" size="icon" className="md:hidden">
+              <Button variant="ghost" size="icon" className="md:hidden" aria-label="Open menu">
                 <Menu />
               </Button>
             </SheetTrigger>
@@ -151,7 +151,13 @@ export function MarketplaceHeader() {
               <Link href="/cart">
                 <ShoppingCart />
                 {count > 0 && (
-                  <Badge className="absolute -right-0.5 -top-0.5 size-4 justify-center bg-ali-red p-0 text-[10px] text-white">
+                  <Badge
+                    className="absolute -right-0.5 -top-0.5 size-4 justify-center bg-ali-red p-0 text-[10px] text-white"
+                    // The toast announces "Added to cart"; without this a screen
+                    // reader has no way to learn the cart is no longer empty.
+                    aria-live="polite"
+                    aria-label={`${count} item${count === 1 ? "" : "s"} in cart`}
+                  >
                     {count}
                   </Badge>
                 )}

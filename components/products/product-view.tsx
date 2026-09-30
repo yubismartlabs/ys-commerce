@@ -97,7 +97,7 @@ export function ProductView({ product, shippingFee }: { product: ProductDetail; 
 
         <div className="space-y-3">
           <div className="flex items-center gap-2 text-[12px]">
-            {product.badge ? <Badge className="bg-orange-100 text-ali-orange">{product.badge}</Badge> : null}
+            {product.badge ? <Badge className="bg-orange-100 text-ali-orange-ink">{product.badge}</Badge> : null}
             <span className="text-neutral-500">{formatSold(product.soldCount)} sold</span>
           </div>
           <h1 className="text-xl font-semibold leading-6">{product.title}</h1>
