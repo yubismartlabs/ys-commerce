@@ -1,28 +1,19 @@
-import { Card } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { AccountCoupons } from "@/components/coupons/account-coupons";
-import { AccountDisputesTab } from "@/components/disputes/account-disputes";
-import { AccountOrders } from "@/components/orders/account-orders";
-import { SecurityForm } from "@/components/account/security-form";
+import { Suspense } from "react";
+import { AccountTabs, isAccountTab } from "@/components/account/account-tabs";
 
-export default function AccountPage() {
+export default async function AccountPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ tab?: string }>;
+}) {
+  // Server component reads the tab so the right panel is rendered on first
+  // paint; the client component handles interaction. `useSearchParams` inside
+  // AccountTabs needs the Suspense boundary below.
+  const { tab } = await searchParams;
+  const initial = isAccountTab(tab) ? tab : "orders";
   return (
-    <div className="space-y-4">
-      <h1 className="text-xl font-bold">My YS (buyer + seller unified)</h1>
-      <Tabs defaultValue="orders">
-        <TabsList>
-          <TabsTrigger value="orders">Orders</TabsTrigger>
-          <TabsTrigger value="disputes">Disputes</TabsTrigger>
-          <TabsTrigger value="reviews">Reviews</TabsTrigger>
-          <TabsTrigger value="coupons">Coupons</TabsTrigger>
-          <TabsTrigger value="settings">Settings</TabsTrigger>
-        </TabsList>
-        <TabsContent value="orders"><Card className="px-6 py-2"><AccountOrders /></Card></TabsContent>
-        <TabsContent value="disputes"><Card className="px-6 py-4"><AccountDisputesTab /></Card></TabsContent>
-        <TabsContent value="reviews"><Card className="p-6 text-sm text-neutral-500">Reviews mock.</Card></TabsContent>
-        <TabsContent value="coupons"><Card className="p-6"><AccountCoupons /></Card></TabsContent>
-        <TabsContent value="settings"><Card className="p-6"><SecurityForm /></Card></TabsContent>
-      </Tabs>
-    </div>
+    <Suspense fallback={<div className="h-64 animate-pulse rounded-xl bg-neutral-100 dark:bg-neutral-800" />}>
+      <AccountTabs initial={initial} />
+    </Suspense>
   );
 }

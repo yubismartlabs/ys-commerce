@@ -75,11 +75,16 @@ export async function settleSellerWin(orderId: string): Promise<{ released: numb
  */
 export async function releaseDue(onlyOrderId?: string): Promise<{ released: number; accrued: number }> {
   const now = new Date();
+  // Sellers get an operator-configured settling buffer AFTER the buyer
+  // protection window closes. Previously `escrowReleaseDays` was a live
+  // setting read by nothing, so funds released the moment protection expired.
+  const { escrowReleaseDays } = await getSettingGroup("commerce");
+  const releaseCutoff = new Date(now.getTime() - Math.max(0, escrowReleaseDays) * 86400000);
   // Prisma has no relation from EscrowHold→Order, so join via order query.
   const due = await db.order.findMany({
     where: {
       status: "DELIVERED",
-      protectionUntil: { lte: now },
+      protectionUntil: { lte: releaseCutoff },
       ...(onlyOrderId ? { id: onlyOrderId } : {}),
       disputes: { none: { status: { in: ["OPEN", "UNDER_REVIEW"] } } },
     },
@@ -118,8 +123,25 @@ export async function releaseDue(onlyOrderId?: string): Promise<{ released: numb
 /** Auto-pay PENDING payouts at/above the minimum (mock processor). */
 export async function runPayouts(): Promise<{ paid: number; total: number }> {
   const payments = await getSettingGroup("payments");
+  // Honour the configured payout cadence. Previously every eligible payout was
+  // paid on every scheduler tick, so the "daily / weekly / monthly" setting had
+  // no effect at all.
+  const now = Date.now();
+  const cadenceMs =
+    payments.payoutSchedule === "daily"
+      ? 86400000
+      : payments.payoutSchedule === "weekly"
+        ? 7 * 86400000
+        : 30 * 86400000;
+  const earliest = new Date(now - cadenceMs);
+
   const eligible = await db.payout.findMany({
-    where: { status: "PENDING", amount: { gte: payments.payoutMinimum } },
+    where: {
+      status: "PENDING",
+      amount: { gte: payments.payoutMinimum },
+      // Only pay what has been sitting long enough for this cadence.
+      createdAt: { lte: earliest },
+    },
   });
   if (eligible.length === 0) return { paid: 0, total: 0 };
   const total = eligible.reduce((a, p) => a + Number(p.amount), 0);

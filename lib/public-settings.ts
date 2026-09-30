@@ -8,6 +8,8 @@ type PublicSettings = {
   announcement: string;
   buyerProtectionText: string;
   buyerProtectionDays: number;
+  etaText: string;
+  shipFrom: string;
   maintenance: { enabled: boolean; message: string };
 };
 
@@ -17,6 +19,8 @@ const FALLBACK: PublicSettings = {
   announcement: "",
   buyerProtectionText: "Full refund if your order doesn't arrive.",
   buyerProtectionDays: 14,
+  etaText: "Delivery in 7–12 days",
+  shipFrom: "",
   maintenance: { enabled: false, message: "" },
 };
 

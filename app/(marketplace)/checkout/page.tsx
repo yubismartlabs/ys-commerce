@@ -8,6 +8,7 @@ import { toast } from "sonner";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { useCart } from "@/lib/store/cart";
 import { CouponBox } from "@/components/coupons/coupon-box";
@@ -106,11 +107,14 @@ export default function CheckoutPage() {
           </div>
         </Card>
         <Card className="space-y-2 p-4">
-          <p className="font-bold">Payment (mock — no real charge)</p>
-          <div className="grid gap-2 md:grid-cols-2">
-            <Input placeholder="Card number" />
-            <Input placeholder="MM / YY" />
+          <div className="flex flex-wrap items-center gap-2">
+            <p className="font-bold">Payment</p>
+            <Badge variant="outline" className="text-[11px]">No charge in this environment</Badge>
           </div>
+          <p className="text-sm text-neutral-600">
+            This marketplace runs without a live payment processor. Placing an order records it as paid and
+            no card is collected or charged. Wire up a provider before taking real money.
+          </p>
         </Card>
       </div>
       <Card className="h-fit space-y-3 p-4">

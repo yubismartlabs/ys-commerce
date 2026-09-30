@@ -13,6 +13,8 @@ export async function GET() {
     announcement: s.maintenance.announcement,
     buyerProtectionText: s.commerce.buyerProtectionText,
     buyerProtectionDays: s.commerce.buyerProtectionDays,
+    etaText: s.shipping.etaText,
+    shipFrom: s.shipping.shipFrom,
     maintenance: { enabled: s.maintenance.enabled, message: s.maintenance.message },
   });
 }

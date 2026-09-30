@@ -16,9 +16,22 @@ const credentialsSchema = z.object({
   password: z.string().min(1),
 });
 
+/**
+ * Session lifetime is a fixed 30 days.
+ *
+ * There WAS a `security.sessionLifetimeDays` admin setting, but it was read by
+ * nothing. It can't simply be wired up: NextAuth's `session.maxAge` must be a
+ * static number, and this module is also imported by `middleware.ts`, which
+ * runs on the edge runtime where Prisma can't be called at module scope. The
+ * setting has been removed from the console rather than left as a control that
+ * does nothing. Making it live requires switching to database sessions, where
+ * expiry is per-row.
+ */
+const SESSION_MAX_AGE = 30 * 86400;
+
 export const { handlers, auth, signIn, signOut } = NextAuth({
   adapter: PrismaAdapter(db),
-  session: { strategy: "jwt" },
+  session: { strategy: "jwt", maxAge: SESSION_MAX_AGE },
   pages: { signIn: "/ys-admin/login" },
   providers: [
     Credentials({

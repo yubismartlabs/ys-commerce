@@ -58,12 +58,15 @@ export async function generateMetadata({
 
 export default async function ProductPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
-  let product;
+  let product: Awaited<ReturnType<typeof loadProduct>>;
   try {
     product = await loadProduct(slug);
   } catch (e) {
+    // notFound() must be called in the render path; it throws the 404 that
+    // Next turns into a real 404 status + noindex.
     if (e instanceof ApiError && e.status === 404) notFound();
     throw e;
   }
-  return <ProductView product={product} />;
+  const shipping = await getSettingGroup("shipping").catch(() => null);
+  return <ProductView product={product} shippingFee={shipping?.defaultFee ?? 1.99} />;
 }

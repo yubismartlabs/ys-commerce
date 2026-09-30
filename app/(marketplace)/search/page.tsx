@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { X } from "lucide-react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense } from "react";
@@ -120,6 +121,15 @@ function SearchBody() {
   // navigation per keystroke).
   const title = q ? `Results for "${q}"` : category ? categoryLabel(category) : "All products";
 
+  // Some filters (badge) arrive only via deep links like /search?badge=Choice.
+  // They have no sidebar control, so surface them as removable chips — a filter
+  // that silently does nothing reads as a broken search.
+  const badge = params.get("badge") ?? "";
+  const chips: Array<{ label: string; clear: Record<string, string | null> }> = [];
+  if (badge) chips.push({ label: badge, clear: { badge: null } });
+  if (minPrice) chips.push({ label: `Min $${minPrice}`, clear: { minPrice: null } });
+  if (maxPrice) chips.push({ label: `Max $${maxPrice}`, clear: { maxPrice: null } });
+
   return (
     <div className="grid gap-4 lg:grid-cols-[240px_1fr]">
       <aside className="lg:block">
@@ -184,8 +194,29 @@ function SearchBody() {
       <section>
         <div className="mb-3 flex flex-wrap items-center gap-2">
           <h1 className="text-lg font-bold">{title}</h1>
-          <Badge variant="secondary">{loading ? "…" : `${total} items`}</Badge>
+          {/* Announced so filtering by category/rating reports the new count. */}
+          <Badge variant="secondary" aria-live="polite" aria-busy={loading}>
+            {loading ? "…" : `${total} items`}
+          </Badge>
         </div>
+        {chips.length > 0 ? (
+          <div className="mb-3 flex flex-wrap items-center gap-1.5">
+            <span className="text-xs font-semibold text-neutral-500">Filters:</span>
+            {chips.map((chip) => (
+              <Button
+                key={chip.label}
+                size="sm"
+                variant="secondary"
+                className="h-7 gap-1 rounded-full text-xs"
+                onClick={() => push(chip.clear)}
+              >
+                {chip.label}
+                <X className="size-3" aria-hidden />
+                <span className="sr-only">Remove filter</span>
+              </Button>
+            ))}
+          </div>
+        ) : null}
         {loading ? (
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-4">
             {Array.from({ length: 8 }).map((_, i) => (

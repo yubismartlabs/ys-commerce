@@ -4,7 +4,6 @@ import { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useQueryClient } from "@tanstack/react-query";
 import { Minus, Plus, ShieldCheck, ShoppingCart, Store, Truck, Zap } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -27,11 +26,10 @@ import type { ProductDetail } from "@/lib/products/detail";
  * component so it can call notFound() and emit metadata; everything that needs
  * state or browser APIs lives here.
  */
-export function ProductView({ product }: { product: ProductDetail }) {
+export function ProductView({ product, shippingFee }: { product: ProductDetail; shippingFee: number }) {
   const router = useRouter();
-  const queryClient = useQueryClient();
   const add = useCart((s) => s.add);
-  const { buyerProtectionText, buyerProtectionDays } = usePublicSettings();
+  const { buyerProtectionText, buyerProtectionDays, etaText, shipFrom } = usePublicSettings();
   const [imgIdx, setImgIdx] = useState(0);
   const [variantId, setVariantId] = useState<string | null>(null);
   const [qty, setQty] = useState(1);
@@ -215,9 +213,11 @@ export function ProductView({ product }: { product: ProductDetail }) {
 
           <Card>
             <CardContent className="space-y-2 p-4 text-[13px]">
-              <p className="flex items-center gap-2">
-                <Truck className="size-4 text-emerald-600" />{" "}
-                {product.freeShipping ? "Free shipping" : "Shipping from $1.99"} · delivery in 7–12 days
+              <p className="flex flex-wrap items-center gap-2">
+                <Truck className="size-4 shrink-0 text-emerald-600" />
+                {product.freeShipping ? "Free shipping" : `Shipping from $${shippingFee.toFixed(2)}`}
+                {shipFrom ? ` · Ships from ${shipFrom}` : ""}
+                {etaText ? ` · ${etaText}` : ""}
               </p>
               <p className="flex items-center gap-2">
                 <ShieldCheck className="size-4 text-emerald-600" /> Buyer Protection ({buyerProtectionDays} days) ·{" "}

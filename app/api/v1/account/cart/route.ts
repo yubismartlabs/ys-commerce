@@ -9,9 +9,27 @@ const lineSchema = z.object({
   image: z.string().max(500),
   price: z.number().min(0).max(1000000),
   qty: z.number().int().min(1).max(99),
+  // Kept so a restored cart doesn't collapse multi-variant products into one
+  // line (the cart store keys on slug + variant).
+  variant: z.string().max(80).optional(),
 });
 
 const schema = z.object({ items: z.array(lineSchema).max(50) });
+
+/**
+ * Read the saved cart so the recovery email's link actually restores it.
+ * Without this the snapshot was write-only and "you left items behind" pointed
+ * at a cart the buyer could not get back.
+ */
+export async function GET() {
+  const session = await auth();
+  const userId = session?.user?.id;
+  if (!userId) return fail("UNAUTHORIZED", "Sign in required", 401);
+
+  const snapshot = await db.cartSnapshot.findUnique({ where: { userId } });
+  const items = Array.isArray(snapshot?.items) ? (snapshot?.items as z.infer<typeof lineSchema>[]) : [];
+  return ok(items, { page: 1, pageSize: items.length, total: items.length });
+}
 
 /**
  * Storefront cart mirror for abandoned-cart recovery. Signed-in buyers

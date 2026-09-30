@@ -14,7 +14,7 @@ export function MarketplaceFooter() {
             <Link href="/deals">Flash Deals</Link>
             <Link href="/watchlist">Watchlist</Link>
             <Link href="/cart">Cart</Link>
-            <Link href="/account">Track Order</Link>
+            <Link href="/account?tab=orders">Track Order</Link>
           </div>
         </div>
         <div>
@@ -30,14 +30,14 @@ export function MarketplaceFooter() {
           <p className="mb-2 font-semibold text-neutral-900">Support</p>
           <div className="grid gap-1.5">
             <Link href="/account">My Account</Link>
-            <Link href="/account#orders">Orders</Link>
+            <Link href="/account?tab=orders">Orders</Link>
             <Link href="/account/disputes">Disputes</Link>
             <Link href="/account/messages">Messages</Link>
           </div>
         </div>
       </div>
-      <div className="border-t py-4 text-center text-xs text-neutral-400">
-        © 2026 ys-commerce · Demo marketplace
+      <div className="border-t py-4 text-center text-xs text-neutral-500">
+        © 2026 ys-commerce · Demo marketplace · Payments are simulated
       </div>
     </footer>
   );

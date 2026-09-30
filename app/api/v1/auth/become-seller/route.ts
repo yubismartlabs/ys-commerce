@@ -41,6 +41,10 @@ export async function POST(req: Request) {
         slug: slugify(parsed.data.storeName),
         ownerId: userId,
         commissionRate: commerce.commissionDefault,
+        // Honour the admin's seller-approval policy. This was a live setting
+        // with no effect: every store was always created PENDING, so "auto"
+        // silently did nothing.
+        status: commerce.sellerApproval === "auto" ? "APPROVED" : "PENDING",
       },
     }),
     ...(user.role === "BUYER" ? [db.user.update({ where: { id: userId }, data: { role: "SELLER" } })] : []),
@@ -50,13 +54,15 @@ export async function POST(req: Request) {
     data: { actorId: userId, action: "store.create", entity: "Store", entityId: store.id },
   });
 
-  // Alert all admins (in-app + email) about the new seller request.
-  // Manual approval banks the store as PENDING; auto-approval is a later step.
-  await notifySellerRequest({
-    storeId: store.id,
-    storeName: store.name,
-    ownerId: userId,
-    ownerEmail: user.email,
-  });
+  // Auto-approved stores skip the admin queue; manual ones still notify so an
+  // operator can review them.
+  if (commerce.sellerApproval !== "auto") {
+    await notifySellerRequest({
+      storeId: store.id,
+      storeName: store.name,
+      ownerId: userId,
+      ownerEmail: user.email,
+    });
+  }
   return ok(store, undefined, 201);
 }

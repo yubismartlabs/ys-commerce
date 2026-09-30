@@ -101,8 +101,7 @@ export function CommerceFields({ control }: { control: C }) {
       <SelectRow control={control} name="sellerApproval" label="Seller approval" hint="Manual banks new stores as pending; auto approves." options={["manual", "auto"]} />
       <TextareaRow control={control} name="buyerProtectionText" label="Buyer protection text" hint="Shown on product pages." />
       <NumberRow control={control} name="buyerProtectionDays" label="Buyer protection (days)" hint="Dispute-filing window after delivery." min={1} />
-      <NumberRow control={control} name="escrowReleaseDays" label="Escrow release (days)" hint="Held funds auto-release this long after delivery." min={0} />
-      <SwitchRow control={control} name="reviewModeration" label="Moderate reviews" hint="Hold new reviews for approval." />
+      <NumberRow control={control} name="escrowReleaseDays" label="Escrow release (days)" hint="Settling buffer after the buyer-protection window before funds release." min={0} />
     </>
   );
 }
@@ -110,9 +109,9 @@ export function CommerceFields({ control }: { control: C }) {
 export function PaymentsFields({ control }: { control: C }) {
   return (
     <>
-      <SelectRow control={control} name="provider" label="Payment provider" hint="Stripe wires up later; mock records nothing real." options={["mock", "stripe"]} />
-      <TextRow control={control} name="currency" label="Currency" hint="Locked to USD for now." />
-      <SelectRow control={control} name="payoutSchedule" label="Payout schedule" hint="How often sellers get paid." options={["daily", "weekly", "monthly"]} />
+      <SelectRow control={control} name="provider" label="Payment provider" hint="Mock only — no card is charged and no money moves. Stripe is not wired up yet." options={["mock"]} />
+      <TextRow control={control} name="currency" label="Currency" hint="Display only — all amounts are formatted as USD." />
+      <SelectRow control={control} name="payoutSchedule" label="Payout schedule" hint="How long a payout must sit before it is paid out." options={["daily", "weekly", "monthly"]} />
       <NumberRow control={control} name="payoutMinimum" label="Payout minimum (USD)" hint="Balance required before payout." min={0} />
     </>
   );
@@ -124,7 +123,7 @@ export function ShippingFields({ control }: { control: C }) {
       <NumberRow control={control} name="defaultFee" label="Default shipping fee (USD)" min={0} />
       <NumberRow control={control} name="freeThreshold" label="Free-shipping threshold (USD)" hint="Orders at or above ship free." min={0} />
       <TextRow control={control} name="etaText" label="Delivery promise" hint="Shown on product and checkout pages." />
-      <TextRow control={control} name="shipFrom" label="Ships from" />
+      <TextRow control={control} name="shipFrom" label="Ships from" hint="Shown on product pages." />
     </>
   );
 }
@@ -162,8 +161,7 @@ export function SecurityFields({ control }: { control: C }) {
   return (
     <>
       <NumberRow control={control} name="passwordMinLength" label="Minimum password length" min={8} />
-      <NumberRow control={control} name="sessionLifetimeDays" label="Session lifetime (days)" hint="Display only — Auth.js default is 30 days." min={1} />
-      <SwitchRow control={control} name="allowAdminTokens" label="Allow mobile API tokens" hint="Bearer tokens for the mobile app and scripts." />
+      <SwitchRow control={control} name="allowAdminTokens" label="Allow mobile API tokens" hint="Bearer tokens for the mobile app and scripts. Off blocks all new tokens." />
     </>
   );
 }

@@ -55,11 +55,8 @@ export function MarketplaceHeader() {
             <Link href="/selling/onboarding" className="inline-flex items-center gap-1 hover:text-ali-red">
               <Store className="size-3.5" /> Sell on YS
             </Link>
-            <Link href="/account" className="inline-flex items-center gap-1 hover:text-ali-red">
-              <CircleHelp className="size-3.5" /> Help Center
-            </Link>
-            <Link href="/account" className="hover:text-ali-red">
-              Buyer Protection
+            <Link href="/account?tab=orders" className="inline-flex items-center gap-1 hover:text-ali-red">
+              <CircleHelp className="size-3.5" /> Track order
             </Link>
           </div>
         </div>
@@ -129,7 +126,7 @@ export function MarketplaceHeader() {
                   <DropdownMenuItem asChild><Link href="/account">My Orders</Link></DropdownMenuItem>
                   <DropdownMenuItem asChild><Link href="/account/messages">Messages</Link></DropdownMenuItem>
                   <DropdownMenuItem asChild><Link href="/watchlist">Watchlist</Link></DropdownMenuItem>
-                  <DropdownMenuItem asChild><Link href="/account">Coupons & Coins</Link></DropdownMenuItem>
+                  <DropdownMenuItem asChild><Link href="/account?tab=coupons">My coupons</Link></DropdownMenuItem>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem asChild>
                     <Link href={isSeller ? "/selling/dashboard" : "/selling/onboarding"}>
@@ -187,8 +184,8 @@ export function MarketplaceHeader() {
             </DropdownMenuContent>
           </DropdownMenu>
           <Link href="/deals" className="whitespace-nowrap hover:text-ali-red">Flash Deals</Link>
-          <Link href="/search" className="whitespace-nowrap hover:text-ali-red">Choice</Link>
-          <Link href="/search" className="whitespace-nowrap hover:text-ali-red">SuperDeals</Link>
+          <Link href="/search?badge=Choice&sort=rating" className="whitespace-nowrap hover:text-ali-red">Choice</Link>
+          <Link href="/search?deals=1" className="whitespace-nowrap hover:text-ali-red">SuperDeals</Link>
           <Link href="/selling/onboarding" className="whitespace-nowrap hover:text-ali-red">Sell on YS</Link>
         </div>
       </nav>

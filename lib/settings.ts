@@ -76,7 +76,6 @@ export const notificationsSchema = z.object({
 
 export const securitySchema = z.object({
   passwordMinLength: z.number().int().min(8).max(32).default(8),
-  sessionLifetimeDays: z.number().int().min(1).max(90).default(30),
   allowAdminTokens: z.boolean().default(true),
 });
 
@@ -126,5 +125,9 @@ export const publicSettingsSchema = z.object({
   announcement: z.string(),
   buyerProtectionText: z.string(),
   buyerProtectionDays: z.number(),
+  // Surfaced on the product page so the storefront shows the operator's
+  // configured delivery promise instead of a hardcoded "7–12 days".
+  etaText: z.string(),
+  shipFrom: z.string(),
   maintenance: z.object({ enabled: z.boolean(), message: z.string() }),
 });

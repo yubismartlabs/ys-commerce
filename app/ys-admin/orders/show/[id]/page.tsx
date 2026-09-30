@@ -179,7 +179,12 @@ export default function OrderShowPage({ params }: { params: Promise<{ id: string
             </div>
             <Textarea value={note} onChange={(e) => setNote(e.target.value)} placeholder="Note for the buyer / timeline (optional)" rows={2} className="mt-2" />
             <div className="flex flex-wrap gap-2 pt-3">
-              {next.includes("SHIPPED") && o.status === "SHIPPED" ? (
+              {/* Editing tracking in place is a SHIPPED→SHIPPED transition.
+                  The old guard was `next.includes("SHIPPED")`, but NEXT.SHIPPED
+                  is ["DELIVERED","REFUNDED"] — it can never include "SHIPPED",
+                  so this button never rendered and the trackingOnly branch in
+                  lib/orders/transitions had no reachable UI. */}
+              {o.status === "SHIPPED" ? (
                 <Button size="sm" variant="outline" disabled={busy} onClick={() => go({ status: "SHIPPED", ...(tracking ? { trackingNumber: tracking } : {}), ...(carrier ? { carrier } : {}), ...(note ? { note } : {}) }, "Tracking updated.")}>
                   Update tracking
                 </Button>
