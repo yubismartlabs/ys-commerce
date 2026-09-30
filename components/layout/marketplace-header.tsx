@@ -24,22 +24,11 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { useCart } from "@/lib/store/cart";
+import { CATEGORIES, categoryHref } from "@/lib/categories";
 import { usePublicSettings } from "@/lib/public-settings";
 import { BuyerBell } from "@/components/notifications/buyer-bell";
 import { SearchBox } from "@/components/search/search-box";
 import { signOut, useSession } from "next-auth/react";
-
-const categories = [
-  "All Categories",
-  "Electronics",
-  "Fashion",
-  "Home & Garden",
-  "Beauty",
-  "Sports",
-  "Toys & Kids",
-  "Automotive",
-  "Phones",
-];
 
 export function MarketplaceHeader() {
   const count = useCart((s) => s.count());
@@ -88,13 +77,16 @@ export function MarketplaceHeader() {
             <SheetContent side="left" className="w-72">
               <p className="mb-3 text-lg font-extrabold text-ali-red">ys-commerce</p>
               <div className="grid gap-1">
-                {categories.map((c) => (
+                <Link href="/search" className="rounded px-2 py-2 text-sm font-semibold hover:bg-neutral-100">
+                  All Categories
+                </Link>
+                {CATEGORIES.map((c) => (
                   <Link
-                    key={c}
-                    href={c === "All Categories" ? "/search" : `/search?category=${encodeURIComponent(c)}`}
+                    key={c.slug}
+                    href={categoryHref(c.slug)}
                     className="rounded px-2 py-2 text-sm hover:bg-neutral-100"
                   >
-                    {c}
+                    {c.label}
                   </Link>
                 ))}
               </div>
@@ -187,9 +179,9 @@ export function MarketplaceHeader() {
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start" className="w-52">
-              {categories.slice(1).map((c) => (
-                <DropdownMenuItem key={c} asChild>
-                  <Link href={`/search?category=${encodeURIComponent(c)}`}>{c}</Link>
+              {CATEGORIES.map((c) => (
+                <DropdownMenuItem key={c.slug} asChild>
+                  <Link href={categoryHref(c.slug)}>{c.label}</Link>
                 </DropdownMenuItem>
               ))}
             </DropdownMenuContent>

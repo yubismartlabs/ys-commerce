@@ -1,14 +1,19 @@
 import type { NextConfig } from "next";
+import { allowedImageHosts } from "./lib/images";
 
+/**
+ * `remotePatterns` MUST stay in sync with `allowedImageHosts()` in lib/images.ts
+ * — `next/image` throws at render for any host missing here. The same module
+ * also sanitises image URLs on read (`safeImageSrc`) and on write
+ * (`imageUrlSchema`), so a host can never reach the optimizer unapproved.
+ */
 const nextConfig: NextConfig = {
   images: {
-    remotePatterns: [
-      {
-        protocol: 'https',
-        hostname: 'picsum.photos',
-        pathname: '/**',
-      },
-    ],
+    remotePatterns: allowedImageHosts().map((hostname) => ({
+      protocol: "https" as const,
+      hostname,
+      pathname: "/**",
+    })),
   },
   async headers() {
     return [

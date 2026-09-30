@@ -69,8 +69,10 @@ export default function StoreSettingsPage() {
     }
     setSaving(true);
     try {
-      const q = stores.length > 1 ? `?id=${current.id}` : "";
-      const res = await fetch(`/api/v1/selling/store${q}`, {
+      // Always target the store being edited. Omitting `?id=` makes the API
+      // fall back to the seller's OLDEST store, which silently wrote store B's
+      // profile onto store A whenever a multi-store seller used the switcher.
+      const res = await fetch(`/api/v1/selling/store?id=${encodeURIComponent(current.id)}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

@@ -10,10 +10,17 @@ export default async function MarketplaceLayout({ children }: { children: React.
   const settings = await getSettings();
 
   // Maintenance mode: guests see the full /maintenance page, admins browse
-  // normally (with the amber banner as a reminder).
+  // normally (with the amber banner as a reminder). If the session lookup
+  // itself fails we fail closed — showing the maintenance page is safer than
+  // leaking the storefront to a possibly-suspended account.
   if (settings.maintenance.enabled) {
-    const session = await auth();
-    const role = (session?.user as { role?: string } | undefined)?.role;
+    let role: string | undefined;
+    try {
+      const session = await auth();
+      role = (session?.user as { role?: string } | undefined)?.role;
+    } catch (e) {
+      console.error("[layout] session lookup failed during maintenance:", e);
+    }
     if (role !== "ADMIN") redirect("/maintenance");
   }
   return (

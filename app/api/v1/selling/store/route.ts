@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import { fail, ok } from "@/lib/api/http";
 import { audit } from "@/lib/api/guard";
 import { isSuspended } from "@/lib/api/identity";
+import { describeImagePolicy, isAllowedImageUrl } from "@/lib/images";
 
 async function ownStores(userId: string) {
   return db.store.findMany({ where: { ownerId: userId }, orderBy: { createdAt: "asc" } });
@@ -29,8 +30,20 @@ export async function GET(req: Request) {
 const profileSchema = z.object({
   name: z.string().min(2).max(80).optional(),
   description: z.string().max(2000).nullable().optional(),
-  logo: z.string().url().max(500).nullable().optional(),
-  banner: z.string().url().max(500).nullable().optional(),
+  logo: z
+    .string()
+    .trim()
+    .max(500)
+    .nullable()
+    .optional()
+    .refine((v) => v == null || v === "" || isAllowedImageUrl(v), { message: `Logo: ${describeImagePolicy()}` }),
+  banner: z
+    .string()
+    .trim()
+    .max(500)
+    .nullable()
+    .optional()
+    .refine((v) => v == null || v === "" || isAllowedImageUrl(v), { message: `Banner: ${describeImagePolicy()}` }),
   shippingPolicy: z.string().max(2000).nullable().optional(),
   returnPolicy: z.string().max(2000).nullable().optional(),
   announcement: z.string().max(300).nullable().optional(),
@@ -49,6 +62,11 @@ export async function PATCH(req: Request) {
   const url = new URL(req.url);
   const id = url.searchParams.get("id");
   const stores = await ownStores(userId);
+  // A multi-store seller must name the target: silently defaulting to the
+  // oldest store would write one storefront's profile onto another.
+  if (!id && stores.length > 1) {
+    return fail("VALIDATION", "Multiple stores — pass ?id=<storeId> to pick which one to update", 422);
+  }
   const store = id ? stores.find((s) => s.id === id) : stores[0];
   if (!store) return fail("NOT_FOUND", "Store not found", 404);
 

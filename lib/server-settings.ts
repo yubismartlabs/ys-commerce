@@ -1,10 +1,22 @@
 import { db } from "@/lib/db";
 import { defaultSettings, type Settings } from "@/lib/settings";
 
-/** Load all settings merged over defaults (missing rows fall back safely). */
+/**
+ * Load all settings merged over defaults (missing rows fall back safely).
+ *
+ * The storefront renders on every request, so a database blip here would take
+ * down the entire site. Serve defaults and let the admin console surface the
+ * real error instead of failing the shopper.
+ */
 export async function getSettings(): Promise<Settings> {
   const defaults = defaultSettings();
-  const rows = await db.setting.findMany();
+  let rows;
+  try {
+    rows = await db.setting.findMany();
+  } catch (e) {
+    console.error("[settings] falling back to defaults:", e);
+    return defaults;
+  }
   const out: Record<string, Record<string, unknown>> = { ...(defaults as unknown as Record<string, Record<string, unknown>>) };
   for (const row of rows) {
     if (row.key in out) {

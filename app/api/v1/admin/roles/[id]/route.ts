@@ -18,7 +18,8 @@ export const GET = withAdmin(
     });
     if (!role) return fail("NOT_FOUND", "Role not found", 404);
     return ok(role);
-  }
+  },
+  "users"
 );
 
 export const PATCH = withAdmin(
@@ -44,7 +45,8 @@ export const PATCH = withAdmin(
     });
     await audit(actor.id, "role.update", "StaffRole", id, { name: updated.name, scopes: updated.scopes });
     return ok(updated);
-  }
+  },
+  "users"
 );
 
 export const DELETE = withAdmin(
@@ -58,5 +60,6 @@ export const DELETE = withAdmin(
     await db.staffRole.delete({ where: { id } });
     await audit(actor.id, "role.delete", "StaffRole", id, { name: role.name });
     return ok({ deleted: true });
-  }
+  },
+  "users"
 );

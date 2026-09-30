@@ -1,4 +1,5 @@
 import { db } from "@/lib/db";
+import { normalizeCategory } from "@/lib/categories";
 
 /**
  * Full-text + typo-tolerant product search (Postgres tsvector + pg_trgm).
@@ -83,9 +84,12 @@ const CARD_SELECT = `
 
 function filterClauses(f: SearchFilters, params: unknown[]): string {
   const clauses = [`p."status" = 'ACTIVE'`];
-  if (f.category) {
-    params.push(f.category);
-    clauses.push(`p."category" = $${params.length}`);
+  const category = normalizeCategory(f.category);
+  if (category) {
+    // Case-insensitive: Product.category is free text and sellers type it
+    // inconsistently ("Home", "home & garden"). Match on the normalized slug.
+    params.push(category);
+    clauses.push(`LOWER(REPLACE(REPLACE(p."category", ' & ', '-'), ' ', '-')) = $${params.length}`);
   }
   if (f.minPrice !== undefined) {
     params.push(f.minPrice);
@@ -109,7 +113,6 @@ function filterClauses(f: SearchFilters, params: unknown[]): string {
   }
   return clauses.join(" AND ");
 }
-
 const SORT_SQL: Record<string, string> = {
   newest: `p."createdAt" DESC`,
   price_asc: `p."price" ASC`,

@@ -7,13 +7,14 @@ import { Loader2, Lock, Mail, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { safeNextPath } from "@/lib/auth/next-path";
 
 function AdminLoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const next = searchParams.get("next");
   // Only honor same-origin console paths — never external URLs.
-  const redirectTo = next && next.startsWith("/ys-admin") ? next : "/ys-admin";
+  const requested = safeNextPath(searchParams.get("next"), "/ys-admin");
+  const redirectTo = requested.startsWith("/ys-admin") ? requested : "/ys-admin";
   const { mutate: login, isPending, isError } = useLogin<{ email: string; password: string }>();
   // Dev convenience: prefilled so you can sign in with one click.
   const [email, setEmail] = useState("admin@ys.local");

@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { getPagination, ok, fail, serialize } from "@/lib/api/http";
 import { searchFacets, searchProducts, logSearch, type SearchFilters } from "@/lib/search/engine";
 import { auth } from "@/auth";
+import { normalizeCategory } from "@/lib/categories";
 import { NextResponse } from "next/server";
 
 const querySchema = z.object({
@@ -25,8 +26,7 @@ export async function GET(req: Request) {
   const { page, pageSize, skip } = getPagination(url);
 
   const filters: SearchFilters = {
-    ...(f.category ? { category: f.category } : {}),
-    ...(f.minPrice !== undefined ? { minPrice: f.minPrice } : {}),
+    ...(f.category ? { category: f.category } : {}),    ...(f.minPrice !== undefined ? { minPrice: f.minPrice } : {}),
     ...(f.maxPrice !== undefined ? { maxPrice: f.maxPrice } : {}),
     ...(f.freeShipping ? { freeShipping: true } : {}),
     ...(f.minRating ? { minRating: f.minRating } : {}),
@@ -40,9 +40,10 @@ export async function GET(req: Request) {
 
   if (!f.q?.trim()) {
     // Filtered browse (no query): Prisma path, newest default.
+    const category = normalizeCategory(filters.category);
     const where = {
       status: "ACTIVE" as const,
-      ...(filters.category ? { category: filters.category } : {}),
+      ...(category ? { category: { equals: category, mode: "insensitive" as const } } : {}),
       ...(filters.minPrice !== undefined || filters.maxPrice !== undefined
         ? { price: { ...(filters.minPrice !== undefined ? { gte: filters.minPrice } : {}), ...(filters.maxPrice !== undefined ? { lte: filters.maxPrice } : {}) } }
         : {}),

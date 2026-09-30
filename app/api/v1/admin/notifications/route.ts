@@ -2,16 +2,22 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { db } from "@/lib/db";
 import { getPagination, serialize, fail, ok } from "@/lib/api/http";
-import { ApiError } from "@/lib/api/guard";
-import { requireUser } from "@/lib/api/identity";
-import { audit } from "@/lib/api/guard";
+import { ApiError, audit, requireAdmin } from "@/lib/api/guard";
 
-// Own inbox. Any signed-in user reads only their rows (buyers/sellers
-// accumulate notifications today; their UIs can adopt this later).
+/**
+ * Console inbox. Any console user (full admin or staff with a scope) reads
+ * only their own rows — area "any" matches the middleware gate.
+ *
+ * Previously used requireUser(), which accepted ANY signed-in account on an
+ * admin-namespaced route. The row filter kept data contained, but the
+ * classification was wrong and would have become a full cross-user read the
+ * moment an admin-wide query was added. Buyer notifications live at
+ * /api/v1/account/notifications.
+ */
 export async function GET(req: Request) {
   let actor;
   try {
-    actor = await requireUser();
+    actor = await requireAdmin(req, "any");
   } catch (e) {
     if (e instanceof ApiError) return fail(e.code, e.message, e.status);
     throw e;
@@ -49,7 +55,7 @@ const patchSchema = z.union([
 export async function PATCH(req: Request) {
   let actor;
   try {
-    actor = await requireUser();
+    actor = await requireAdmin(req, "any");
   } catch (e) {
     if (e instanceof ApiError) return fail(e.code, e.message, e.status);
     throw e;

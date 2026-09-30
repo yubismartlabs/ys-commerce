@@ -45,7 +45,7 @@ export async function POST(req: Request) {
     return fail("VALIDATION", e instanceof Error ? e.message : "Invalid cart", 422);
   }
   const subtotal = round(lines.reduce((a, l) => a + l.price * l.qty, 0));
-  const shipping = await standardShipping(subtotal);
+  const shipping = await standardShipping(lines);
 
   let coupon: { id: string; code: string } | null = null;
   let discount = 0;
@@ -76,7 +76,9 @@ export async function POST(req: Request) {
           if (mine >= fresh.perUserLimit) throw new Error("COUPON:You've already used this code.");
         }
       }
-      // Variant stock check + decrement (exact name match only).
+      // Variant stock check + decrement. A cart line that names a variant must
+      // match one exactly: silently skipping an unmatched line (the old `if (v)`)
+      // let a renamed/typo'd variant sell with no stock check at all.
       const variantLines = lines.filter((l) => l.variant);
       if (variantLines.length > 0) {
         const variants = await tx.productVariant.findMany({
@@ -84,10 +86,11 @@ export async function POST(req: Request) {
         });
         for (const l of variantLines) {
           const v = variants.find((x) => x.productId === l.productId && x.name === l.variant);
-          if (v) {
-            if (v.stock < l.qty) throw new Error(`STOCK:Only ${v.stock} left of ${l.title} (${v.name}).`);
-            await tx.productVariant.update({ where: { id: v.id }, data: { stock: v.stock - l.qty } });
+          if (!v) {
+            throw new Error(`VARIANT:${l.title} is no longer available in "${l.variant}". Pick another option.`);
           }
+          if (v.stock < l.qty) throw new Error(`STOCK:Only ${v.stock} left of ${l.title} (${v.name}).`);
+          await tx.productVariant.update({ where: { id: v.id }, data: { stock: v.stock - l.qty } });
         }
       }
       const created = await tx.order.create({
@@ -170,6 +173,7 @@ export async function POST(req: Request) {
     const msg = e instanceof Error ? e.message : "Checkout failed";
     if (msg.startsWith("COUPON:")) return fail("COUPON", msg.slice(7), 422);
     if (msg.startsWith("STOCK:")) return fail("STOCK", msg.slice(6), 422);
+    if (msg.startsWith("VARIANT:")) return fail("VARIANT", msg.slice(8), 422);
     console.error("[checkout] failed", msg);
     return fail("CHECKOUT", "Checkout failed, please retry", 500);
   }

@@ -10,14 +10,21 @@ const scopesSchema = z.array(z.string()).max(20).refine(
   { message: "Scopes must be console areas (vendors, orders, …). \"admin\" is not assignable." }
 );
 
-/** Staff roles directory with assignment counts. Superuser-only. */
+/**
+ * Staff roles directory with assignment counts.
+ *
+ * Area "users" — matches the middleware gate for /ys-admin/roles. These roles
+ * exist to scope user management, so the same staff who can open the users
+ * area can define them. The default "admin" area would have 403'd every
+ * scoped staff member after the page shell had already loaded.
+ */
 export const GET = withAdmin(async () => {
   const roles = await db.staffRole.findMany({
     orderBy: { name: "asc" },
     include: { _count: { select: { users: true } } },
   });
   return ok(roles);
-});
+}, "users");
 
 export const POST = withAdmin(async (req, actor) => {
   const parsed = z.object({ name: z.string().min(2).max(40), scopes: scopesSchema }).safeParse(
@@ -33,4 +40,4 @@ export const POST = withAdmin(async (req, actor) => {
   });
   await audit(actor.id, "role.create", "StaffRole", role.id, { name: role.name, scopes: role.scopes });
   return ok(role, undefined, 201);
-});
+}, "users");

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { describeImagePolicy, isAllowedImageUrl } from "@/lib/images";
 
 /** Setting group keys stored as rows in the Setting table. */
 export const SETTING_GROUPS = [
@@ -13,10 +14,19 @@ export const SETTING_GROUPS = [
 
 export type SettingGroup = (typeof SETTING_GROUPS)[number];
 
+/** Optional admin image field: blank is valid, but a bad host is not —
+ * `next/image` throws at render for hosts missing from remotePatterns. */
+const siteImage = z
+  .string()
+  .trim()
+  .max(500)
+  .refine((v) => v === "" || isAllowedImageUrl(v), { message: describeImagePolicy() })
+  .default("");
+
 export const siteSchema = z.object({
   siteName: z.string().min(1).max(60).default("ys-commerce"),
-  logoUrl: z.string().max(500).default(""),
-  faviconUrl: z.string().max(500).default(""),
+  logoUrl: siteImage,
+  faviconUrl: siteImage,
   supportEmail: z.string().email().or(z.literal("")).default(""),
   seoTitle: z.string().max(80).default("ys-commerce | Multi-vendor marketplace"),
   seoDescription: z.string().max(200).default("AliExpress-style multi-vendor marketplace."),

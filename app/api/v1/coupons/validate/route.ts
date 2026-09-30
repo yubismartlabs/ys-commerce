@@ -21,7 +21,7 @@ export async function POST(req: Request) {
     return fail("VALIDATION", e instanceof Error ? e.message : "Invalid cart", 422);
   }
   const subtotal = lines.reduce((a, l) => a + l.price * l.qty, 0);
-  const shipping = await standardShipping(subtotal);
+  const shipping = await standardShipping(lines);
 
   const session = await auth();
   const userId = session?.user?.id;

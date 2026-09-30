@@ -2,7 +2,7 @@ import { createHash } from "crypto";
 import { auth } from "@/auth";
 import { db } from "@/lib/db";
 import { fail } from "@/lib/api/http";
-import { effectiveScopes, hasScope } from "@/lib/auth/permissions";
+import { canAccessConsole, effectiveScopes, hasScope } from "@/lib/auth/permissions";
 
 export type AdminActor = {
   id: string;
@@ -51,6 +51,11 @@ async function loadPrincipal(userId: string) {
  * Session cookie (web) or `Authorization: Bearer <token>` (mobile / scripts).
  * Scope-gated: ADMIN role (or "*") passes everywhere; staff pass only areas
  * in their effective scopes. Default "admin" = superuser-only.
+ *
+ * Area "any" mirrors middleware's `/ys-admin/notifications`: reachable by any
+ * console user (full admin or staff holding at least one scope) without
+ * naming a specific area. It must NOT mean "any signed-in account" — a plain
+ * buyer has no business on an admin route.
  */
 export async function requireAdmin(req: Request, area = "admin"): Promise<AdminActor> {
   const session = await auth();
@@ -61,8 +66,9 @@ export async function requireAdmin(req: Request, area = "admin"): Promise<AdminA
       throw new ApiError("SUSPENDED", "This account is suspended", 403);
     }
     const scopes = effectiveScopes({ role: user.role, scopes: user.scopes, staffScopes: user.staffRole?.scopes ?? [] });
-    if (!hasScope(scopes, area)) {
-      throw new ApiError("FORBIDDEN", `Requires ${area} access`, 403);
+    const allowed = area === "any" ? canAccessConsole(user.role, scopes) : hasScope(scopes, area);
+    if (!allowed) {
+      throw new ApiError("FORBIDDEN", area === "any" ? "Console access required" : `Requires ${area} access`, 403);
     }
     return { id: user.id, email: user.email ?? "", via: "session", role: user.role, scopes };
   }
@@ -90,7 +96,7 @@ export async function requireAdmin(req: Request, area = "admin"): Promise<AdminA
         scopes: token.user.scopes,
         staffScopes: token.user.staffRole?.scopes ?? [],
       });
-      if (!hasScope(scopes, area)) {
+      if (!hasScope(scopes, area) && !(area === "any" && canAccessConsole(token.user.role, scopes))) {
         throw new ApiError("FORBIDDEN", `Requires ${area} access`, 403);
       }
       return { id: token.user.id, email: token.user.email, via: "token", role: token.user.role, scopes };

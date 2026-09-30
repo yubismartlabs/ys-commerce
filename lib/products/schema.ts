@@ -1,10 +1,30 @@
 import { z } from "zod";
+import { describeImagePolicy, isAllowedImageUrl } from "@/lib/images";
 
-const variantSchema = z.object({
+/**
+ * Seller-supplied image URL. Rejects hosts outside the allowlist at SAVE time
+ * so `next/image` can never be handed an unconfigured host at render.
+ */
+const imageUrlSchema = z
+  .string()
+  .trim()
+  .min(1, "Image is required")
+  .max(500)
+  .refine(isAllowedImageUrl, { message: describeImagePolicy() });
+
+const optionalImageUrlSchema = z
+  .string()
+  .trim()
+  .max(500)
+  .refine((v) => v === "" || isAllowedImageUrl(v), { message: describeImagePolicy() })
+  .optional()
+  .nullable();
+
+export const variantSchema = z.object({
   name: z.string().min(1).max(80),
   sku: z.string().max(40).optional().nullable(),
   price: z.number().min(0).max(1000000).optional().nullable(),
-  image: z.string().url().max(500).optional().nullable(),
+  image: optionalImageUrlSchema,
   stock: z.number().int().min(0).max(1000000).default(0),
 });
 
@@ -13,8 +33,8 @@ const specSchema = z.object({ k: z.string().min(1).max(60), v: z.string().max(30
 export const productInput = z.object({
   title: z.string().min(2).max(140),
   description: z.string().max(5000).optional().nullable(),
-  image: z.string().url().max(500),
-  images: z.array(z.string().url().max(500)).max(10).default([]),
+  image: imageUrlSchema,
+  images: z.array(imageUrlSchema).max(10).default([]),
   specs: z.array(specSchema).max(50).default([]),
   price: z.number().min(0.01).max(1000000),
   compareAt: z.number().min(0.01).max(1000000).optional().nullable(),

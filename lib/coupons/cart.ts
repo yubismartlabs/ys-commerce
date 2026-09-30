@@ -14,6 +14,7 @@ export type ResolvedLine = QuoteItem & {
   image: string;
   variant: string | null;
   productId: string;
+  freeShipping: boolean;
 };
 
 /** Resolve storefront cart lines to live DB products (ACTIVE only, live prices). */
@@ -23,7 +24,7 @@ export async function resolveCart(
   const slugs = [...new Set(lines.map((l) => l.slug))];
   const products = await db.product.findMany({
     where: { slug: { in: slugs } },
-    select: { id: true, slug: true, title: true, image: true, price: true, category: true, status: true, storeId: true },
+    select: { id: true, slug: true, title: true, image: true, price: true, compareAt: true, category: true, status: true, storeId: true, freeShipping: true },
   });
   const bySlug = new Map(products.map((p) => [p.slug, p]));
   // Flash deals override the base price while live (window open, cap unmet).
@@ -49,13 +50,26 @@ export async function resolveCart(
       title: p.title,
       image: p.image,
       variant: l.variant ?? null,
+      freeShipping: p.freeShipping,
     };
   });
 }
 
-/** Standard shipping from settings: free at/above threshold, else flat fee. */
-export async function standardShipping(subtotal: number): Promise<number> {
+/**
+ * Shipping from settings, honouring each product's own `freeShipping` promise.
+ *
+ * `Product.freeShipping` is shown on the card, used as a search facet, and
+ * advertised on the product page — so it has to be true at the till. If every
+ * line is free-shipping the order ships free; otherwise the flat fee applies
+ * unless the basket clears the global free threshold.
+ */
+export async function standardShipping(
+  lines: Array<{ price: number; qty: number; freeShipping: boolean }>
+): Promise<number> {
   const shipping = await getSettingGroup("shipping");
+  if (lines.length === 0) return 0;
+  if (lines.every((l) => l.freeShipping)) return 0;
+  const subtotal = lines.reduce((a, l) => a + l.price * l.qty, 0);
   return subtotal >= shipping.freeThreshold ? 0 : shipping.defaultFee;
 }
 

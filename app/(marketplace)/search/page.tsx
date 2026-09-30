@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { CATEGORIES, categoryLabel, normalizeCategory } from "@/lib/categories";
 
 type Row = ApiCardRow;
 
@@ -117,7 +118,7 @@ function SearchBody() {
 
   // Selects + toggles apply instantly; price fields use Apply (avoids a
   // navigation per keystroke).
-  const title = q ? `Results for "${q}"` : category || "All products";
+  const title = q ? `Results for "${q}"` : category ? categoryLabel(category) : "All products";
 
   return (
     <div className="grid gap-4 lg:grid-cols-[240px_1fr]">
@@ -135,9 +136,21 @@ function SearchBody() {
               <SelectTrigger><SelectValue placeholder="All" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All ({categories.reduce((a, c) => a + c.count, 0)})</SelectItem>
-                {categories.map((c) => (
-                  <SelectItem key={c.category} value={c.category}>{c.category} ({c.count})</SelectItem>
-                ))}
+                {CATEGORIES.map((c) => {
+                  const hit = categories.find((f) => normalizeCategory(f.category) === c.slug);
+                  return (
+                    <SelectItem key={c.slug} value={c.slug}>
+                      {c.label} ({hit?.count ?? 0})
+                    </SelectItem>
+                  );
+                })}
+                {categories
+                  .filter((f) => !CATEGORIES.some((c) => c.slug === normalizeCategory(f.category)))
+                  .map((f) => (
+                    <SelectItem key={f.category} value={normalizeCategory(f.category)}>
+                      {categoryLabel(f.category)} ({f.count})
+                    </SelectItem>
+                  ))}
               </SelectContent>
             </Select>
           </div>

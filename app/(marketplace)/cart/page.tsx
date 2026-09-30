@@ -9,13 +9,21 @@ import { Separator } from "@/components/ui/separator";
 import { useCart } from "@/lib/store/cart";
 import { CouponBox } from "@/components/coupons/coupon-box";
 import { useQuote } from "@/components/coupons/use-quote";
+import { useHydrated } from "@/lib/hooks/use-hydrated";
 import { formatUSD } from "@/lib/format";
 
 export default function CartPage() {
   const { items, setQty, remove, subtotal, clear, couponCode } = useCart();
+  const hydrated = useHydrated();
   const total = subtotal();
   const lines = items.map((i) => ({ slug: i.slug, qty: i.qty, ...(i.variant ? { variant: i.variant } : {}) }));
   const quote = useQuote(lines, couponCode);
+
+  // Cart state is persisted to localStorage and only rehydrates after mount —
+  // don't claim the cart is empty during SSR.
+  if (!hydrated) {
+    return <Card className="h-64 animate-pulse bg-neutral-100 dark:bg-neutral-800" aria-label="Loading cart" />;
+  }
 
   if (items.length === 0) {
     return (

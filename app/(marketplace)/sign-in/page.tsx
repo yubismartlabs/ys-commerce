@@ -8,6 +8,7 @@ import { Loader2, Lock, Mail } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { safeNextPath } from "@/lib/auth/next-path";
 
 function SignInForm() {
   const router = useRouter();
@@ -17,9 +18,10 @@ function SignInForm() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(params.get("error") ? "Please sign in to continue." : null);
   const [busy, setBusy] = useState(false);
+  const next = safeNextPath(params.get("next"));
 
   if (status === "authenticated") {
-    router.replace(params.get("next") ?? "/");
+    router.replace(next);
     return null;
   }
 
@@ -30,7 +32,7 @@ function SignInForm() {
     const res = await signIn("credentials", { email, password, redirect: false });
     setBusy(false);
     if (res?.ok) {
-      router.push(params.get("next") ?? "/");
+      router.push(next);
       router.refresh();
     } else if ((res as { code?: string } | undefined)?.code === "SUSPENDED") {
       setError("This account is suspended. Contact support.");

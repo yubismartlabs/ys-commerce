@@ -12,6 +12,7 @@ import { Separator } from "@/components/ui/separator";
 import { useCart } from "@/lib/store/cart";
 import { CouponBox } from "@/components/coupons/coupon-box";
 import { useQuote } from "@/components/coupons/use-quote";
+import { useHydrated } from "@/lib/hooks/use-hydrated";
 import { formatUSD } from "@/lib/format";
 
 export default function CheckoutPage() {
@@ -24,10 +25,15 @@ export default function CheckoutPage() {
   const [street, setStreet] = useState("");
   const [city, setCity] = useState("");
   const [zip, setZip] = useState("");
+  const hydrated = useHydrated();
   const lines = items.map((i) => ({ slug: i.slug, qty: i.qty, ...(i.variant ? { variant: i.variant } : {}) }));
   const quote = useQuote(lines, couponCode);
   const total = subtotal();
   const addressValid = name.trim() !== "" && street.trim() !== "" && city.trim() !== "" && zip.trim() !== "";
+
+  if (!hydrated) {
+    return <Card className="h-72 animate-pulse bg-neutral-100 dark:bg-neutral-800" aria-label="Loading checkout" />;
+  }
 
   if (items.length === 0) {
     return (
