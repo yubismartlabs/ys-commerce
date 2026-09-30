@@ -121,8 +121,25 @@ export function withAdmin<C>(
   };
 }
 
+/**
+ * Best-effort audit write.
+ *
+ * An audit row must never be the reason a business operation fails. Several
+ * callers run this *after* the work is already committed — checkout creates the
+ * order, then audits it — so a failure here (a bad actor id, a constraint, a
+ * dropped connection) turned a completed purchase into a 500. The buyer saw a
+ * failure for an order that existed, and retrying risked a duplicate.
+ *
+ * Losing one trail entry is preferable to that, so failures are logged and
+ * swallowed. If audit integrity ever needs to be strict, the right fix is an
+ * outbox written inside the same transaction, not throwing from here.
+ */
 export async function audit(actorId: string | null, action: string, entity: string, entityId: string, meta?: unknown) {
-  await db.auditLog.create({
-    data: { actorId, action, entity, entityId, meta: (meta as object) ?? undefined },
-  });
+  try {
+    await db.auditLog.create({
+      data: { actorId, action, entity, entityId, meta: (meta as object) ?? undefined },
+    });
+  } catch (e) {
+    console.error(`[audit] failed to record ${action} on ${entity} ${entityId}:`, e);
+  }
 }

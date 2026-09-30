@@ -156,6 +156,19 @@ previous action will happily satisfy the next assertion. Specs create and delete
 they don't depend on specific seeded rows, and `workers: 1` is deliberate — they mutate a shared
 database.
 
+**Seller fulfilment** (`tests/orders.seller.spec.ts`) drives the orders list and shipping a parcel from
+PAID through SHIPPED to DELIVERED. Every button on that page is conditional on order status, so a wrong
+condition renders nothing to click rather than erroring — the same shape as the dead Apply button, and
+the reason this page is tested rather than assumed. It also pins that `Update tracking` stays disabled
+until a number is typed, and that fetching another store's order returns **404 rather than 403**: the
+route filters to the seller's own items, and a 403 would confirm a foreign order id is real.
+
+**Audit writes are best-effort** (`lib/api/guard.ts`). Callers audit *after* the work is committed —
+checkout creates the order, then writes the trail — so an audit failure returned 500 for an order that
+already existed. The buyer was told the purchase failed, and retrying risked a duplicate order. The write
+is now logged and swallowed. If audit integrity ever needs to be strict the answer is an outbox written
+inside the same transaction, not throwing from the audit helper.
+
 **Returns and escrow** (`tests/returns.flow.spec.ts`) cover the after-sales chain, which is three
 different users acting in sequence: the buyer files, the seller responds, support refunds. Each role is
 a separate session, so these specs drive the API through per-role contexts rather than a single page

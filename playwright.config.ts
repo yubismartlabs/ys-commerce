@@ -40,7 +40,10 @@ export default defineConfig({
     {
       name: "seller",
       use: { ...devices["Desktop Chrome"], storageState: "playwright/.auth/seller.json" },
-      dependencies: ["setup-seller"],
+      // Every session a seller-project spec might need, not just the seller's
+      // own. A missing entry leaves a stale storageState on disk from a
+      // previous run, whose user ids no longer exist in the recreated database.
+      dependencies: ["setup-seller", "setup-seller2", "setup-buyer"],
       // Each project runs only the specs written for its session; without this
       // the seller-only inventory specs would also run as the buyer.
       testMatch: /\.seller\.spec\.ts$/,
