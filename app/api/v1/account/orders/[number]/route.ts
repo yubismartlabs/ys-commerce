@@ -11,7 +11,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ number:
 
   const order = await db.order.findUnique({
     where: { number: decodeURIComponent(number) },
-    include: { items: true, events: { orderBy: { createdAt: "asc" } } },
+    include: { items: true, events: { orderBy: { createdAt: "asc" } }, shipments: { include: { store: { select: { id: true, name: true, slug: true } }, _count: { select: { items: true } } } } },
   });
   if (!order || order.buyerId !== userId) return fail("NOT_FOUND", "Order not found", 404);
   const stores = await db.store.findMany({

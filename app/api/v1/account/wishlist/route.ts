@@ -25,6 +25,8 @@ export async function GET(req: Request) {
             ratingAvg: true, ratingCount: true, soldCount: true, badge: true,
             freeShipping: true, status: true,
             variants: { select: { stock: true } },
+            // Needed so "add to cart" from the watchlist can group by seller.
+            store: { select: { id: true, name: true, slug: true } },
           },
         },
       },

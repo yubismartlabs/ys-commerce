@@ -48,7 +48,16 @@ export function ProductView({ product, shippingFee }: { product: ProductDetail; 
 
   const addToCart = () => {
     add(
-      { slug: product.slug, title: product.title, image: mainImg, price },
+      {
+        slug: product.slug,
+        title: product.title,
+        image: mainImg,
+        price,
+        storeId: product.store.id,
+        storeName: product.store.name,
+        ...(product.store.slug ? { storeSlug: product.store.slug } : {}),
+        freeShipping: product.freeShipping,
+      },
       Math.min(qty, maxQty),
       variant?.name
     );

@@ -52,6 +52,9 @@ export type OrderItem = {
   price: number;
   qty: number;
   variant: string | null;
+  productId?: string;
+  storeId?: string;
+  shipmentId?: string | null;
 };
 
 export type OrderEvent = {
@@ -76,17 +79,58 @@ export type Order = {
   shipStreet: string | null;
   shipCity: string | null;
   shipZip: string | null;
-  carrier: string | null;
-  trackingNumber: string | null;
-  shippedAt: string | null;
-  deliveredAt: string | null;
+  // Tracking lives on the parcel, not the order: a multi-seller basket is N
+  // separate shipments.
+  shipments?: ShipmentView[];
   protectionUntil: string | null;
   createdAt: string;
   items: OrderItem[];
   disputes?: Dispute[];
+  returns?: ReturnView[];
   events?: OrderEvent[];
   buyer?: { id: string; email: string; name: string | null };
   stores?: Array<{ id: string; name: string; slug: string }>;
+};
+
+export type ShipmentStatus = "PENDING" | "IN_TRANSIT" | "DELIVERED" | "CANCELLED" | "REFUNDED";
+
+export type ShipmentView = {
+  id: string;
+  orderId: string;
+  storeId: string;
+  status: ShipmentStatus;
+  shippingCost: number;
+  carrier: string | null;
+  trackingNumber: string | null;
+  shippedAt: string | null;
+  deliveredAt: string | null;
+  store?: { id: string; name: string; slug: string };
+  _count?: { items: number };
+  items?: Array<{ id: string; title: string; qty: number }>;
+};
+
+export type ReturnStatus =
+  | "REQUESTED"
+  | "ACCEPTED"
+  | "RECEIVED"
+  | "REFUNDED"
+  | "REJECTED"
+  | "CANCELLED";
+
+export type ReturnView = {
+  id: string;
+  orderId: string;
+  storeId: string;
+  status: ReturnStatus;
+  reason: string;
+  note: string | null;
+  items: Array<{ orderItemId: string; title: string; qty: number; price: number }>;
+  refundAmount: number | null;
+  sellerNote: string | null;
+  resolvedAt: string | null;
+  createdAt: string;
+  store?: { id: string; name: string; slug: string };
+  order?: { number: string };
 };
 
 export type DisputeMessage = {

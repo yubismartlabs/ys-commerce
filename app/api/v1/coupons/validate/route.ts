@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { fail, ok } from "@/lib/api/http";
 import { describeCoupon, validateCoupon } from "@/lib/coupons/engine";
-import { cartLineSchema, resolveCart, standardShipping } from "@/lib/coupons/cart";
+import { cartLineSchema, resolveCart, shippingForLines } from "@/lib/coupons/cart";
 import { auth } from "@/auth";
 
 const validateSchema = z.object({
@@ -21,7 +21,7 @@ export async function POST(req: Request) {
     return fail("VALIDATION", e instanceof Error ? e.message : "Invalid cart", 422);
   }
   const subtotal = lines.reduce((a, l) => a + l.price * l.qty, 0);
-  const shipping = await standardShipping(lines);
+  const { byStore, total: shipping } = await shippingForLines(lines);
 
   const session = await auth();
   const userId = session?.user?.id;
@@ -41,6 +41,9 @@ export async function POST(req: Request) {
     subtotal,
     discount: result.discount,
     shipping,
+    // Per-store breakdown so the cart can show "3 parcels" with real numbers
+    // instead of one opaque total.
+    shippingByStore: Object.fromEntries(byStore),
     shippingDiscount: result.shippingDiscount,
     shippingFinal,
     total: Math.max(0, subtotal - result.discount + shippingFinal),

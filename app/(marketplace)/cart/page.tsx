@@ -5,7 +5,7 @@ import Image from "next/image";
 import { useState } from "react";
 import { useSession } from "next-auth/react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Minus, Plus, RotateCcw, Trash2 } from "lucide-react";
+import { Minus, Plus, RotateCcw, Store, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -13,6 +13,7 @@ import { Separator } from "@/components/ui/separator";
 import { useCart } from "@/lib/store/cart";
 import { CouponBox } from "@/components/coupons/coupon-box";
 import { useQuote } from "@/components/coupons/use-quote";
+import { useShippingQuote } from "@/components/cart/use-shipping-quote";
 import { useHydrated } from "@/lib/hooks/use-hydrated";
 import { formatUSD } from "@/lib/format";
 
@@ -31,6 +32,27 @@ export default function CartPage() {
   const total = subtotal();
   const lines = items.map((i) => ({ slug: i.slug, qty: i.qty, ...(i.variant ? { variant: i.variant } : {}) }));
   const quote = useQuote(lines, couponCode);
+  const shipping = useShippingQuote(lines);
+
+  // Group into parcels by seller. Items saved before the cart captured seller
+  // identity fall into one "Your items" group rather than vanishing.
+  const groups = (() => {
+    const byKey = new Map<string, { key: string; name: string; storeSlug?: string; items: typeof items; subtotal: number }>();
+    for (const i of items) {
+      const key = i.storeId ?? "__unknown";
+      const g = byKey.get(key) ?? {
+        key,
+        name: i.storeName ?? "Your items",
+        ...(i.storeSlug ? { storeSlug: i.storeSlug } : {}),
+        items: [],
+        subtotal: 0,
+      };
+      g.items.push(i);
+      g.subtotal += i.price * i.qty;
+      byKey.set(key, g);
+    }
+    return [...byKey.values()];
+  })();
 
   // Cart state is persisted to localStorage and only rehydrates after mount —
   // don't claim the cart is empty during SSR.
@@ -57,8 +79,32 @@ export default function CartPage() {
     <div className="space-y-4">
       <SavedCartBanner />
       <div className="grid gap-4 lg:grid-cols-[1fr_320px]">
-        <Card className="divide-y p-0">
-        {items.map((i) => (
+        <div className="space-y-3">
+          {/* Grouped by seller: each group is one parcel with its own shipping.
+              A flat list makes a 3-seller basket indistinguishable from a
+              single-seller one, which is the defining UX of this marketplace. */}
+          {groups.map((g) => (
+            <Card key={g.key} className="divide-y p-0">
+              <div className="flex flex-wrap items-center gap-2 border-b bg-neutral-50 px-4 py-2.5 dark:bg-neutral-900">
+                <Store className="size-4 shrink-0 text-neutral-500" />
+                {g.storeSlug ? (
+                  <Link href={`/store/${g.storeSlug}`} className="text-sm font-bold hover:underline">
+                    {g.name}
+                  </Link>
+                ) : (
+                  <span className="text-sm font-bold">{g.name}</span>
+                )}
+                <span className="text-xs text-neutral-500">
+                  {g.items.length} item{g.items.length === 1 ? "" : "s"} ·{" "}
+                  {(() => {
+                    const s = shipping.data?.byStore.find((x) => x.storeId === g.key);
+                    if (!s) return "shipping calculated at checkout";
+                    return s.cost === 0 ? "free shipping" : `ships for ${formatUSD(s.cost)}`;
+                  })()}
+                </span>
+                <span className="ml-auto text-sm font-bold tabular-nums">{formatUSD(g.subtotal)}</span>
+              </div>
+              {g.items.map((i) => (
           <div key={i.slug + (i.variant ?? "")} className="flex gap-3 p-4">
             <div className="relative size-20 shrink-0 overflow-hidden rounded-lg bg-neutral-100">
               <Image src={i.image} alt={i.title} fill sizes="80px" className="object-cover" />
@@ -84,25 +130,55 @@ export default function CartPage() {
               </div>
             </div>
           </div>
-        ))}
+              ))}
+            </Card>
+          ))}
+        </div>
         <div className="p-4">
           <Button variant="ghost" size="sm" onClick={clear}>Clear cart</Button>
         </div>
-      </Card>
       <Card className="h-fit space-y-3 p-4">
         <h1 className="font-bold">Order summary</h1>
         <div className="flex justify-between text-sm"><span>Subtotal</span><span>{formatUSD(total)}</span></div>
         <CouponBox lines={lines} />
         {quote.data ? (
-          <>
-            <div className="flex justify-between text-sm text-emerald-600"><span>Coupon {quote.data.code}</span><span>−{formatUSD(quote.data.discount + quote.data.shippingDiscount)}</span></div>
-            <div className="flex justify-between text-sm"><span>Shipping</span><span>{quote.data.shippingFinal === 0 ? "Free" : formatUSD(quote.data.shippingFinal)}</span></div>
-          </>
+          <div className="flex justify-between text-sm text-emerald-600">
+            <span>Coupon {quote.data.code}</span>
+            <span>−{formatUSD(quote.data.discount + quote.data.shippingDiscount)}</span>
+          </div>
+        ) : null}
+        {/* Real per-parcel shipping, not "at checkout". */}
+        {shipping.isLoading ? (
+          <div className="flex justify-between text-sm"><span>Shipping</span><span className="text-neutral-500">Calculating…</span></div>
+        ) : shipping.data && shipping.data.byStore.length > 0 ? (
+          <div className="space-y-1">
+            <div className="flex justify-between text-sm">
+              <span>Shipping · {shipping.data.parcels} parcel{shipping.data.parcels === 1 ? "" : "s"}</span>
+              <span>{shipping.data.shipping === 0 ? "Free" : formatUSD(quote.data ? quote.data.shippingFinal : shipping.data.shipping)}</span>
+            </div>
+            <ul className="space-y-0.5">
+              {shipping.data.byStore.map((s) => (
+                <li key={s.storeId} className="flex justify-between text-[11px] text-neutral-500">
+                  <span className="truncate">{s.storeName}</span>
+                  <span>{s.cost === 0 ? "Free" : formatUSD(s.cost)}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
         ) : (
           <div className="flex justify-between text-sm"><span>Shipping</span><span className="text-neutral-500">At checkout</span></div>
         )}
         <Separator />
-        <div className="flex justify-between font-extrabold"><span>Total</span><span className="text-ali-red">{formatUSD(quote.data ? quote.data.total : total)}</span></div>
+        <div className="flex justify-between font-extrabold">
+          <span>Total</span>
+          <span className="text-ali-red">
+            {formatUSD(
+              quote.data
+                ? quote.data.total
+                : total + (shipping.data?.shipping ?? 0)
+            )}
+          </span>
+        </div>
         <Button asChild className="w-full bg-ali-red text-white hover:bg-ali-red-dark">
           <Link href="/checkout">Checkout</Link>
         </Button>

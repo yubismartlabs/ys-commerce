@@ -10,6 +10,13 @@ export type CartItem = {
   price: number;
   qty: number;
   variant?: string;
+  /** Seller identity, captured at add time so the cart can group by store and
+   *  show which parcel an item ships in. Advisory only — checkout re-resolves
+   *  everything server-side. */
+  storeId?: string;
+  storeName?: string;
+  storeSlug?: string;
+  freeShipping?: boolean;
 };
 
 /** Minimal product shape any listing (mock or backend) can add to the cart. */
@@ -18,6 +25,10 @@ export type AddToCartInput = {
   title: string;
   image: string;
   price: number;
+  storeId?: string;
+  storeName?: string;
+  storeSlug?: string;
+  freeShipping?: boolean;
 };
 
 type CartState = {
@@ -48,7 +59,21 @@ export const useCart = create<CartState>()(
             };
           }
           return {
-            items: [...s.items, { slug: p.slug, title: p.title, image: p.image, price: p.price, qty, variant }],
+            items: [
+              ...s.items,
+              {
+                slug: p.slug,
+                title: p.title,
+                image: p.image,
+                price: p.price,
+                qty,
+                variant,
+                ...(p.storeId ? { storeId: p.storeId } : {}),
+                ...(p.storeName ? { storeName: p.storeName } : {}),
+                ...(p.storeSlug ? { storeSlug: p.storeSlug } : {}),
+                ...(typeof p.freeShipping === "boolean" ? { freeShipping: p.freeShipping } : {}),
+              },
+            ],
           };
         }),
       remove: (slug, variant) =>

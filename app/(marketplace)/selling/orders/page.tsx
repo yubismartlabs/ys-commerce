@@ -14,12 +14,18 @@ type SellerOrder = {
   id: string;
   number: string;
   status: string;
-  trackingNumber: string | null;
-  carrier: string | null;
   createdAt: string;
-  sellerItems: Array<{ qty: number }>;
+  shipments: Array<{ id: string; storeId: string; status: string; trackingNumber: string | null }>;
+  sellerItems: Array<{ qty: number; storeId: string }>;
   sellerSubtotal: number;
 };
+
+/** A seller only sees tracking for their own parcel, never a peer's. */
+function myTracking(o: SellerOrder): string | null {
+  const mine = new Set(o.sellerItems.map((i) => i.storeId));
+  const s = o.shipments?.find((x) => mine.has(x.storeId));
+  return s?.trackingNumber ?? null;
+}
 
 async function fetchOrders(status?: string): Promise<{ data: SellerOrder[] }> {
   const params = new URLSearchParams();
@@ -74,7 +80,7 @@ export default function SellingOrdersPage() {
                   <TableCell className="tabular-nums">{o.sellerItems.reduce((a, i) => a + i.qty, 0)}</TableCell>
                   <TableCell className="font-semibold tabular-nums">{formatUSD(o.sellerSubtotal)}</TableCell>
                   <TableCell><StatusBadge value={o.status} /></TableCell>
-                  <TableCell className="max-w-32 truncate font-mono text-xs">{o.trackingNumber ?? "—"}</TableCell>
+                  <TableCell className="max-w-32 truncate font-mono text-xs">{myTracking(o) ?? "—"}</TableCell>
                   <TableCell className="whitespace-nowrap text-neutral-500">{timeAgo(o.createdAt)}</TableCell>
                   <TableCell className="text-right">
                     <Button size="sm" variant="outline" asChild>

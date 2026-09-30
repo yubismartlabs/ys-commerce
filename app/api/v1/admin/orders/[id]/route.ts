@@ -27,6 +27,8 @@ export const GET = withAdmin(
       where: { id },
       include: {
         items: true,
+        shipments: { include: { store: { select: { id: true, name: true, slug: true } }, _count: { select: { items: true } } } },
+        returns: true,
         disputes: { include: { messages: true } },
         events: { orderBy: { createdAt: "asc" } },
       },

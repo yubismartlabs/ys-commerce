@@ -32,6 +32,10 @@ export default function SellingOrderPage({ params }: { params: Promise<{ id: str
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState(false);
   const o = query.data;
+  const sellerItems = o?.sellerItems ?? [];
+  const myStoreIds = new Set(sellerItems.map((i) => i.storeId));
+  // A seller may only see and update their own parcel.
+  const myShipment = (o?.shipments ?? []).find((s) => myStoreIds.has(s.storeId));
 
   const go = async (status: "SHIPPED" | "DELIVERED") => {
     setBusy(true);
@@ -97,10 +101,28 @@ export default function SellingOrderPage({ params }: { params: Promise<{ id: str
           <p className="font-bold">Ship to</p>
           <p className="mt-1">{o.shipName ?? "—"}{o.shipPhone ? ` · ${o.shipPhone}` : ""}</p>
           <p className="text-neutral-500">{o.shipStreet ?? "—"}, {o.shipCity ?? "—"} {o.shipZip ?? ""}</p>
-          {(o.trackingNumber || o.carrier) ? (
-            <p className="mt-2 font-mono text-xs">Tracking: {o.trackingNumber ?? "—"}{o.carrier ? ` via ${o.carrier}` : ""}</p>
-          ) : null}
         </div>
+
+        {/* Only this seller's parcel — a seller never sees a peer's tracking. */}
+        {myShipment ? (
+          <>
+            <Separator />
+            <div className="space-y-2">
+              <p className="text-sm font-bold">Your parcel</p>
+              <p className="text-xs text-neutral-500">
+                {(o.shipments ?? []).length > 1
+                  ? "This order ships separately from other sellers. Your tracking applies to your items only."
+                  : "Tracking you set here is what the buyer sees."}
+              </p>
+              {myShipment.trackingNumber ? (
+                <p className="font-mono text-xs">
+                  {myShipment.carrier ? `${myShipment.carrier} ` : ""}
+                  {myShipment.trackingNumber}
+                </p>
+              ) : null}
+            </div>
+          </>
+        ) : null}
 
         {(o.status === "PAID" || o.status === "SHIPPED") && (
           <>

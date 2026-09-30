@@ -90,6 +90,7 @@ model User {
   stores    Store[]    @relation("StoreOwner")
   reviews   Review[]
   disputes  Dispute[]  @relation("DisputeBuyer")
+  returns   ReturnRequest[] @relation("ReturnBuyer")
   auditLogs AuditLog[] @relation("AuditActor")
   apiTokens ApiToken[]
   notifications Notification[]
@@ -156,6 +157,8 @@ model Store {
   payouts  Payout[]
   reviews  Review[]
   followers StoreFollow[]
+  shipments Shipment[]
+  returns  ReturnRequest[]
 
   @@index([status])
   @@index([ratingAvg])
@@ -245,6 +248,12 @@ model Product {
   id          String        @id @default(cuid())
   slug        String        @unique
   title       String
+  // Weighted tsvector backing the GIN index the search engine ranks against.
+  // Created as a GENERATED ALWAYS STORED column by the search_fts migration;
+  // Prisma can't model generated columns, so declaring it here is what stops
+  // `migrate dev` from proposing to DROP the live full-text index. Never write
+  // to it directly — Postgres maintains it from title/category/description.
+  search      Unsupported("tsvector")?
   description String?
   image       String
   images      String[]      @default([])
@@ -295,6 +304,9 @@ model Order {
   buyerId   String
   status    OrderStatus @default(PENDING)
   subtotal  Decimal     @db.Decimal(10, 2)
+  // Sum of all shipment costs. A multi-seller basket is split into one
+  // Shipment per store; there is no single carrier/tracking on the order
+  // itself, because there is no single parcel.
   shipping  Decimal     @default(0) @db.Decimal(10, 2)
   discount  Decimal     @default(0) @db.Decimal(10, 2)
   couponCode String?
@@ -305,17 +317,51 @@ model Order {
   shipStreet String?
   shipCity  String?
   shipZip   String?
-  carrier   String?
-  trackingNumber String?
-  shippedAt DateTime?
-  deliveredAt DateTime?
+  // Buyer-protection deadline. Starts when the LAST parcel is delivered.
   protectionUntil DateTime?
   createdAt DateTime    @default(now())
   updatedAt DateTime    @updatedAt
 
-  items    OrderItem[]
-  disputes Dispute[]
-  events   OrderEvent[]
+  items     OrderItem[]
+  shipments Shipment[]
+  disputes  Dispute[]
+  returns   ReturnRequest[]
+  events    OrderEvent[]
+}
+
+enum ShipmentStatus {
+  PENDING
+  IN_TRANSIT
+  DELIVERED
+  CANCELLED
+  REFUNDED
+}
+
+// One parcel per store per order. Tracking, delivery and the order's aggregate
+// status are all derived from these rows — the order carries no tracking of
+// its own.
+model Shipment {
+  id        String         @id @default(cuid())
+  orderId   String
+  storeId   String
+  status    ShipmentStatus @default(PENDING)
+  shippingCost Decimal      @default(0) @db.Decimal(10, 2)
+  carrier   String?
+  trackingNumber String?
+  shippedAt DateTime?
+  deliveredAt DateTime?
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
+
+  order   Order       @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  store   Store       @relation(fields: [storeId], references: [id])
+  items   OrderItem[]
+  returns ReturnRequest[]
+
+  // One parcel per store per order.
+  @@unique([orderId, storeId])
+  @@index([storeId, status])
+  @@index([status, createdAt])
 }
 
 enum OrderEventType {
@@ -347,14 +393,87 @@ model OrderItem {
   orderId   String
   productId String
   storeId   String
+  // Which parcel this line ships in.
+  shipmentId String?
   title     String
   image     String
   price     Decimal @db.Decimal(10, 2)
   qty       Int
   variant   String?
 
-  order   Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  product Product @relation(fields: [productId], references: [id])
+  order    Order     @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  shipment Shipment? @relation(fields: [shipmentId], references: [id], onDelete: SetNull)
+  product  Product   @relation(fields: [productId], references: [id])
+
+  @@index([shipmentId])
+  @@index([storeId])
+}
+
+// ---------------------------------------------------------------------------
+// Returns / RMA
+//
+// Deliberately separate from Dispute: a dispute is adversarial and freezes the
+// seller's escrow. A return is a buyer exercising ordinary after-sales rights
+// ("I want my money back"), and forcing that through Dispute inflates dispute
+// rates and freezes escrow for a non-accusatory request.
+// ---------------------------------------------------------------------------
+
+enum ReturnStatus {
+  REQUESTED
+  ACCEPTED
+  RECEIVED
+  REFUNDED
+  REJECTED
+  CANCELLED
+}
+
+enum ReturnReason {
+  NOT_AS_DESCRIBED
+  DEFECTIVE
+  WRONG_ITEM
+  NO_LONGER_NEEDED
+  BETTER_PRICE_ELSEWHERE
+  DAMAGED_IN_TRANSIT
+  OTHER
+}
+
+model ReturnRequest {
+  id        String       @id @default(cuid())
+  orderId   String
+  buyerId   String
+  storeId   String
+  shipmentId String?
+  status    ReturnStatus @default(REQUESTED)
+  reason    ReturnReason
+  note      String?
+  // [{ orderItemId, qty, price }] — a partial return is normal.
+  items     Json
+  refundAmount Decimal?   @db.Decimal(10, 2)
+  sellerNote String?
+  resolvedAt DateTime?
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+
+  order    Order     @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  shipment Shipment? @relation(fields: [shipmentId], references: [id], onDelete: SetNull)
+  buyer    User      @relation("ReturnBuyer", fields: [buyerId], references: [id])
+  store    Store     @relation(fields: [storeId], references: [id])
+  messages ReturnMessage[]
+
+  @@index([orderId])
+  @@index([storeId, status])
+  @@index([buyerId, createdAt])
+}
+
+model ReturnMessage {
+  id        String   @id @default(cuid())
+  returnId  String
+  author    String
+  authorId  String?
+  body      String
+  createdAt DateTime @default(now())
+
+  return ReturnRequest @relation(fields: [returnId], references: [id], onDelete: Cascade)
 }
 
 model Dispute {

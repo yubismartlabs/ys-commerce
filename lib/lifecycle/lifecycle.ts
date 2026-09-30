@@ -83,10 +83,15 @@ async function runReviewRequests(): Promise<number> {
   const config = await getEmailConfig();
   if (!config.enabled) return 0;
   const orders = await db.order.findMany({
-    where: { status: "DELIVERED", deliveredAt: { lte: new Date(Date.now() - 3 * 24 * 3600000) } },
+    // Every parcel must have landed at least 3 days ago — a split order is
+    // only "delivered" when its last parcel arrives.
+    where: {
+      status: "DELIVERED",
+      shipments: { every: { status: "DELIVERED", deliveredAt: { lte: new Date(Date.now() - 3 * 24 * 3600000) } } },
+    },
     include: { items: { select: { productId: true, title: true, product: { select: { slug: true } } } } },
     take: 200,
-    orderBy: { deliveredAt: "desc" },
+    orderBy: { createdAt: "desc" },
   });
   let sent = 0;
   for (const order of orders) {

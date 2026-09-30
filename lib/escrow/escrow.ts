@@ -189,9 +189,10 @@ export async function filingEligibility(orderId: string, buyerId: string): Promi
     where: { orderId, status: { in: ["OPEN", "UNDER_REVIEW"] } },
   });
   if (open) return { ok: false, error: "This order already has an open dispute." };
-  if (order.status === "DELIVERED") {
-    const until = order.protectionUntil ?? new Date(new Date(order.deliveredAt ?? order.createdAt).getTime() + 14 * 86400000);
-    if (new Date() > until) return { ok: false, error: "The buyer-protection window for this order has closed." };
+  // protectionUntil is stamped when the LAST parcel is delivered. Until then
+  // the window is still open.
+  if (order.status === "DELIVERED" && order.protectionUntil && new Date() > order.protectionUntil) {
+    return { ok: false, error: "The buyer-protection window for this order has closed." };
   }
   return { ok: true };
 }

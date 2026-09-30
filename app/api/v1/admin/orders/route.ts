@@ -21,7 +21,7 @@ export const GET = withAdmin(async (req) => {
       skip,
       take: pageSize,
       orderBy: { createdAt: "desc" },
-      include: { items: true },
+      include: { items: true, shipments: { include: { store: { select: { id: true, name: true, slug: true } }, _count: { select: { items: true } } } } },
     }),
   ]);
   return ok(orders, { page, pageSize, total });

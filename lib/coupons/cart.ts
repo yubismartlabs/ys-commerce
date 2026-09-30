@@ -56,21 +56,45 @@ export async function resolveCart(
 }
 
 /**
- * Shipping from settings, honouring each product's own `freeShipping` promise.
+ * Shipping is charged per store, because each store ships its own parcel.
  *
- * `Product.freeShipping` is shown on the card, used as a search facet, and
- * advertised on the product page — so it has to be true at the till. If every
- * line is free-shipping the order ships free; otherwise the flat fee applies
- * unless the basket clears the global free threshold.
+ * `Product.freeShipping` is shown on the card, is a search facet and is
+ * advertised on the product page — so it has to be true at the till. Within a
+ * store: if every line is free-shipping that parcel is free, otherwise the
+ * flat fee applies unless that store's share of the basket clears the global
+ * free threshold.
  */
-export async function standardShipping(
-  lines: Array<{ price: number; qty: number; freeShipping: boolean }>
-): Promise<number> {
+export type ShippingLine = { price: number; qty: number; freeShipping: boolean; storeId: string };
+
+export type ShippingBreakdown = {
+  /** Store id -> shipping charged for that store's parcel. */
+  byStore: Map<string, number>;
+  total: number;
+};
+
+export async function shippingForLines(lines: ShippingLine[]): Promise<ShippingBreakdown> {
   const shipping = await getSettingGroup("shipping");
-  if (lines.length === 0) return 0;
-  if (lines.every((l) => l.freeShipping)) return 0;
-  const subtotal = lines.reduce((a, l) => a + l.price * l.qty, 0);
-  return subtotal >= shipping.freeThreshold ? 0 : shipping.defaultFee;
+  const byStore = new Map<string, number>();
+
+  const groups = new Map<string, ShippingLine[]>();
+  for (const l of lines) {
+    const arr = groups.get(l.storeId) ?? [];
+    arr.push(l);
+    groups.set(l.storeId, arr);
+  }
+
+  for (const [storeId, storeLines] of groups) {
+    const allFree = storeLines.every((l) => l.freeShipping);
+    const subtotal = storeLines.reduce((a, l) => a + l.price * l.qty, 0);
+    const fee = allFree ? 0 : subtotal >= shipping.freeThreshold ? 0 : shipping.defaultFee;
+    byStore.set(storeId, round2(fee));
+  }
+
+  return { byStore, total: round2([...byStore.values()].reduce((a, b) => a + b, 0)) };
+}
+
+function round2(n: number): number {
+  return Math.round(n * 100) / 100;
 }
 
 export async function generateOrderNumber(): Promise<string> {

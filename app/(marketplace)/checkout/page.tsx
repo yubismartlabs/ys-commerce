@@ -13,6 +13,7 @@ import { Separator } from "@/components/ui/separator";
 import { useCart } from "@/lib/store/cart";
 import { CouponBox } from "@/components/coupons/coupon-box";
 import { useQuote } from "@/components/coupons/use-quote";
+import { useShippingQuote } from "@/components/cart/use-shipping-quote";
 import { useHydrated } from "@/lib/hooks/use-hydrated";
 import { formatUSD } from "@/lib/format";
 
@@ -29,6 +30,7 @@ export default function CheckoutPage() {
   const hydrated = useHydrated();
   const lines = items.map((i) => ({ slug: i.slug, qty: i.qty, ...(i.variant ? { variant: i.variant } : {}) }));
   const quote = useQuote(lines, couponCode);
+  const shipping = useShippingQuote(lines);
   const total = subtotal();
   const addressValid = name.trim() !== "" && street.trim() !== "" && city.trim() !== "" && zip.trim() !== "";
 
@@ -131,15 +133,40 @@ export default function CheckoutPage() {
         <div className="flex justify-between text-sm"><span>Items ({items.reduce((a, i) => a + i.qty, 0)})</span><span>{formatUSD(total)}</span></div>
         <CouponBox lines={lines} />
         {quote.data ? (
-          <>
-            <div className="flex justify-between text-sm text-emerald-600"><span>Coupon {quote.data.code}</span><span>−{formatUSD(quote.data.discount + quote.data.shippingDiscount)}</span></div>
-            <div className="flex justify-between text-sm"><span>Shipping</span><span>{quote.data.shippingFinal === 0 ? "Free" : formatUSD(quote.data.shippingFinal)}</span></div>
-          </>
+          <div className="flex justify-between text-sm text-emerald-600">
+            <span>Coupon {quote.data.code}</span>
+            <span>−{formatUSD(quote.data.discount + quote.data.shippingDiscount)}</span>
+          </div>
+        ) : null}
+        {/* Split fulfilment: say how many parcels arrive, and what each costs. */}
+        {shipping.data && shipping.data.byStore.length > 0 ? (
+          <div className="space-y-1">
+            <div className="flex justify-between text-sm">
+              <span>Shipping · {shipping.data.parcels} parcel{shipping.data.parcels === 1 ? "" : "s"}</span>
+              <span>{shipping.data.shipping === 0 ? "Free" : formatUSD(shipping.data.shipping)}</span>
+            </div>
+            <ul className="space-y-0.5">
+              {shipping.data.byStore.map((s) => (
+                <li key={s.storeId} className="flex justify-between text-[11px] text-neutral-500">
+                  <span className="truncate">{s.storeName}</span>
+                  <span>{s.cost === 0 ? "Free" : formatUSD(s.cost)}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
         ) : (
-          <div className="flex justify-between text-sm"><span>Shipping</span><span className="text-neutral-500">At checkout</span></div>
+          <div className="flex justify-between text-sm">
+            <span>Shipping</span>
+            <span className="text-neutral-500">Calculating…</span>
+          </div>
         )}
         <Separator />
-        <div className="flex justify-between font-extrabold"><span>Total</span><span className="text-ali-red">{formatUSD(quote.data ? quote.data.total : total)}</span></div>
+        <div className="flex justify-between font-extrabold">
+          <span>Total</span>
+          <span className="text-ali-red">
+            {formatUSD(quote.data ? quote.data.total : total + (shipping.data?.shipping ?? 0))}
+          </span>
+        </div>
         {error ? <p className="text-sm text-red-600" role="alert">{error}</p> : null}
         <Button onClick={pay} disabled={placing || !addressValid} className="w-full bg-ali-red text-white hover:bg-ali-red-dark">
           {placing ? (<><Loader2 className="size-4 animate-spin" /> Placing order…</>) : "Pay now"}

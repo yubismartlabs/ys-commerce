@@ -134,13 +134,36 @@ export default function OrderShowPage({ params }: { params: Promise<{ id: string
             </div>
           </div>
           <div>
-            <SectionTitle><span className="inline-flex items-center gap-1.5"><Package className="size-4" /> Fulfillment</span></SectionTitle>
-            <dl className="mt-2 space-y-1.5 text-sm">
-              <Field label="Carrier">{o.carrier || "—"}</Field>
-              <Field label="Tracking">{o.trackingNumber ? <span className="font-mono">{o.trackingNumber}</span> : "—"}</Field>
-              <Field label="Shipped">{o.shippedAt ? timeAgo(o.shippedAt) : "—"}</Field>
-              <Field label="Delivered">{o.deliveredAt ? timeAgo(o.deliveredAt) : "—"}</Field>
-            </dl>
+            <SectionTitle>
+              <span className="inline-flex items-center gap-1.5">
+                <Package className="size-4" /> Fulfillment
+                {(o.shipments ?? []).length > 1 ? ` (${o.shipments?.length} parcels)` : ""}
+              </span>
+            </SectionTitle>
+            {(o.shipments ?? []).length === 0 ? (
+              <p className="mt-2 text-sm text-neutral-500">No parcels recorded.</p>
+            ) : (
+              <ul className="mt-2 space-y-2">
+                {(o.shipments ?? []).map((s) => (
+                  <li key={s.id} className="rounded-lg border p-3 text-sm">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <StatusBadge value={s.status} />
+                      <span className="font-medium">{s.store?.name ?? s.storeId}</span>
+                      <span className="text-xs text-neutral-500">{s._count?.items ?? 0} items</span>
+                      <span className="ml-auto text-xs text-neutral-500">{formatUSD(Number(s.shippingCost))} ship</span>
+                    </div>
+                    <dl className="mt-1.5 space-y-1">
+                      <Field label="Carrier">{s.carrier || "—"}</Field>
+                      <Field label="Tracking">
+                        {s.trackingNumber ? <span className="font-mono">{s.trackingNumber}</span> : "—"}
+                      </Field>
+                      <Field label="Shipped">{s.shippedAt ? timeAgo(s.shippedAt) : "—"}</Field>
+                      <Field label="Delivered">{s.deliveredAt ? timeAgo(s.deliveredAt) : "—"}</Field>
+                    </dl>
+                  </li>
+                ))}
+              </ul>
+            )}
           </div>
         </div>
 

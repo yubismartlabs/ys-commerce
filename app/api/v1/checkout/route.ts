@@ -4,7 +4,7 @@ import { db } from "@/lib/db";
 import { fail, ok } from "@/lib/api/http";
 import { audit } from "@/lib/api/guard";
 import { validateCoupon } from "@/lib/coupons/engine";
-import { cartLineSchema, generateOrderNumber, resolveCart, standardShipping } from "@/lib/coupons/cart";
+import { cartLineSchema, generateOrderNumber, resolveCart, shippingForLines } from "@/lib/coupons/cart";
 import { createHoldsForOrder } from "@/lib/escrow/escrow";
 import { isSuspended } from "@/lib/api/identity";
 import { notifyAdmins } from "@/lib/notifications/notify";
@@ -45,7 +45,7 @@ export async function POST(req: Request) {
     return fail("VALIDATION", e instanceof Error ? e.message : "Invalid cart", 422);
   }
   const subtotal = round(lines.reduce((a, l) => a + l.price * l.qty, 0));
-  const shipping = await standardShipping(lines);
+  const { byStore: shippingByStore, total: shipping } = await shippingForLines(lines);
 
   let coupon: { id: string; code: string } | null = null;
   let discount = 0;
@@ -60,6 +60,7 @@ export async function POST(req: Request) {
   const shippingFinal = round(Math.max(0, shipping - shippingDiscount));
   const total = round(Math.max(0, subtotal - discount + shippingFinal));
   const number = await generateOrderNumber();
+  const storeIds = [...new Set(lines.map((l) => l.storeId))];
 
   let orderId: string;
   try {
@@ -122,6 +123,30 @@ export async function POST(req: Request) {
         },
         include: { items: true },
       });
+
+      // One parcel per store. This is what makes a multi-seller basket honest:
+      // the buyer sees N parcels with N tracking numbers, and each store's
+      // shipping is charged and attributed to that store alone.
+      const storeIds = [...new Set(created.items.map((i) => i.storeId))];
+      const shipmentByStore = new Map<string, string>();
+      for (const storeId of storeIds) {
+        const shipment = await tx.shipment.create({
+          data: {
+            orderId: created.id,
+            storeId,
+            status: "PENDING",
+            shippingCost: shippingByStore.get(storeId) ?? 0,
+          },
+        });
+        shipmentByStore.set(storeId, shipment.id);
+      }
+      for (const item of created.items) {
+        const shipmentId = shipmentByStore.get(item.storeId);
+        if (shipmentId) {
+          await tx.orderItem.update({ where: { id: item.id }, data: { shipmentId } });
+        }
+      }
+
       // Lock the seller's net per line in escrow (released after protection).
       await createHoldsForOrder(tx, {
         orderId: created.id,
@@ -178,7 +203,12 @@ export async function POST(req: Request) {
     return fail("CHECKOUT", "Checkout failed, please retry", 500);
   }
 
-  await audit(userId, "order.create", "Order", orderId, { number, total, coupon: coupon?.code });
+  await audit(userId, "order.create", "Order", orderId, {
+    number,
+    total,
+    coupon: coupon?.code,
+    parcels: storeIds.length,
+  });
   await notifyAdmins({
     type: "order.created",
     title: `New order ${number} — $${total.toFixed(2)}`,
@@ -186,6 +216,9 @@ export async function POST(req: Request) {
     link: `/ys-admin/orders/show/${orderId}`,
     meta: { entityId: orderId, orderNumber: number },
   });
-  const order = await db.order.findUnique({ where: { id: orderId }, include: { items: true } });
+  const order = await db.order.findUnique({
+    where: { id: orderId },
+    include: { items: true, shipments: { include: { store: { select: { id: true, name: true, slug: true } } } } },
+  });
   return ok(order, undefined, 201);
 }

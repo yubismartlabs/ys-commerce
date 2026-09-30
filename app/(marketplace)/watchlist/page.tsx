@@ -29,6 +29,7 @@ type Item = {
     freeShipping: boolean;
     status: string;
     variants: Array<{ stock: number }>;
+    store: { id: string; name: string; slug: string };
   };
 };
 
@@ -157,7 +158,19 @@ export default function WatchlistPage() {
                       className="h-8 gap-1 bg-ali-red text-xs text-white hover:bg-ali-red-dark"
                       disabled={out}
                       onClick={() => {
-                        add({ slug: item.product.slug, title: item.product.title, image: item.product.image, price: Number(item.product.price) }, 1);
+                        add(
+                          {
+                            slug: item.product.slug,
+                            title: item.product.title,
+                            image: item.product.image,
+                            price: Number(item.product.price),
+                            storeId: item.product.store.id,
+                            storeName: item.product.store.name,
+                            storeSlug: item.product.store.slug,
+                            freeShipping: item.product.freeShipping,
+                          },
+                          1
+                        );
                         toast.success("Added to cart.");
                       }}
                     >

@@ -15,6 +15,7 @@ import { apiGet } from "@/lib/api/client";
 import { formatUSD, timeAgo } from "@/lib/format";
 import { FileDisputeDialog } from "@/components/disputes/file-dispute-dialog";
 import { MessageButton } from "@/components/chat/message-button";
+import { ShipmentList } from "@/components/orders/shipment-list";
 import { cn } from "@/lib/utils";
 import type { Order } from "@/lib/refine/types";
 
@@ -100,11 +101,11 @@ export default function BuyerOrderPage({ params }: { params: Promise<{ number: s
           </div>
         ) : null}
 
-        {(o.trackingNumber || o.carrier) && (
-          <p className="rounded-lg bg-neutral-100 p-3 font-mono text-sm dark:bg-neutral-800">
-            Tracking: {o.trackingNumber ?? "—"}{o.carrier ? ` via ${o.carrier}` : ""}
-          </p>
-        )}
+        <ShipmentList
+          shipments={o.shipments ?? []}
+          items={o.items}
+          backHref="/account/messages"
+        />
 
         <Separator />
         <div className="divide-y">
