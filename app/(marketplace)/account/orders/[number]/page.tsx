@@ -14,6 +14,7 @@ import { QueryErrorCard } from "@/components/commerce/query-error";
 import { apiGet } from "@/lib/api/client";
 import { formatUSD, timeAgo } from "@/lib/format";
 import { FileDisputeDialog } from "@/components/disputes/file-dispute-dialog";
+import { RequestReturnDialog } from "@/components/returns/request-return-dialog";
 import { MessageButton } from "@/components/chat/message-button";
 import { ShipmentList } from "@/components/orders/shipment-list";
 import { cn } from "@/lib/utils";
@@ -70,11 +71,18 @@ export default function BuyerOrderPage({ params }: { params: Promise<{ number: s
           </div>
         ) : null}
         {o.protectionUntil && new Date(o.protectionUntil) > new Date() && o.status === "DELIVERED" ? (
-          <p className="flex items-center gap-2 rounded-lg bg-emerald-500/10 p-3 text-sm text-emerald-700 dark:text-emerald-400">
-            <ShieldCheck className="size-4 shrink-0" />
-            Buyer protection until {new Date(o.protectionUntil).toLocaleDateString()}
-            <span className="ml-auto"><FileDisputeDialog orderNumber={o.number} /></span>
-          </p>
+          <div className="space-y-2">
+            <p className="flex flex-wrap items-center gap-2 rounded-lg bg-emerald-500/10 p-3 text-sm text-emerald-700 dark:text-emerald-400">
+              <ShieldCheck className="size-4 shrink-0" />
+              Buyer protection until {new Date(o.protectionUntil).toLocaleDateString()}
+            </p>
+            <div className="flex flex-wrap items-center gap-2">
+              {/* A return is ordinary after-sales, not an accusation. Dispute
+                  stays available for actual problems. */}
+              <RequestReturnDialog orderNumber={o.number} items={o.items} shipments={o.shipments ?? []} />
+              <FileDisputeDialog orderNumber={o.number} />
+            </div>
+          </div>
         ) : o.status === "PAID" || o.status === "SHIPPED" ? (
           <div className="flex items-center justify-between gap-2">
             <p className="text-xs text-neutral-400">Something wrong? You can dispute undelivered orders too.</p>

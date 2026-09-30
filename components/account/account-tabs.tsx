@@ -8,9 +8,10 @@ import { AccountCoupons } from "@/components/coupons/account-coupons";
 import { AccountDisputesTab } from "@/components/disputes/account-disputes";
 import { AccountOrders } from "@/components/orders/account-orders";
 import { AccountReviewsTab } from "@/components/products/account-reviews";
+import { AccountReturnsTab } from "@/components/returns/account-returns";
 import { SecurityForm } from "@/components/account/security-form";
 
-export const ACCOUNT_TABS = ["orders", "disputes", "reviews", "coupons", "settings"] as const;
+export const ACCOUNT_TABS = ["orders", "disputes", "returns", "reviews", "coupons", "settings"] as const;
 export type AccountTab = (typeof ACCOUNT_TABS)[number];
 
 export function isAccountTab(v: string | null | undefined): v is AccountTab {
@@ -41,12 +42,14 @@ export function AccountTabs({ initial }: { initial: AccountTab }) {
         <TabsList>
           <TabsTrigger value="orders">Orders</TabsTrigger>
           <TabsTrigger value="disputes">Disputes</TabsTrigger>
+          <TabsTrigger value="returns">Returns</TabsTrigger>
           <TabsTrigger value="reviews">Reviews</TabsTrigger>
           <TabsTrigger value="coupons">Coupons</TabsTrigger>
           <TabsTrigger value="settings">Settings</TabsTrigger>
         </TabsList>
         <TabsContent value="orders"><Card className="px-6 py-2"><AccountOrders /></Card></TabsContent>
         <TabsContent value="disputes"><Card className="px-6 py-4"><AccountDisputesTab /></Card></TabsContent>
+        <TabsContent value="returns"><Card className="p-6"><AccountReturnsTab /></Card></TabsContent>
         <TabsContent value="reviews"><Card className="p-6"><AccountReviewsTab /></Card></TabsContent>
         <TabsContent value="coupons"><Card className="p-6"><AccountCoupons /></Card></TabsContent>
         <TabsContent value="settings"><Card className="p-6"><SecurityForm /></Card></TabsContent>
