@@ -27,6 +27,7 @@ import { Sheet, SheetClose, SheetContent, SheetTrigger } from "@/components/ui/s
 import { useCart } from "@/lib/store/cart";
 import { CATEGORIES, categoryHref } from "@/lib/categories";
 import { usePublicSettings } from "@/lib/public-settings";
+import { useHydrated } from "@/lib/hooks/use-hydrated";
 import { BuyerBell } from "@/components/notifications/buyer-bell";
 import { SearchBox } from "@/components/search/search-box";
 import { AssistantHeaderButton } from "@/components/ai/assistant-shell";
@@ -34,7 +35,12 @@ import { useAssistant } from "@/lib/store/assistant";
 import { signOut, useSession } from "next-auth/react";
 
 export function MarketplaceHeader() {
+  const hydrated = useHydrated();
   const count = useCart((s) => s.count());
+  // Zustand `persist` rehydrates from localStorage only on the client, so the
+  // server always renders count = 0. Render the badge only after hydration to
+  // keep server HTML and the first client render identical.
+  const displayCount = hydrated ? count : 0;
   const { data: session, status } = useSession();
   const role = (session?.user as { role?: string } | undefined)?.role;
   const isSeller = role === "SELLER" || role === "ADMIN";
@@ -167,15 +173,15 @@ export function MarketplaceHeader() {
             <Button variant="ghost" size="icon" asChild className="relative" aria-label="Cart">
               <Link href="/cart">
                 <ShoppingCart />
-                {count > 0 && (
+                {displayCount > 0 && (
                   <Badge
                     className="absolute -right-0.5 -top-0.5 size-4 justify-center bg-ali-red p-0 text-[10px] text-white"
                     // The toast announces "Added to cart"; without this a screen
                     // reader has no way to learn the cart is no longer empty.
                     aria-live="polite"
-                    aria-label={`${count} item${count === 1 ? "" : "s"} in cart`}
+                    aria-label={`${displayCount} item${displayCount === 1 ? "" : "s"} in cart`}
                   >
-                    {count}
+                    {displayCount}
                   </Badge>
                 )}
               </Link>

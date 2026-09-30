@@ -3,7 +3,18 @@ import { searchProducts } from "@/lib/search/engine";
 import { getActiveDeal } from "@/lib/deals/pricing";
 import { safeImageSrc } from "@/lib/images";
 
-export type AiCitation = { slug: string; title: string; price: number; image: string; ratingAvg: number };
+export type AiCitation = {
+  slug: string;
+  title: string;
+  price: number;
+  image: string;
+  ratingAvg: number;
+  compareAt: number | null;
+  soldCount: number;
+  ratingCount: number;
+  badge: string | null;
+  freeShipping: boolean;
+};
 
 export type AiContext = { text: string; citations: AiCitation[] };
 
@@ -75,6 +86,11 @@ export async function buildAiContext(opts: {
         price: deal ? Number(deal.dealPrice) : Number(p.price),
         image: safeImageSrc(p.image),
         ratingAvg: p.ratingAvg,
+        compareAt: deal ? Number(p.price) : p.compareAt === null ? null : Number(p.compareAt),
+        soldCount: p.soldCount,
+        ratingCount: p.ratingCount,
+        badge: p.badge,
+        freeShipping: p.freeShipping,
       });
     }
   }
@@ -91,7 +107,18 @@ export async function buildAiContext(opts: {
         );
         for (const h of hits.slice(0, 3)) {
           if (!citations.some((c) => c.slug === h.slug)) {
-            citations.push({ slug: h.slug, title: h.title, price: h.price, image: safeImageSrc(h.image), ratingAvg: h.ratingAvg });
+            citations.push({
+              slug: h.slug,
+              title: h.title,
+              price: h.price,
+              image: safeImageSrc(h.image),
+              ratingAvg: h.ratingAvg,
+              compareAt: h.compareAt,
+              soldCount: h.soldCount,
+              ratingCount: h.ratingCount,
+              badge: h.badge,
+              freeShipping: h.freeShipping,
+            });
           }
         }
       }
