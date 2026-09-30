@@ -156,6 +156,16 @@ previous action will happily satisfy the next assertion. Specs create and delete
 they don't depend on specific seeded rows, and `workers: 1` is deliberate — they mutate a shared
 database.
 
+**Disputes** (`tests/disputes.flow.spec.ts`) are the adversarial counterpart to returns: support rules
+and money moves to one side. The invariant worth most is the one spanning two features — a return and a
+dispute are **mutually exclusive** on the same order, because both draw on the same escrow. Neither
+feature enforces that alone; it falls out of the shared `filingEligibility` gate, so without a test it
+would quietly stop being true. The suite also pins that ruling `RESOLVED_BUYER` actually refunds the
+order rather than only relabelling the dispute, that `RESOLVED_SELLER` does not, that `CLOSED` is
+terminal for both admin transitions and seller replies, and that dispute text is screened for
+off-platform payment and contact details. Profanity is only a *warning* there, not a block — a
+deliberate policy difference from blocking, and the tests reflect that rather than assuming.
+
 **Seller fulfilment** (`tests/orders.seller.spec.ts`) drives the orders list and shipping a parcel from
 PAID through SHIPPED to DELIVERED. Every button on that page is conditional on order status, so a wrong
 condition renders nothing to click rather than erroring — the same shape as the dead Apply button, and
