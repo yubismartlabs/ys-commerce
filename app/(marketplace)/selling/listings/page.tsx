@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { ChevronRight, Plus } from "lucide-react";
+import { ChevronRight, Plus, Upload } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
@@ -72,6 +72,9 @@ export default function ListingsPage() {
               {s}
             </Button>
           ))}
+          <Button size="sm" variant="outline" asChild>
+            <Link href="/selling/listings/bulk"><Upload className="size-4" /> Bulk import</Link>
+          </Button>
           <Button size="sm" asChild className="bg-ali-red text-white hover:bg-ali-red-dark">
             <Link href="/selling/products/new"><Plus className="size-4" /> Add product</Link>
           </Button>

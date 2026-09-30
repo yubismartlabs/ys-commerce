@@ -5,8 +5,8 @@ export function ok<T>(data: T, pagination?: { page: number; pageSize: number; to
   return NextResponse.json(serialize({ data, ...(pagination ? { pagination } : {}), ...(meta ? { meta } : {}) }), { status });
 }
 
-export function fail(code: string, message: string, status = 400) {
-  return NextResponse.json({ error: { code, message } }, { status });
+export function fail(code: string, message: string, status = 400, details?: unknown) {
+  return NextResponse.json({ error: { code, message, ...(details ? { details } : {}) } }, { status });
 }
 
 export function getPagination(url: URL) {
