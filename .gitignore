@@ -50,3 +50,6 @@ next-env.d.ts
 # local uploads (dev)
 public/uploads/*
 !public/uploads/.gitkeep
+
+# Test-catalog import checkpoints (runtime artifact)
+scripts/import-catalog/last-run.json

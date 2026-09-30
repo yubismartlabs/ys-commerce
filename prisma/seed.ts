@@ -65,6 +65,79 @@ async function main() {
   const wiped = await prisma.product.deleteMany({ where: { source: null } });
   if (wiped.count > 0) console.log(`Removed ${wiped.count} mock product rows.`);
 
+  // Sample test catalog (honestly labeled fictional data — see
+  // prisma/sample-catalog.ts). House stores only, never real sellers.
+  const { SAMPLE_PRODUCTS } = await import("./sample-catalog");
+  const STORE_BY_CATEGORY: Record<string, string> = {
+    electronics: "techchoice-store",
+    phones: "techchoice-store",
+    fashion: "fashionforward",
+    beauty: "fashionforward",
+    home: "homeessentials",
+    toys: "homeessentials",
+    sports: "gadgethub",
+    automotive: "gadgethub",
+  };
+  const storeRows = await prisma.store.findMany({ select: { id: true, slug: true } });
+  const storeBySlug = new Map(storeRows.map((s) => [s.slug, s.id]));
+  let sampleCount = 0;
+  for (const item of SAMPLE_PRODUCTS) {
+    const storeId = storeBySlug.get(STORE_BY_CATEGORY[item.category] ?? "techchoice-store");
+    if (!storeId) continue;
+    const gallery = [0, 1, 2].map((g) => `https://picsum.photos/seed/${item.slug}-${g}/800/800`);
+    await prisma.product.upsert({
+      where: { slug: item.slug },
+      update: {
+        title: item.title,
+        price: item.price,
+        compareAt: item.compareAt ?? null,
+        brand: item.brand,
+        tags: item.tags,
+        specs: item.specs.map(([k, v]) => ({ k, v })),
+      },
+      create: {
+        slug: item.slug,
+        title: item.title,
+        description: "Sample listing for evaluation — fictional demo data, not a live offer.",
+        brand: item.brand,
+        tags: item.tags,
+        image: `https://picsum.photos/seed/${item.slug}/600/600`,
+        images: gallery,
+        specs: item.specs.map(([k, v]) => ({ k, v })),
+        price: item.price,
+        compareAt: item.compareAt ?? null,
+        category: item.category,
+        badge: item.badge ?? null,
+        freeShipping: item.freeShipping ?? true,
+        trackStock: item.trackStock ?? false,
+        stock: item.stock ?? 0,
+        status: "ACTIVE",
+        storeId,
+        source: "sample",
+        sourceUrl: null,
+      },
+    });
+    const created = await prisma.product.findUnique({
+      where: { slug: item.slug },
+      select: { id: true },
+    });
+    if (created && item.variants && item.variants.length > 0) {
+      const existingCount = await prisma.productVariant.count({ where: { productId: created.id } });
+      if (existingCount === 0) {
+        await prisma.productVariant.createMany({
+          data: item.variants.map((v) => ({
+            productId: created.id,
+            name: v.name,
+            price: v.price ?? null,
+            stock: v.stock,
+          })),
+        });
+      }
+    }
+    sampleCount++;
+  }
+  console.log(`Sample catalog: ${sampleCount} listings.`);
+
   const products = await prisma.product.findMany({
     where: { status: "ACTIVE" },
     orderBy: { createdAt: "asc" },
