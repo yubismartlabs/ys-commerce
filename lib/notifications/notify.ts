@@ -337,13 +337,37 @@ export async function runDigest(): Promise<DigestResult> {
     announced.filter((n) => n.createdAt > dayAgo).map((n) => `${n.type}:${(n.meta as { entityId?: string } | null)?.entityId}`),
   );
 
-  // 1. Low-stock variants on active products (re-alert at most once per day).
-  const low = await db.productVariant.findMany({
-    where: { stock: { lte: config.lowStockThreshold }, product: { status: "ACTIVE" } },
-    include: { product: { select: { id: true, title: true, store: { select: { name: true } } } } },
-    orderBy: { stock: "asc" },
-    take: 50,
-  });
+  // 1. Low stock on active products (re-alert at most once per day).
+  // Covers BOTH variant options and listing-level stock — variantless listings
+  // were previously invisible to this digest.
+  const [low, lowListings] = await Promise.all([
+    db.productVariant.findMany({
+      where: { stock: { lte: config.lowStockThreshold }, product: { status: "ACTIVE" } },
+      include: { product: { select: { id: true, title: true, store: { select: { name: true } } } } },
+      orderBy: { stock: "asc" },
+      take: 50,
+    }),
+    db.product.findMany({
+      where: {
+        status: "ACTIVE",
+        trackStock: true,
+        variants: { none: {} },
+        stock: { lte: config.lowStockThreshold },
+      },
+      select: { id: true, title: true, stock: true, store: { select: { name: true } } },
+      orderBy: { stock: "asc" },
+      take: 50,
+    }),
+  ]);
+  for (const p of lowListings.filter((x) => !seenDay.has(`stock.low:${x.id}`))) {
+    items.push({
+      type: "stock.low",
+      title: `${p.title} is running low`,
+      body: `${p.store.name} — ${p.stock} left.`,
+      link: `/ys-admin/products/show/${p.id}`,
+      meta: { entityId: p.id, stock: p.stock, scope: "product" },
+    });
+  }
   const freshLow = low.filter((v) => !seenDay.has(`stock.low:${v.id}`));
   for (const v of freshLow) {
     items.push({
@@ -355,7 +379,7 @@ export async function runDigest(): Promise<DigestResult> {
     });
   }
   if (freshLow.length > 0) {
-    counts.lowStock = freshLow.length;
+    counts.lowStock = freshLow.length + lowListings.length;
     sections.push({
       title: `Low stock (${freshLow.length})`,
       lines: freshLow.map((v) => `${v.product.title} (${v.name}) — ${v.stock} left · ${v.product.store.name}`),

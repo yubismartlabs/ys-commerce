@@ -22,6 +22,8 @@ type Listing = {
   ratingCount: number;
   store: { name: string };
   variants: Array<{ stock: number }>;
+  trackStock: boolean;
+  stock: number;
   _count: { reviews: number };
 };
 
@@ -102,7 +104,13 @@ export default function ListingsPage() {
                     <p className="text-xs text-neutral-500">{p.store.name}</p>
                   </TableCell>
                   <TableCell className="font-semibold tabular-nums">{formatUSD(p.price)}</TableCell>
-                  <TableCell className="tabular-nums">{p.variants.reduce((a, v) => a + v.stock, 0)}</TableCell>
+                  <TableCell className="tabular-nums">
+                    {p.variants.length > 0
+                      ? p.variants.reduce((a, v) => a + v.stock, 0)
+                      : p.trackStock
+                        ? p.stock
+                        : <span className="text-neutral-400">Not tracked</span>}
+                  </TableCell>
                   <TableCell className="tabular-nums">{p.soldCount}</TableCell>
                   <TableCell className="tabular-nums">★ {p.ratingAvg.toFixed(1)} ({p.ratingCount})</TableCell>
                   <TableCell><StatusBadge value={p.status} /></TableCell>

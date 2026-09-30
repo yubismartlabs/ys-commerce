@@ -12,6 +12,7 @@ export type ShippingQuote = {
   shipping: number;
   parcels: number;
   byStore: StoreShipping[];
+  unavailable: Array<{ slug: string; title: string; available: number | null }>;
 };
 
 /**

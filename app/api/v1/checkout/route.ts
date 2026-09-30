@@ -96,10 +96,38 @@ export async function POST(req: Request) {
           if (!v) {
             throw new Error(`VARIANT:${l.title} is no longer available in "${l.variant}". Pick another option.`);
           }
-          if (v.stock < l.qty) throw new Error(`STOCK:Only ${v.stock} left of ${l.title} (${v.name}).`);
+          if (v.stock < l.qty) throw new Error(`STOCK:Only ${v.stock} left of ${l.title} (${l.variant}).`);
           await tx.productVariant.update({ where: { id: v.id }, data: { stock: v.stock - l.qty } });
         }
       }
+
+      // Product-level stock for listings with no variants (or where the seller
+      // opted into product-level tracking). Re-read inside the transaction so a
+      // concurrent order can't oversell — the same reason the variant check is
+      // here rather than in resolveCart.
+      const productLines = lines.filter((l) => !l.variant);
+      if (productLines.length > 0) {
+        const tracked = await tx.product.findMany({
+          where: { id: { in: [...new Set(productLines.map((l) => l.productId))] }, trackStock: true },
+          select: { id: true, stock: true, title: true },
+        });
+        const byId = new Map(tracked.map((p) => [p.id, p]));
+        // Sum per product: two cart lines for the same product must not each
+        // pass the check individually and oversell together.
+        const want = new Map<string, number>();
+        for (const l of productLines) want.set(l.productId, (want.get(l.productId) ?? 0) + l.qty);
+        for (const [productId, qty] of want) {
+          const p = byId.get(productId);
+          if (!p) continue; // not tracking product stock
+          if (p.stock < qty) {
+            throw new Error(
+              p.stock === 0 ? `SOLD_OUT:${p.title} is out of stock.` : `STOCK:Only ${p.stock} left of ${p.title}.`
+            );
+          }
+          await tx.product.update({ where: { id: productId }, data: { stock: { decrement: qty } } });
+        }
+      }
+
       const created = await tx.order.create({
         data: {
           number,
@@ -202,9 +230,10 @@ export async function POST(req: Request) {
     orderId = order.id;
   } catch (e) {
     const msg = e instanceof Error ? e.message : "Checkout failed";
-    if (msg.startsWith("COUPON:")) return fail("COUPON", msg.slice(7), 422);
-    if (msg.startsWith("STOCK:")) return fail("STOCK", msg.slice(6), 422);
-    if (msg.startsWith("VARIANT:")) return fail("VARIANT", msg.slice(8), 422);
+    if (msg.startsWith("COUPON:")) return fail("COUPON", msg.slice("COUPON:".length), 422);
+    if (msg.startsWith("STOCK:")) return fail("STOCK", msg.slice("STOCK:".length), 422);
+    if (msg.startsWith("VARIANT:")) return fail("VARIANT", msg.slice("VARIANT:".length), 422);
+    if (msg.startsWith("SOLD_OUT:")) return fail("SOLD_OUT", msg.slice("SOLD_OUT:".length), 422);
     console.error("[checkout] failed", msg);
     return fail("CHECKOUT", "Checkout failed, please retry", 500);
   }

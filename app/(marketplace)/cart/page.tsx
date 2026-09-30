@@ -169,6 +169,16 @@ export default function CartPage() {
           <div className="flex justify-between text-sm"><span>Shipping</span><span className="text-neutral-500">At checkout</span></div>
         )}
         <Separator />
+        {shipping.data?.unavailable?.length ? (
+          <div className="rounded-lg bg-red-50 p-2.5 text-xs text-red-700 dark:bg-red-950/40 dark:text-red-300" role="alert">
+            <p className="font-semibold">Out of stock</p>
+            <ul>
+              {shipping.data.unavailable.map((u) => (
+                <li key={u.slug}>{u.title}</li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
         <div className="flex justify-between font-extrabold">
           <span>Total</span>
           <span className="text-ali-red">

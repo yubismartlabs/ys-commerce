@@ -22,6 +22,8 @@ export type ProductFormValues = {
   category: string;
   badge: string;
   freeShipping: boolean;
+  trackStock?: boolean;
+  stock?: number;
   storeId: string;
   status: string;
   variants: ProductFormVariant[];
@@ -54,6 +56,8 @@ export function ProductForm({
     category: "",
     badge: "",
     freeShipping: true,
+    trackStock: false,
+    stock: 0,
     storeId: stores[0]?.id ?? "",
     status: "DRAFT",
     variants: [],
@@ -104,6 +108,8 @@ export function ProductForm({
       category: v.category.trim().toLowerCase(),
       ...(v.badge.trim() ? { badge: v.badge.trim() } : { badge: null }),
       freeShipping: v.freeShipping,
+      trackStock: v.trackStock,
+      stock: Number(v.stock) || 0,
       ...(isCreate ? { storeId: v.storeId } : {}),
       ...(!isCreate ? { status: v.status } : {}),
       variants,
@@ -180,6 +186,45 @@ export function ProductForm({
         <label htmlFor="pf-freeShipping" className="flex cursor-pointer items-center gap-2 text-sm">
           <Checkbox id="pf-freeShipping" checked={v.freeShipping} onCheckedChange={(x) => set("freeShipping", x === true)} /> Free shipping
         </label>
+
+        {/* Product-level stock. Variants already track their own stock, so
+            this only applies when the listing has no variants. */}
+        <div className="rounded-lg border p-3">
+          <label htmlFor="pf-trackStock" className="flex cursor-pointer items-center gap-2 text-sm">
+            <Checkbox
+              id="pf-trackStock"
+              checked={!!v.trackStock}
+              disabled={v.variants.length > 0}
+              onCheckedChange={(x) => set("trackStock", x === true)}
+            />
+            Track stock for this listing
+          </label>
+          {v.variants.length > 0 ? (
+            <p className="mt-1 text-[11px] text-neutral-500">
+              Stock is tracked per option below, so listing-level tracking is disabled.
+            </p>
+          ) : (
+            <>
+              <p className="mt-1 text-[11px] text-neutral-500">
+                Off means the listing is always available. Turn this on to sell a finite quantity.
+              </p>
+              {v.trackStock ? (
+                <div className="mt-2 max-w-40 space-y-1">
+                  <label htmlFor="pf-stock" className="text-xs font-semibold text-neutral-600">
+                    Quantity available
+                  </label>
+                  <Input
+                    id="pf-stock"
+                    type="number"
+                    min={0}
+                    value={String(v.stock ?? 0)}
+                    onChange={(e) => set("stock", Number(e.target.value) || 0)}
+                  />
+                </div>
+              ) : null}
+            </>
+          )}
+        </div>
 
         <div className="grid gap-2 border-t pt-4">
           <div className="flex items-center justify-between">

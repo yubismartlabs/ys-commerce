@@ -41,6 +41,10 @@ export const productInput = z.object({
   category: z.string().min(1).max(60),
   badge: z.string().max(20).optional().nullable(),
   freeShipping: z.boolean().default(true),
+  // Listing-level stock, for products with no variants. Opt-in: when
+  // trackStock is false the listing is treated as always available.
+  trackStock: z.boolean().default(false),
+  stock: z.number().int().min(0).max(100000000).default(0),
   storeId: z.string().min(1),
   variants: z.array(variantSchema).max(30).default([]),
 });

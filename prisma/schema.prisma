@@ -266,6 +266,12 @@ model Product {
   category    String
   badge       String?
   freeShipping Boolean      @default(true)
+  // Stock for variantless listings. Previously a product with no variants was
+  // implicitly unlimited and invisible to the low-stock digest, so it could be
+  // oversold without limit. `trackStock` is opt-in so existing listings keep
+  // their current (untracked) behaviour until a seller turns it on.
+  trackStock  Boolean       @default(false)
+  stock       Int           @default(0)
   status      ProductStatus @default(ACTIVE)
   ratingAvg   Float         @default(0)
   ratingCount Int           @default(0)

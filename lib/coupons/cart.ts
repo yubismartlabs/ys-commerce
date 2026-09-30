@@ -14,7 +14,11 @@ export type ResolvedLine = QuoteItem & {
   image: string;
   variant: string | null;
   productId: string;
+  slug: string;
   freeShipping: boolean;
+  /** null = product-level stock isn't tracked (unlimited). */
+  trackStock: boolean;
+  available: number | null;
 };
 
 /** Resolve storefront cart lines to live DB products (ACTIVE only, live prices). */
@@ -24,7 +28,10 @@ export async function resolveCart(
   const slugs = [...new Set(lines.map((l) => l.slug))];
   const products = await db.product.findMany({
     where: { slug: { in: slugs } },
-    select: { id: true, slug: true, title: true, image: true, price: true, compareAt: true, category: true, status: true, storeId: true, freeShipping: true },
+    select: {
+      id: true, slug: true, title: true, image: true, price: true, compareAt: true,
+      category: true, status: true, storeId: true, freeShipping: true, trackStock: true, stock: true,
+    },
   });
   const bySlug = new Map(products.map((p) => [p.slug, p]));
   // Flash deals override the base price while live (window open, cap unmet).
@@ -43,6 +50,7 @@ export async function resolveCart(
     if (p.status !== "ACTIVE") throw new Error(`${p.title} is no longer available.`);
     return {
       productId: p.id,
+      slug: p.slug,
       storeId: p.storeId,
       category: p.category,
       price: dealPrice.get(p.id) ?? Number(p.price),
@@ -51,6 +59,10 @@ export async function resolveCart(
       image: p.image,
       variant: l.variant ?? null,
       freeShipping: p.freeShipping,
+      // Advisory availability so the cart can warn before checkout; the
+      // authoritative check still runs inside the checkout transaction.
+      trackStock: p.trackStock,
+      available: p.trackStock ? p.stock : null,
     };
   });
 }

@@ -37,6 +37,8 @@ export type ProductDetail = {
   category: string;
   badge: string | null;
   freeShipping: boolean;
+  trackStock: boolean;
+  stock: number;
   ratingAvg: number;
   ratingCount: number;
   soldCount: number;
@@ -95,6 +97,8 @@ export async function loadProduct(slug: string): Promise<ProductDetail> {
     category: product.category,
     badge: product.badge,
     freeShipping: product.freeShipping,
+    trackStock: product.trackStock,
+    stock: product.stock,
     store: product.store,
     ratingAvg: product.ratingAvg,
     ratingCount: product.ratingCount,

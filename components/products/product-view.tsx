@@ -44,7 +44,11 @@ export function ProductView({ product, shippingFee }: { product: ProductDetail; 
   const price = variant?.price ?? basePrice;
   const compareAt = !variant ? (product.deal ? product.price : product.compareAt) : null;
   const pct = discountPct(price, compareAt ?? undefined);
-  const stock = variant ? variant.stock : null;
+  // Effective availability: the chosen option's stock, or the listing's own
+  // stock when the product has no variants and tracks stock.
+  const productSoldOut = product.trackStock && product.variants.length === 0 && product.stock <= 0;
+  const stock = variant ? variant.stock : product.trackStock && product.variants.length === 0 ? product.stock : null;
+  const soldOut = productSoldOut || stock === 0;
   const maxQty = stock !== null ? Math.max(1, Math.min(stock, 99)) : 99;
   const mainImg = variant?.image && variant.image !== "/placeholder-product.svg" ? variant.image : gallery[Math.min(imgIdx, gallery.length - 1)];
 
@@ -137,9 +141,9 @@ export function ProductView({ product, shippingFee }: { product: ProductDetail; 
                 <span className="font-normal">
                   {variant ? variant.name : `Select (${product.variants.length})`}
                 </span>
-                {stock !== null ? (
+                {stock !== null || productSoldOut ? (
                   <span className={cn("ml-2 text-xs font-normal", stock === 0 ? "text-red-600" : "text-neutral-500")}>
-                    {stock === 0 ? "Out of stock" : `${stock} in stock`}
+                    {productSoldOut ? "Out of stock" : stock === 0 ? "Out of stock" : `${stock} in stock`}
                   </span>
                 ) : null}
               </p>
@@ -202,7 +206,7 @@ export function ProductView({ product, shippingFee }: { product: ProductDetail; 
             <Button
               size="lg"
               className="flex-1 bg-ali-red text-white hover:bg-ali-red-dark"
-              disabled={stock === 0 || needsVariant}
+              disabled={soldOut || needsVariant}
               onClick={addToCart}
             >
               <ShoppingCart /> Add to cart
@@ -211,7 +215,7 @@ export function ProductView({ product, shippingFee }: { product: ProductDetail; 
               size="lg"
               variant="outline"
               className="flex-1 border-ali-red text-ali-red"
-              disabled={stock === 0 || needsVariant}
+              disabled={soldOut || needsVariant}
               onClick={buyNow}
             >
               <Zap /> Buy now

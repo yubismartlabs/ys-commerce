@@ -24,7 +24,8 @@ export async function GET(req: Request) {
     orders,
     openDisputes,
     holds,
-    lowStock,
+    lowStockVariants,
+    lowStockProducts,
     recentOrders,
     ratingAgg,
     listings,
@@ -46,6 +47,20 @@ export async function GET(req: Request) {
       take: 5,
       orderBy: { stock: "asc" },
       select: { id: true, name: true, stock: true, product: { select: { id: true, title: true } } },
+    }),
+    db.product.findMany({
+      // Listing-level stock: variantless (or product-tracked) listings were
+      // previously absent from this digest entirely.
+      where: {
+        storeId: { in: scopeIds },
+        status: "ACTIVE",
+        trackStock: true,
+        variants: { none: {} },
+        stock: { lte: 5 },
+      },
+      take: 5,
+      orderBy: { stock: "asc" },
+      select: { id: true, title: true, stock: true },
     }),
     db.order.findMany({
       where: orderWhere,
@@ -80,6 +95,13 @@ export async function GET(req: Request) {
     },
     recentOrders,
     openDisputes,
-    lowStock,
+    // Variant options AND listing-level stock, merged so a seller sees one
+    // "running low" list. Variantless listings used to be absent entirely.
+    lowStock: [
+      ...lowStockVariants.map((v) => ({ id: v.id, label: v.product.title, detail: v.name, stock: v.stock })),
+      ...lowStockProducts.map((p) => ({ id: p.id, label: p.title, detail: null, stock: p.stock })),
+    ]
+      .sort((a, b) => a.stock - b.stock)
+      .slice(0, 5),
   });
 }

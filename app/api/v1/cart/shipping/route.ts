@@ -57,5 +57,10 @@ export async function GET(req: Request) {
     shipping: total,
     parcels: breakdown.length,
     byStore: breakdown,
+    // Lines the seller has since run out of, so the cart can say so instead of
+    // letting the buyer discover it at the till.
+    unavailable: resolved
+      .filter((l) => !l.variant && l.trackStock && l.available !== null && l.available <= 0)
+      .map((l) => ({ slug: l.slug, title: l.title, available: l.available })),
   });
 }

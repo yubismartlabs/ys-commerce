@@ -93,6 +93,8 @@ dropping the order-level tracking columns.
 
 **Price history** (`PriceSnapshot`) records a row only when the price or compare-at actually moves, so the storefront sparkline shows real changes rather than padding with edits. The migration seeds a baseline point per product.
 
+**Stock.** `ProductVariant.stock` covers options; `Product.trackStock` + `Product.stock` covers variantless listings, which previously had no stock field at all and were sellable without limit. `trackStock` is opt-in so existing listings are unaffected until a seller turns it on. Checkout re-reads stock inside the transaction and sums quantities **per product across all cart lines**, so two lines of the same item can't each pass the check and oversell together.
+
 **Returns vs disputes.** They are deliberately separate. A return is ordinary after-sales and freezes escrow for the lines involved; a dispute is adversarial and settles via admin ruling. Money only moves on `REFUNDED`, which is admin-only — a seller cannot self-serve a refund.
 
 **Payments are simulated.** No card is collected or charged; orders are written as `PAID` immediately. `payments.provider` is `mock` only. Wire a real provider before taking money — see "Not yet built" below.
@@ -110,7 +112,6 @@ Deliberately incomplete — see the plan in the git history:
 - **Review moderation** is not implemented. Reviews publish immediately.
 - **Chat uploads** are written to local disk and served publicly. They are not access-controlled, which is intentional for trust & safety but means they are not private. Use object storage for production.
 - **Product taxonomy** is a free-text column, not a real category tree. `lib/categories.ts` provides a canonical slug list and alias normalization, and filters are case-insensitive, but sellers can still enter arbitrary category strings.
-- **`Product` has no stock column.** A listing with no variants is treated as always in stock.
 - **Seller-side bulk tooling** (CSV import, inventory manager) does not exist.
 - **Seller coupons are manual**: no scheduled campaigns, no auto-apply, no stacking
   (one coupon per order). A seller `FREESHIP` code waives only their own parcel's
