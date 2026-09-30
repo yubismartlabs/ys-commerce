@@ -18,9 +18,15 @@ export async function getAiConfig(): Promise<AiConfig> {
   const ai = await getSettingGroup("ai");
   const envToken = process.env.HUGGINGFACE_API_KEY?.trim() || null;
   const dbToken = ai.hfApiKey?.trim() || null;
-  const model = FREE_AI_MODELS.includes(ai.model as (typeof FREE_AI_MODELS)[number])
-    ? ai.model
-    : "meta-llama/Meta-Llama-3.1-8B-Instruct";
+  // The router requires a provider/policy suffix (model:cheapest etc).
+  // Strip it for allowlist validation, then re-attach :cheapest so a bare
+  // admin-entered id still routes — and routes to the cheapest provider to
+  // protect the $0.10/mo free credits.
+  const bare = (ai.model ?? "").split(":")[0]?.trim() ?? "";
+  const valid = FREE_AI_MODELS.includes(bare as (typeof FREE_AI_MODELS)[number])
+    ? bare
+    : "meta-llama/Llama-3.1-8B-Instruct";
+  const model = (ai.model ?? "").includes(":") ? (ai.model as string) : `${valid}:cheapest`;
   return {
     enabled: ai.enabled,
     name: ai.name?.trim() || "YS Assistant",

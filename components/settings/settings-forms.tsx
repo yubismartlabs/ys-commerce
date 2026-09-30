@@ -172,7 +172,7 @@ export function AiFields({ control, hasHfKey }: { control: C; hasHfKey?: boolean
       <SwitchRow control={control} name="enabled" label="Shopping assistant" hint="Show the left push-drawer assistant to signed-in buyers. Off hides it everywhere." />
       <TextRow control={control} name="name" label="Assistant name" hint="Shown in the navbar, drawer title and product-page button. Max 40 characters." placeholder="YS Assistant" />
       <SelectRow control={control} name="provider" label="Provider" hint="Hugging Face free tier via the OpenAI-compatible router." options={["huggingface"]} />
-      <TextRow control={control} name="model" label="Model" hint="Free-tier allowlist: Meta-Llama-3.1-8B-Instruct, gemma-3-4b-it, Qwen2.5-7B-Instruct, Mistral-7B-Instruct-v0.3." />
+      <TextRow control={control} name="model" label="Model" hint="Free-tier allowlist: meta-llama/Llama-3.1-8B-Instruct, gemma-3-4b-it, Qwen2.5-7B-Instruct, Mistral-7B-Instruct-v0.3. A :cheapest suffix is added automatically." />
       <TextRow
         control={control}
         name="hfApiKey"

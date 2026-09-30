@@ -4,7 +4,7 @@ export type HfMessage = { role: "system" | "user" | "assistant"; content: string
 
 export class AiUpstreamError extends Error {
   constructor(
-    public kind: "quota" | "cold" | "upstream",
+    public kind: "quota" | "cold" | "upstream" | "config",
     message: string
   ) {
     super(message);
@@ -47,6 +47,9 @@ export async function chatWithHf(opts: {
     if (!res.ok) {
       const body = await res.text().catch(() => "");
       log.warn("hf chat failed", { status: res.status, body: body.slice(0, 300) });
+      if (res.status === 400 || res.status === 404) {
+        throw new AiUpstreamError("config", "Assistant is misconfigured (unknown model). Ask an admin to pick a model from the allowlist in System settings → AI Assistant.");
+      }
       throw new AiUpstreamError("upstream", "Assistant is briefly unavailable. Please retry.");
     }
     const json = (await res.json()) as {

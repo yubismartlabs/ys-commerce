@@ -101,7 +101,7 @@ export const maintenanceSchema = z.object({
  * hfApiKey is write-only like notifications.resendApiKey.
  */
 export const FREE_AI_MODELS = [
-  "meta-llama/Meta-Llama-3.1-8B-Instruct",
+  "meta-llama/Llama-3.1-8B-Instruct",
   "google/gemma-3-4b-it",
   "Qwen/Qwen2.5-7B-Instruct",
   "mistralai/Mistral-7B-Instruct-v0.3",
@@ -111,7 +111,7 @@ export const aiSchema = z.object({
   enabled: z.boolean().default(false),
   name: z.string().trim().min(1).max(40).default("YS Assistant"),
   provider: z.enum(["huggingface"]).default("huggingface"),
-  model: z.string().min(1).max(120).default("meta-llama/Meta-Llama-3.1-8B-Instruct"),
+  model: z.string().min(1).max(120).default("meta-llama/Llama-3.1-8B-Instruct"),
   hfApiKey: z.string().max(200).default(""),
   maxTokens: z.number().int().min(128).max(1024).default(350),
   temperature: z.number().min(0).max(1).default(0.2),
