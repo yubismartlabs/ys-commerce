@@ -3,7 +3,24 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
-import { Send, Sparkles, X } from "lucide-react";
+import {
+  BadgePercent,
+  Eye,
+  Gift,
+  ImageIcon,
+  Package,
+  RotateCcw,
+  Scale,
+  Search,
+  Send,
+  Sparkles,
+  Star,
+  Ticket,
+  TriangleAlert,
+  X,
+  Zap,
+  type LucideIcon,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { usePublicSettings } from "@/lib/public-settings";
 import { useAssistant } from "@/lib/store/assistant";
@@ -19,6 +36,42 @@ type ChatMsg = {
   compare?: boolean;
 };
 
+/** Keyword-matched icon so suggestion chips read visually, not just text. */
+function iconForSuggestion(s: string): LucideIcon {
+  const t = s.toLowerCase();
+  if (/deal|sale|price|drop|cheap|under/.test(t)) return BadgePercent;
+  if (/order|track|deliver|arriv|shipped/.test(t)) return Package;
+  if (/compar|vs|versus|better|difference/.test(t)) return Scale;
+  if (/gift/.test(t)) return Gift;
+  if (/review|rating|stars/.test(t)) return Star;
+  if (/coupon|discount|code|ship/.test(t)) return Ticket;
+  if (/return|refund|exchange/.test(t)) return RotateCcw;
+  return Sparkles;
+}
+
+function SuggestionChip({ text, onPick }: { text: string; onPick: (t: string) => void }) {
+  return (
+    <button
+      onClick={() => onPick(text)}
+      className="inline-flex shrink-0 items-center gap-1.5 rounded-full border bg-white px-2.5 py-1 text-xs hover:border-ali-red hover:text-ali-red"
+    >
+      <ChipIcon icon={iconForSuggestion(text)} /> {text}
+    </button>
+  );
+}
+
+function ChipIcon({ icon: Icon }: { icon: LucideIcon }) {
+  return <Icon className="size-3.5 text-ali-red" />;
+}
+
+function AssistantAvatar({ size = "size-5", icon = "size-3" }: { size?: string; icon?: string }) {
+  return (
+    <span className={cn("flex shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-ali-red to-ali-orange text-white", size)}>
+      <Sparkles className={icon} />
+    </span>
+  );
+}
+
 /** Left push-drawer body: header, context badge, messages, suggestions, input. */
 export function AssistantDrawer() {
   const { context, close } = useAssistant();
@@ -26,6 +79,7 @@ export function AssistantDrawer() {
   const { status } = useSession();
   const [messages, setMessages] = useState<ChatMsg[]>([]);
   const [suggestions, setSuggestions] = useState<string[]>([]);
+  const [dealPicks, setDealPicks] = useState<AssistantProduct[]>([]);
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
@@ -49,6 +103,37 @@ export function AssistantDrawer() {
       .then((r) => (r.ok ? r.json() : null))
       .then((j) => {
         if (j?.data?.suggestions) setSuggestions(j.data.suggestions as string[]);
+      })
+      .catch(() => {});
+    // Quota-free: live flash deals with images for the empty-state strip.
+    fetch("/api/v1/deals?pageSize=6")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => {
+        const rows = (j?.data ?? []) as Array<{
+          live: boolean;
+          dealPrice: number;
+          product: {
+            slug: string; title: string; image: string; price: number; compareAt: number | null;
+            ratingAvg: number; ratingCount: number; soldCount: number; badge: string | null; freeShipping: boolean;
+          };
+        }>;
+        setDealPicks(
+          rows
+            .filter((d) => d.live)
+            .slice(0, 4)
+            .map((d) => ({
+              slug: d.product.slug,
+              title: d.product.title,
+              price: d.dealPrice,
+              image: d.product.image,
+              ratingAvg: d.product.ratingAvg,
+              compareAt: d.product.price,
+              soldCount: d.product.soldCount,
+              ratingCount: d.product.ratingCount,
+              badge: d.product.badge,
+              freeShipping: d.product.freeShipping,
+            }))
+        );
       })
       .catch(() => {});
   }, [context.productSlug, context.searchQuery, status, aiEnabled]);
@@ -77,7 +162,6 @@ export function AssistantDrawer() {
     const userMsg: ChatMsg = {
       role: "user",
       content,
-      // eslint-disable-next-line react-hooks/purity -- event handler, not render
       time: Date.now(),
     };
     const next = [...messages, userMsg];
@@ -102,7 +186,6 @@ export function AssistantDrawer() {
         {
           role: "assistant",
           content: json.data.reply as string,
-          // eslint-disable-next-line react-hooks/purity -- event handler, not render
           time: Date.now(),
           citations,
           compare: isCompareAnswer(content, citations.length),
@@ -121,7 +204,7 @@ export function AssistantDrawer() {
       <div className="flex h-full flex-col">
         <DrawerHeader name={aiName} onClose={close} />
         <div className="flex flex-1 flex-col items-center justify-center gap-3 p-6 text-center">
-          <Sparkles className="size-8 text-ali-red" />
+          <AssistantAvatar size="size-12" icon="size-6" />
           <p className="text-sm font-semibold">Sign in for {aiName}</p>
           <p className="text-xs text-neutral-500">Personalized answers, order help and recommendations need your account.</p>
           <Button asChild className="bg-ali-red text-white hover:bg-ali-red-dark">
@@ -147,35 +230,47 @@ export function AssistantDrawer() {
     <div className="flex h-full flex-col bg-white">
       <DrawerHeader name={aiName} onClose={close} />
       {context.productSlug || context.searchQuery ? (
-        <p className="border-b px-4 py-2 text-[11px] text-neutral-500" aria-live="polite">
-          {context.productSlug ? `Viewing: ${context.productSlug}` : null}
-          {context.productSlug && context.searchQuery ? " · " : null}
-          {context.searchQuery ? `Search: “${context.searchQuery}”` : null}
+        <p className="flex items-center gap-1.5 border-b bg-white px-4 py-2 text-[11px] text-neutral-500" aria-live="polite">
+          {context.productSlug ? (
+            <span className="inline-flex min-w-0 items-center gap-1">
+              <Eye className="size-3.5 shrink-0 text-ali-red" />
+              <span className="truncate">Viewing: {context.productSlug}</span>
+            </span>
+          ) : null}
+          {context.productSlug && context.searchQuery ? <span aria-hidden>·</span> : null}
+          {context.searchQuery ? (
+            <span className="inline-flex min-w-0 items-center gap-1">
+              <Search className="size-3.5 shrink-0 text-ali-red" />
+              <span className="truncate">Search: “{context.searchQuery}”</span>
+            </span>
+          ) : null}
         </p>
       ) : null}
       <div ref={listRef} className="flex-1 space-y-4 overflow-y-auto bg-neutral-50 p-3" role="log" aria-label="Assistant conversation">
         {messages.length === 0 && !busy ? (
-          <div className="space-y-3 rounded-xl bg-white p-4 shadow-sm">
-            <p className="flex items-center gap-1.5 text-sm font-bold">
-              <span className="flex size-6 items-center justify-center rounded-full bg-ali-red text-white">
-                <Sparkles className="size-3.5" />
-              </span>
-              Hi, I&apos;m {aiName}
-            </p>
-            <p className="text-xs text-neutral-500">
-              I can compare products, summarize reviews, check prices and track your orders. Try one:
-            </p>
-            <div className="flex flex-wrap gap-1.5">
-              {suggestions.map((s) => (
-                <button
-                  key={s}
-                  onClick={() => send(s)}
-                  className="rounded-full border bg-white px-2.5 py-1 text-xs hover:border-ali-red hover:text-ali-red"
-                >
-                  {s}
-                </button>
-              ))}
+          <div className="space-y-3">
+            <div className="space-y-3 rounded-xl bg-white p-4 shadow-sm">
+              <p className="flex items-center gap-2 text-sm font-bold">
+                <AssistantAvatar size="size-6" icon="size-3.5" />
+                Hi, I&apos;m {aiName}
+              </p>
+              <p className="text-xs text-neutral-500">
+                I can compare products, summarize reviews, check prices and track your orders. Try one:
+              </p>
+              <div className="flex flex-wrap gap-1.5">
+                {suggestions.map((s) => (
+                  <SuggestionChip key={s} text={s} onPick={send} />
+                ))}
+              </div>
             </div>
+            {dealPicks.length > 0 ? (
+              <div className="space-y-2 rounded-xl bg-white p-3 shadow-sm">
+                <p className="flex items-center gap-1.5 text-xs font-bold">
+                  <Zap className="size-3.5 fill-current text-ali-orange" /> Today&apos;s flash deals
+                </p>
+                <ProductCarousel items={dealPicks} />
+              </div>
+            ) : null}
           </div>
         ) : null}
         {messages.map((m, i) => {
@@ -191,9 +286,7 @@ export function AssistantDrawer() {
           return (
             <div key={i} className="space-y-2">
               <div className="flex items-center gap-1.5 text-[11px] text-neutral-500">
-                <span className="flex size-5 items-center justify-center rounded-full bg-ali-red text-white">
-                  <Sparkles className="size-3" />
-                </span>
+                <AssistantAvatar />
                 <span className="font-semibold text-neutral-700">{aiName}</span>
                 <span>·</span>
                 <time>{new Date(m.time).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</time>
@@ -211,13 +304,7 @@ export function AssistantDrawer() {
               {showFollowups ? (
                 <div className="no-scrollbar flex gap-1.5 overflow-x-auto pb-0.5" aria-label="Follow-up questions">
                   {suggestions.map((s) => (
-                    <button
-                      key={s}
-                      onClick={() => send(s)}
-                      className="shrink-0 rounded-full border bg-white px-2.5 py-1 text-xs hover:border-ali-red hover:text-ali-red"
-                    >
-                      {s}
-                    </button>
+                    <SuggestionChip key={s} text={s} onPick={send} />
                   ))}
                 </div>
               ) : null}
@@ -227,9 +314,7 @@ export function AssistantDrawer() {
         {busy ? (
           <div className="space-y-2" aria-label="Assistant is thinking">
             <div className="flex items-center gap-1.5 text-[11px] text-neutral-500">
-              <span className="flex size-5 items-center justify-center rounded-full bg-ali-red text-white">
-                <Sparkles className="size-3" />
-              </span>
+              <AssistantAvatar />
               <span className="font-semibold text-neutral-700">{aiName}</span>
             </div>
             <div className="animate-pulse space-y-1.5 rounded-2xl rounded-tl-md bg-white p-3 shadow-sm">
@@ -240,7 +325,9 @@ export function AssistantDrawer() {
             <div className="flex gap-2">
               {[0, 1].map((k) => (
                 <div key={k} className="w-[168px] shrink-0 animate-pulse overflow-hidden rounded-xl border bg-white">
-                  <div className="aspect-square bg-neutral-200" />
+                  <div className="flex aspect-square items-center justify-center bg-neutral-200">
+                    <ImageIcon className="size-8 text-neutral-400" />
+                  </div>
                   <div className="space-y-1.5 p-2">
                     <div className="h-2.5 w-full rounded bg-neutral-200" />
                     <div className="h-4 w-1/2 rounded bg-neutral-200" />
@@ -250,7 +337,11 @@ export function AssistantDrawer() {
             </div>
           </div>
         ) : null}
-        {notice ? <p className="rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800">{notice}</p> : null}
+        {notice ? (
+          <p className="flex items-start gap-1.5 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800">
+            <TriangleAlert className="mt-0.5 size-3.5 shrink-0" /> <span>{notice}</span>
+          </p>
+        ) : null}
       </div>
       <form
         onSubmit={(e) => {
@@ -280,7 +371,7 @@ export function AssistantDrawer() {
 function DrawerHeader({ name, onClose }: { name: string; onClose: () => void }) {
   return (
     <div className="flex items-center gap-2 border-b bg-white px-4 py-3">
-      <Sparkles className="size-4 text-ali-red" />
+      <AssistantAvatar size="size-7" icon="size-4" />
       <p className="flex-1 text-sm font-bold">{name}</p>
       <Button variant="ghost" size="icon-sm" onClick={onClose} aria-label="Close assistant">
         <X />

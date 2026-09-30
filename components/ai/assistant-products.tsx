@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import Image from "next/image";
+import { ArrowRight, BadgePercent, Package, Scale, Star, Tag, Truck } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { discountPct, formatSold, formatUSD } from "@/lib/format";
 import { RatingStars } from "@/components/commerce/rating-stars";
@@ -88,10 +89,12 @@ export function ProductCarousel({ items }: { items: AssistantProduct[] }) {
                 ) : null}
               </div>
               {p.freeShipping ? (
-                <p className="text-[11px] font-medium text-emerald-600">Free shipping</p>
+                <p className="flex items-center gap-1 text-[11px] font-medium text-emerald-600">
+                  <Truck className="size-3.5" /> Free shipping
+                </p>
               ) : null}
-              <span className="block rounded-full bg-ali-red/10 py-1 text-center text-[11px] font-bold text-ali-red group-hover:bg-ali-red group-hover:text-white">
-                View product
+              <span className="flex items-center justify-center gap-1 rounded-full bg-ali-red/10 py-1 text-center text-[11px] font-bold text-ali-red group-hover:bg-ali-red group-hover:text-white">
+                View product <ArrowRight className="size-3" />
               </span>
             </div>
           </Link>
@@ -108,14 +111,16 @@ export function ProductCarousel({ items }: { items: AssistantProduct[] }) {
 export function CompareTable({ items, verdict }: { items: AssistantProduct[]; verdict?: string }) {
   const cols = items.slice(0, 3);
   if (cols.length < 2) return <ProductCarousel items={items} />;
-  const rows: Array<{ label: string; render: (p: AssistantProduct) => React.ReactNode }> = [
-    { label: "Price", render: (p) => <span className="font-extrabold text-ali-red">{formatUSD(p.price)}</span> },
+  const rows: Array<{ label: string; icon: React.ReactNode; render: (p: AssistantProduct) => React.ReactNode }> = [
+    { label: "Price", icon: <Tag className="size-3.5" />, render: (p) => <span className="font-extrabold text-ali-red">{formatUSD(p.price)}</span> },
     {
       label: "Was",
+      icon: <BadgePercent className="size-3.5" />,
       render: (p) => (p.compareAt ? <span className="text-neutral-400 line-through">{formatUSD(p.compareAt)}</span> : <span className="text-neutral-300">—</span>),
     },
     {
       label: "Rating",
+      icon: <Star className="size-3.5" />,
       render: (p) => (
         <span className="inline-flex items-center gap-1">
           <RatingStars rating={p.ratingAvg} /> {p.ratingAvg.toFixed(1)}
@@ -124,10 +129,12 @@ export function CompareTable({ items, verdict }: { items: AssistantProduct[]; ve
     },
     {
       label: "Sold",
+      icon: <Package className="size-3.5" />,
       render: (p) => (typeof p.soldCount === "number" ? formatSold(p.soldCount) : "—"),
     },
     {
       label: "Shipping",
+      icon: <Truck className="size-3.5" />,
       render: (p) => (p.freeShipping ? <span className="font-medium text-emerald-600">Free</span> : "Paid"),
     },
   ];
@@ -140,8 +147,8 @@ export function CompareTable({ items, verdict }: { items: AssistantProduct[]; ve
             {cols.map((p) => (
               <th key={p.slug} className="min-w-28 p-2 align-top font-normal">
                 <Link href={`/product/${p.slug}`} className="group block space-y-1">
-                  <span className="relative mx-auto block aspect-square w-16 overflow-hidden rounded-lg bg-neutral-100">
-                    <Image src={p.image} alt={p.title} fill sizes="64px" className="object-cover" />
+                  <span className="relative mx-auto block aspect-square w-20 overflow-hidden rounded-lg bg-neutral-100">
+                    <Image src={p.image} alt={p.title} fill sizes="80px" className="object-cover transition duration-300 group-hover:scale-105" />
                   </span>
                   <span className="line-clamp-2 block leading-4 text-neutral-800 group-hover:text-ali-red">{p.title}</span>
                 </Link>
@@ -153,7 +160,7 @@ export function CompareTable({ items, verdict }: { items: AssistantProduct[]; ve
           {rows.map((r) => (
             <tr key={r.label} className="border-t">
               <th scope="row" className="p-2 text-left font-semibold text-neutral-500">
-                {r.label}
+                <span className="inline-flex items-center gap-1">{r.icon}{r.label}</span>
               </th>
               {cols.map((p) => (
                 <td key={p.slug} className="p-2 text-center">
@@ -168,9 +175,9 @@ export function CompareTable({ items, verdict }: { items: AssistantProduct[]; ve
               <td key={p.slug} className="p-2 text-center">
                 <Link
                   href={`/product/${p.slug}`}
-                  className="block rounded-full bg-ali-red py-1 text-[11px] font-bold text-white hover:bg-ali-red-dark"
+                  className="flex items-center justify-center gap-1 rounded-full bg-ali-red py-1 text-[11px] font-bold text-white hover:bg-ali-red-dark"
                 >
-                  View
+                  View <ArrowRight className="size-3" />
                 </Link>
               </td>
             ))}
@@ -178,8 +185,9 @@ export function CompareTable({ items, verdict }: { items: AssistantProduct[]; ve
         </tbody>
       </table>
       {verdict ? (
-        <p className="border-t bg-ali-red/5 px-3 py-2 text-xs">
-          <strong>Verdict:</strong> {verdict}
+        <p className="flex items-start gap-1.5 border-t bg-ali-red/5 px-3 py-2 text-xs">
+          <Scale className="mt-0.5 size-3.5 shrink-0 text-ali-red" />
+          <span><strong>Verdict:</strong> {verdict}</span>
         </p>
       ) : null}
     </div>
