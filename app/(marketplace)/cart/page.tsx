@@ -61,7 +61,7 @@ export default function CartPage() {
         {items.map((i) => (
           <div key={i.slug + (i.variant ?? "")} className="flex gap-3 p-4">
             <div className="relative size-20 shrink-0 overflow-hidden rounded-lg bg-neutral-100">
-              <Image src={i.image} alt={i.title} fill className="object-cover" />
+              <Image src={i.image} alt={i.title} fill sizes="80px" className="object-cover" />
             </div>
             <div className="min-w-0 flex-1">
               <p className="line-clamp-2 text-sm">{i.title}</p>

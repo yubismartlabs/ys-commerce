@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Image from "next/image";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Loader2, Star, ThumbsUp } from "lucide-react";
 import { toast } from "sonner";
@@ -74,7 +75,22 @@ function ReviewCard({ slug, review }: { slug: string; review: ReviewRow }) {
       </div>
       {review.title ? <p className="mt-1.5 text-sm font-bold">{review.title}</p> : null}
       {review.body ? <p className="mt-1 text-sm text-neutral-600 dark:text-neutral-300">{review.body}</p> : null}
-      <p className="mt-1 text-xs text-neutral-400">by {review.author.name ?? "Anonymous"}</p>
+      {/* Buyer photos: the API has always accepted and stored these, but the
+          card never rendered them, so they were invisible on the storefront. */}
+      {review.images.length > 0 ? (
+        <ul className="mt-2 flex flex-wrap gap-1.5">
+          {review.images.map((src, i) => (
+            <li key={`${src}-${i}`}>
+              <a href={src} target="_blank" rel="noreferrer noopener" className="block">
+                <span className="relative block size-16 overflow-hidden rounded-lg bg-neutral-100">
+                  <Image src={src} alt={`Photo ${i + 1} from ${review.author.name ?? "a buyer"}'s review`} fill sizes="64px" className="object-cover" />
+                </span>
+              </a>
+            </li>
+          ))}
+        </ul>
+      ) : null}
+      <p className="mt-1 text-xs text-neutral-500">by {review.author.name ?? "Anonymous"}</p>
       {review.replyBody ? (
         <div className="mt-2 rounded-lg bg-neutral-100 p-3 text-sm dark:bg-neutral-800">
           <p className="text-[11px] font-bold uppercase tracking-wide text-neutral-500">Seller response</p>

@@ -42,6 +42,7 @@ async function api(path: string, init?: RequestInit) {
 export function useChat(conversationId: string, userId: string) {
   const queryClient = useQueryClient();
   const [peerTyping, setPeerTyping] = useState(false);
+  const [live, setLive] = useState(false);
   const typingTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastTyping = useRef(0);
 
@@ -56,16 +57,29 @@ export function useChat(conversationId: string, userId: string) {
     queryKey: ["chat-messages", conversationId],
     queryFn: () =>
       api(`/api/v1/chat/conversations/${conversationId}/messages?pageSize=100`) as Promise<ChatMessage[]>,
-    refetchInterval: 10000,
+    // SSE is the primary delivery path, so polling is only a fallback for when
+    // the stream can't be established. Previously both ran unconditionally —
+    // every open thread fetched the same page three ways (poll + SSE event +
+    // focus refetch).
+    refetchInterval: live ? false : 15000,
     retry: false,
   });
   const messages: ChatMessage[] = (msgQuery.data ?? []).map((m) => ({ ...m, mine: m.senderId === userId }));
 
-  // SSE live stream with polling fallback already on msgQuery.
+  // SSE live stream; polling on msgQuery covers the case where it can't connect.
   useEffect(() => {
     let es: EventSource | null = null;
+    let opened = false;
     try {
       es = new EventSource(`/api/v1/chat/stream?conversationId=${conversationId}`);
+      es.onopen = () => {
+        opened = true;
+        setLive(true);
+      };
+      es.onerror = () => {
+        // Browser retries automatically; fall back to polling meanwhile.
+        if (!opened) setLive(false);
+      };
       const refresh = () => {
         queryClient.invalidateQueries({ queryKey: ["chat-messages", conversationId] });
         queryClient.invalidateQueries({ queryKey: ["chat-detail", conversationId] });
@@ -88,7 +102,7 @@ export function useChat(conversationId: string, userId: string) {
         }
       });
     } catch {
-      // polling fallback covers it
+      // EventSource unavailable — `live` is already false, so msgQuery polls.
     }
     return () => {
       es?.close();
@@ -104,14 +118,16 @@ export function useChat(conversationId: string, userId: string) {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ messageId: latestId }),
-    }).catch(() => {});
+    }).catch((e) => console.warn("[chat] mark-read failed:", e));
   }, [latestId, conversationId]);
 
   const pingTyping = useCallback(() => {
     const now = Date.now();
     if (now - lastTyping.current < 3000) return;
     lastTyping.current = now;
-    fetch(`/api/v1/chat/conversations/${conversationId}/typing`, { method: "POST" }).catch(() => {});
+    fetch(`/api/v1/chat/conversations/${conversationId}/typing`, { method: "POST" }).catch((e) =>
+      console.warn("[chat] typing ping failed:", e)
+    );
   }, [conversationId]);
 
   const send = useCallback(

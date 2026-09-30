@@ -211,7 +211,7 @@ export function ChatThread({ conversationId, userId }: { conversationId: string;
           {image ? (
             <p className="flex items-center gap-2 text-xs">
               <span className="relative block size-14 overflow-hidden rounded-lg">
-                <Image src={image.preview} alt="" fill className="object-cover" unoptimized />
+                <Image src={image.preview} alt="" fill sizes="56px" className="object-cover" unoptimized />
               </span>
               {image.name}
               <button className="font-bold" onClick={() => setImage(null)}>×</button>

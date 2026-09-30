@@ -74,6 +74,9 @@ export default async function HomePage() {
                       alt=""
                       width={320}
                       height={260}
+                      // Hero art is above the fold on the LCP path.
+                      priority
+                      sizes="(max-width: 640px) 160px, (max-width: 1024px) 320px, 640px"
                       className="ml-4 hidden w-40 shrink-0 rounded-xl object-cover sm:block md:w-80"
                     />
                   </div>

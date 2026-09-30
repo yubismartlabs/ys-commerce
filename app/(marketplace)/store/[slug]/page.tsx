@@ -162,7 +162,8 @@ export default function StorePage({ params }: { params: Promise<{ slug: string }
       <Card className="overflow-hidden p-0">
         {store.banner ? (
           <div className="relative h-36 w-full sm:h-44">
-            <Image src={store.banner} alt="" fill className="object-cover" sizes="100vw" />
+            {/* Store banner is the LCP element of this page. */}
+            <Image src={store.banner} alt="" fill priority sizes="100vw" className="object-cover" />
           </div>
         ) : null}
         <div className="flex flex-wrap items-center gap-4 p-5">
