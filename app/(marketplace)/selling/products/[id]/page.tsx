@@ -25,6 +25,7 @@ type Detail = {
   price: number;
   compareAt: number | null;
   category: string;
+  brand: string | null;
   badge: string | null;
   freeShipping: boolean;
   status: string;
@@ -116,6 +117,7 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
           price: String(p.price),
           compareAt: p.compareAt === null ? "" : String(p.compareAt),
           category: p.category,
+          brand: p.brand ?? "",
           badge: p.badge ?? "",
           freeShipping: p.freeShipping,
           status: p.status,

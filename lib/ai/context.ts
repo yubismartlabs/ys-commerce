@@ -14,6 +14,8 @@ export type AiCitation = {
   ratingCount: number;
   badge: string | null;
   freeShipping: boolean;
+  brand: string | null;
+  category: string;
   /** Seller identity for user-initiated quick-add (absent = cart groups as "Your items"). */
   storeId?: string | null;
   storeName?: string | null;
@@ -59,6 +61,8 @@ type CardProduct = {
   soldCount: number;
   badge: string | null;
   freeShipping: boolean;
+  brand?: string | null;
+  category?: string;
 };
 
 /** One shoppable citation, deal-aware (deal price wins, base becomes was). */
@@ -78,6 +82,8 @@ export function toCitation(
     ratingCount: p.ratingCount,
     badge: p.badge,
     freeShipping: p.freeShipping,
+    brand: p.brand ?? null,
+    category: p.category ?? "",
     ...(store ? { storeId: store.id, storeName: store.name, storeSlug: store.slug } : {}),
   };
 }
@@ -90,7 +96,7 @@ export function toCitation(
 export async function resolveMentionedProducts(
   reply: string,
   existing: AiCitation[],
-  limit = 6
+  limit = 9
 ): Promise<AiCitation[]> {
   const seen = new Set(existing.map((c) => c.slug.toLowerCase()));
   const slugs = [...new Set([...reply.matchAll(/\(?([a-z0-9]+(?:-[a-z0-9]+)*-\d+)\)?/gi)].map((m) => m[1].toLowerCase()))].filter(
@@ -104,7 +110,7 @@ export async function resolveMentionedProducts(
       select: {
         slug: true, title: true, price: true, compareAt: true, image: true,
         ratingAvg: true, ratingCount: true, soldCount: true, badge: true,
-        freeShipping: true, status: true, id: true,
+        freeShipping: true, status: true, id: true, brand: true, category: true,
         store: { select: { id: true, name: true, slug: true } },
       },
     });
@@ -158,16 +164,17 @@ export async function buildAiContext(opts: {
   }
 
   // Advisory search: run the real engine so recommendations are catalog-true.
+  // Nine hits feed the grouped sections; only the top five cost model tokens.
   const q = (opts.searchQuery ?? "").trim() || opts.lastUserText.slice(0, 120);
   if (q.length >= 2) {
     try {
-      const { hits } = await searchProducts(q, {}, 1, 5);
+      const { hits } = await searchProducts(q, {}, 1, 9);
       if (hits.length > 0) {
         parts.push(
           `SEARCH "${clip(q, 80)}": ` +
-            hits.map((h) => `${h.title} (${h.slug}) $${h.price} ★${h.ratingAvg} sold ${h.soldCount}`).join(" | ")
+            hits.slice(0, 5).map((h) => `${h.title} (${h.slug}) $${h.price} ★${h.ratingAvg} sold ${h.soldCount}`).join(" | ")
         );
-        for (const h of hits.slice(0, 3)) {
+        for (const h of hits) {
           if (!citations.some((c) => c.slug === h.slug)) {
             citations.push(toCitation(h));
           }
@@ -221,5 +228,5 @@ export async function buildAiContext(opts: {
     parts.push(`LIVE DEALS: ${liveDeals.map((d) => `${d.product.title} (${d.product.slug}) $${Number(d.dealPrice)}`).join(" | ")}`);
   }
 
-  return { text: parts.join("\n").slice(0, 4000), citations: citations.slice(0, 6) };
+  return { text: parts.join("\n").slice(0, 4000), citations: citations.slice(0, 9) };
 }

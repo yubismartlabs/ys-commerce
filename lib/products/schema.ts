@@ -39,6 +39,7 @@ export const productInput = z.object({
   price: z.number().min(0.01).max(1000000),
   compareAt: z.number().min(0.01).max(1000000).optional().nullable(),
   category: z.string().min(1).max(60),
+  brand: z.string().trim().max(40).optional().nullable(),
   badge: z.string().max(20).optional().nullable(),
   freeShipping: z.boolean().default(true),
   // Listing-level stock, for products with no variants. Opt-in: when

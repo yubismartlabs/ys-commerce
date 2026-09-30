@@ -31,7 +31,7 @@ import { usePublicSettings } from "@/lib/public-settings";
 import { useAssistant } from "@/lib/store/assistant";
 import { cn } from "@/lib/utils";
 import { AssistantText, isCompareAnswer, splitVerdict } from "@/components/ai/assistant-markdown";
-import { CompareTable, ProductCarousel, type AssistantProduct } from "@/components/ai/assistant-products";
+import { CompareTable, ProductGroups, type AssistantProduct } from "@/components/ai/assistant-products";
 
 type ChatMsg = {
   id?: string;
@@ -253,6 +253,11 @@ export function AssistantDrawer() {
     }
   };
 
+  /** Row tap: drill into product details in-chat with that product focused. */
+  const drill = (p: AssistantProduct) => {
+    void send(`Tell me more about **${p.title}** (${p.slug})`, p.slug);
+  };
+
   useEffect(() => {
     inputRef.current?.focus();
   }, []);
@@ -374,7 +379,7 @@ export function AssistantDrawer() {
     return -1;
   }, [messages]);
 
-  const send = async (text?: string) => {
+  const send = async (text?: string, focusSlug?: string) => {
     const content = (text ?? input).trim();
     if (!content || busy) return;
     setInput("");
@@ -389,7 +394,10 @@ export function AssistantDrawer() {
       const res = await fetch("/api/v1/ai/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: content, context }),
+        body: JSON.stringify({
+          message: content,
+          context: { ...context, ...(focusSlug ? { productSlug: focusSlug } : {}) },
+        }),
       });
       const json = await res.json().catch(() => null);
       if (!res.ok && !json?.data?.reply) {
@@ -416,7 +424,7 @@ export function AssistantDrawer() {
     }
   };
 
-  const vote = async (id: string, v: 1 | -1) => {    const prev = messages;
+    const vote = async (id: string, v: 1 | -1) => {    const prev = messages;
     setMessages((ms) => ms.map((m) => (m.id === id ? { ...m, feedback: m.feedback === v ? null : v } : m)));
     try {
       const res = await fetch("/api/v1/ai/feedback", {
@@ -564,7 +572,7 @@ export function AssistantDrawer() {
                   <p className="flex items-center gap-1.5 px-1 text-xs font-bold">
                     <Zap className="size-3.5 fill-current text-ali-orange" /> Today&apos;s flash deals
                   </p>
-                  <ProductCarousel items={dealPicks} />
+                  <ProductGroups items={dealPicks} onDrill={drill} sectioned={false} />
                 </div>
               ) : null}
             </div>
@@ -611,13 +619,13 @@ export function AssistantDrawer() {
                       </span>
                     ) : null}
                   </div>
-                  {m.citations && m.citations.length > 0 ? (
-                    m.compare ? (
-                      <CompareTable items={m.citations} verdict={verdict} />
-                    ) : (
-                      <ProductCarousel items={m.citations} stagger={m.fresh} />
-                    )
-                  ) : null}
+                {m.citations && m.citations.length > 0 ? (
+                  m.compare ? (
+                    <CompareTable items={m.citations} verdict={verdict} onDrill={drill} />
+                  ) : (
+                    <ProductGroups items={m.citations} onDrill={drill} stagger={m.fresh} />
+                  )
+                ) : null}
                   {showFollowups ? (
                     <div className="no-scrollbar flex gap-1.5 overflow-x-auto pb-0.5" aria-label="Follow-up questions">
                       {suggestions.map((s) => (

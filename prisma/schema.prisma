@@ -265,6 +265,9 @@ model Product {
   price       Decimal       @db.Decimal(10, 2)
   compareAt   Decimal?      @db.Decimal(10, 2)
   category    String
+  // Seller-declared brand ("Apple", "Nike"). Nullable so existing listings
+  // keep working; powers the assistant's grouped sections ("Top Apple").
+  brand       String?
   badge       String?
   freeShipping Boolean      @default(true)
   // Stock for variantless listings. Previously a product with no variants was

@@ -40,6 +40,7 @@ async function loadProduct(slug: string) {
       id: true, slug: true, title: true, price: true, compareAt: true, image: true,
       ratingAvg: true, ratingCount: true, soldCount: true, badge: true,
       freeShipping: true, status: true, trackStock: true, stock: true,
+      brand: true, category: true,
       variants: { select: { stock: true } },
       store: { select: { id: true, name: true, slug: true } },
     },

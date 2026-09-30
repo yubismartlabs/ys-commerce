@@ -74,12 +74,14 @@ export type SearchHit = {
   soldCount: number;
   badge: string | null;
   freeShipping: boolean;
+  category: string;
+  brand: string | null;
   rank: number;
 };
 
 const CARD_SELECT = `
   p."id", p."slug", p."title", p."image", p."price", p."compareAt",
-  p."ratingAvg", p."ratingCount", p."soldCount", p."badge", p."freeShipping"
+  p."ratingAvg", p."ratingCount", p."soldCount", p."badge", p."freeShipping", p."category", p."brand"
 `;
 
 function filterClauses(f: SearchFilters, params: unknown[]): string {
@@ -134,6 +136,8 @@ function mapHit(r: Record<string, unknown>): SearchHit {
     soldCount: Number(r.soldCount),
     badge: (r.badge as string | null) ?? null,
     freeShipping: Boolean(r.freeShipping),
+    category: String(r.category ?? ""),
+    brand: (r.brand as string | null) ?? null,
     rank: Number(r.rank ?? 0),
   };
 }

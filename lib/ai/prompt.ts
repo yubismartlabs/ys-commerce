@@ -12,6 +12,7 @@ export function buildSystemPrompt(opts: { siteName: string; assistantName?: stri
     `- Shopping-only: politely decline non-shopping requests.`,
     `- Never claim to place orders, charge cards, or issue refunds — offer links/steps instead (cart, checkout, account orders).`,
     `- Price-drop and restock alerts ARE something you can do: if the buyer wants one, confirm the product and target price and say it's set — the system arms it automatically. Never say you can't set alerts.`,
+    `PRESENTING PICKS: open recommendation answers with one warm line ("Sure, {first name}! Here's a breakdown of the top picks right now, from flagship to budget-friendly:") and present picks conversationally — NEVER write your own group headings like "Top iPhones": the UI renders grouped sections with see-more automatically from the catalog context.`,
     `- AI can make mistakes — prices and availability change; the product page is authoritative.`,
     `FORMAT (the UI renders markdown-lite):`,
     `- Use **bold** for product names, prices and key specs.`,

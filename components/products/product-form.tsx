@@ -20,6 +20,7 @@ export type ProductFormValues = {
   price: string;
   compareAt: string;
   category: string;
+  brand: string;
   badge: string;
   freeShipping: boolean;
   trackStock?: boolean;
@@ -54,6 +55,7 @@ export function ProductForm({
     price: "",
     compareAt: "",
     category: "",
+    brand: "",
     badge: "",
     freeShipping: true,
     trackStock: false,
@@ -106,6 +108,7 @@ export function ProductForm({
       price,
       ...(v.compareAt !== "" ? { compareAt: Number(v.compareAt) } : { compareAt: null }),
       category: v.category.trim().toLowerCase(),
+      ...(v.brand.trim() ? { brand: v.brand.trim().slice(0, 40) } : { brand: null }),
       ...(v.badge.trim() ? { badge: v.badge.trim() } : { badge: null }),
       freeShipping: v.freeShipping,
       trackStock: v.trackStock,
@@ -173,6 +176,8 @@ export function ProductForm({
           <div className="grid gap-1">
             <label htmlFor="pf-badge" className="text-sm font-medium">Badge (optional)</label>
             <Input id="pf-badge" value={v.badge} onChange={(e) => set("badge", e.target.value)} placeholder="Hot" maxLength={20} />
+            <label htmlFor="pf-brand" className="text-sm font-medium">Brand (optional)</label>
+            <Input id="pf-brand" value={v.brand} onChange={(e) => set("brand", e.target.value)} placeholder="Apple" maxLength={40} />
           </div>
         </div>
         <div className="grid gap-1">

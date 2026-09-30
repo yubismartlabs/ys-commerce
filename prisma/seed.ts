@@ -8,26 +8,27 @@ const prisma = new PrismaClient();
 const catalog: Array<{
   title: string;
   category: string;
+  brand: string;
   price: number;
   compareAt?: number;
   badge?: string;
 }> = [
-  { title: "Wireless Bluetooth 5.3 Earbuds with Noise Cancellation Charging Case", category: "electronics", price: 12.49, compareAt: 29.99, badge: "Choice" },
-  { title: "Men's Lightweight Running Sneakers Breathable Casual Shoes", category: "fashion", price: 19.99, compareAt: 45.0, badge: "Hot" },
-  { title: "LED Strip Lights 10M RGB Music Sync with Remote + App Control", category: "home", price: 8.79, compareAt: 19.99, badge: "Sale" },
-  { title: "Stainless Steel Electric Lint Remover Rechargeable Fabric Shaver", category: "home", price: 6.59, compareAt: 13.99 },
-  { title: "Women's Summer Floral Maxi Dress Beach Boho Sundress", category: "fashion", price: 14.29, compareAt: 32.5, badge: "Choice" },
-  { title: "4K Action Camera Waterproof Sports Cam with Dual Screen", category: "electronics", price: 39.99, compareAt: 89.99, badge: "Hot" },
-  { title: "Vitamin C Brightening Serum Hyaluronic Acid Facial Skincare 30ml", category: "beauty", price: 4.99, compareAt: 12.99, badge: "Choice" },
-  { title: "Portable Mini Blender USB Rechargeable Fruit Juicer 380ml", category: "home", price: 11.59, compareAt: 24.99 },
-  { title: "Smart Watch Fitness Tracker Heart Rate Blood Oxygen 1.85\" Display", category: "electronics", price: 16.99, compareAt: 39.99, badge: "Sale" },
-  { title: "Building Blocks City Set 1200pcs STEM Educational Toy Gift", category: "toys", price: 21.49, compareAt: 42.0 },
-  { title: "Car Vacuum Cleaner Portable Wireless Handheld 120W High Power", category: "automotive", price: 22.99, compareAt: 49.99 },
-  { title: "Magnetic Phone Case with Stand for iPhone Samsung Shockproof", category: "phones", price: 3.29, compareAt: 9.99, badge: "Choice" },
-  { title: "Yoga Mat Non-Slip Exercise Fitness Mat with Carry Strap 6mm", category: "sports", price: 13.99, compareAt: 27.99 },
-  { title: "Solar Outdoor String Lights 12M Waterproof Garden Decor", category: "home", price: 9.49, compareAt: 21.99, badge: "Sale" },
-  { title: "Mechanical Gaming Keyboard RGB Backlit Wired 87 Keys", category: "electronics", price: 24.59, compareAt: 55.0, badge: "Hot" },
-  { title: "Waterproof Hiking Backpack 50L Travel Camping Rucksack", category: "sports", price: 18.79, compareAt: 38.99 },
+  { title: "Wireless Bluetooth 5.3 Earbuds with Noise Cancellation Charging Case", category: "electronics", brand: "SonicWave", price: 12.49, compareAt: 29.99, badge: "Choice" },
+  { title: "Men's Lightweight Running Sneakers Breathable Casual Shoes", category: "fashion", brand: "StrideX", price: 19.99, compareAt: 45.0, badge: "Hot" },
+  { title: "LED Strip Lights 10M RGB Music Sync with Remote + App Control", category: "home", brand: "LumiGlow", price: 8.79, compareAt: 19.99, badge: "Sale" },
+  { title: "Stainless Steel Electric Lint Remover Rechargeable Fabric Shaver", category: "home", brand: "FabricPro", price: 6.59, compareAt: 13.99 },
+  { title: "Women's Summer Floral Maxi Dress Beach Boho Sundress", category: "fashion", brand: "BellaModa", price: 14.29, compareAt: 32.5, badge: "Choice" },
+  { title: "4K Action Camera Waterproof Sports Cam with Dual Screen", category: "electronics", brand: "VoltCam", price: 39.99, compareAt: 89.99, badge: "Hot" },
+  { title: "Vitamin C Brightening Serum Hyaluronic Acid Facial Skincare 30ml", category: "beauty", brand: "GlowLab", price: 4.99, compareAt: 12.99, badge: "Choice" },
+  { title: "Portable Mini Blender USB Rechargeable Fruit Juicer 380ml", category: "home", brand: "NutriMix", price: 11.59, compareAt: 24.99 },
+  { title: "Smart Watch Fitness Tracker Heart Rate Blood Oxygen 1.85\" Display", category: "electronics", brand: "PulseFit", price: 16.99, compareAt: 39.99, badge: "Sale" },
+  { title: "Building Blocks City Set 1200pcs STEM Educational Toy Gift", category: "toys", brand: "BuildJoy", price: 21.49, compareAt: 42.0 },
+  { title: "Car Vacuum Cleaner Portable Wireless Handheld 120W High Power", category: "automotive", brand: "TurboVac", price: 22.99, compareAt: 49.99 },
+  { title: "Magnetic Phone Case with Stand for iPhone Samsung Shockproof", category: "phones", brand: "ShieldCase", price: 3.29, compareAt: 9.99, badge: "Choice" },
+  { title: "Yoga Mat Non-Slip Exercise Fitness Mat with Carry Strap 6mm", category: "sports", brand: "FlexFlow", price: 13.99, compareAt: 27.99 },
+  { title: "Solar Outdoor String Lights 12M Waterproof Garden Decor", category: "home", brand: "SunGlow", price: 9.49, compareAt: 21.99, badge: "Sale" },
+  { title: "Mechanical Gaming Keyboard RGB Backlit Wired 87 Keys", category: "electronics", brand: "KeyStrike", price: 24.59, compareAt: 55.0, badge: "Hot" },
+  { title: "Waterproof Hiking Backpack 50L Travel Camping Rucksack", category: "sports", brand: "TrailPack", price: 18.79, compareAt: 38.99 },
 ];
 
 async function main() {
@@ -81,6 +82,7 @@ async function main() {
     await prisma.product.upsert({
       where: { slug },
       update: {
+        brand: item.brand,
         images: gallery,
         specs: [
           { k: "Brand", v: "YS Choice" },
@@ -93,6 +95,7 @@ async function main() {
         slug,
         title: item.title,
         description: "Mock description seeded for admin development.",
+        brand: item.brand,
         image: `https://picsum.photos/seed/ys-product-${i + 1}/600/600`,
         images: gallery,
         specs: [

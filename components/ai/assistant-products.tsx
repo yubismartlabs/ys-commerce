@@ -1,13 +1,12 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import {
   ArrowRight,
   BadgePercent,
-  ChevronLeft,
-  ChevronRight,
+  ChevronDown,
   Package,
   Plus,
   Scale,
@@ -16,7 +15,6 @@ import {
   Truck,
 } from "lucide-react";
 import { toast } from "sonner";
-import { Badge } from "@/components/ui/badge";
 import { discountPct, formatSold, formatUSD } from "@/lib/format";
 import { RatingStars } from "@/components/commerce/rating-stars";
 import { useCart } from "@/lib/store/cart";
@@ -34,6 +32,8 @@ export type AssistantProduct = {
   ratingCount?: number;
   badge?: string | null;
   freeShipping?: boolean;
+  brand?: string | null;
+  category?: string;
   storeId?: string | null;
   storeName?: string | null;
   storeSlug?: string | null;
@@ -60,217 +60,230 @@ function quickAdd(p: AssistantProduct) {
   toast.success("Added to cart", { description: p.title });
 }
 
-function pctOf(p: AssistantProduct): number | null {
-  return discountPct(p.price, p.compareAt ?? undefined);
-}
-
-function CardBadges({ p }: { p: AssistantProduct }) {
-  const pct = pctOf(p);
+/**
+ * List row: image left, name/price/shipping right, explicit actions.
+ * Tapping image or title drills into details in-chat; Add and View are
+ * always-visible buttons — no hidden gestures.
+ */
+function ProductRow({
+  p,
+  onDrill,
+  stagger,
+  delay,
+}: {
+  p: AssistantProduct;
+  onDrill: (p: AssistantProduct) => void;
+  stagger?: boolean;
+  delay?: number;
+}) {
+  const pct = discountPct(p.price, p.compareAt ?? undefined);
   return (
-    <>
-      {pct ? (
-        <Badge className="absolute left-2.5 top-2.5 rounded-full bg-ali-sale px-2 py-0.5 text-[11px] font-bold text-white shadow-md">
-          -{pct}%
-        </Badge>
-      ) : null}
-      {p.badge ? (
-        <Badge
-          variant="secondary"
-          className={cn(
-            "absolute right-2.5 top-2.5 rounded-full px-2 py-0.5 text-[11px] font-semibold shadow-md",
-            p.badge === "Choice" && "bg-orange-100 text-ali-orange-ink"
-          )}
-        >
-          {p.badge}
-        </Badge>
-      ) : null}
-    </>
-  );
-}
-
-function CardInfo({ p, large }: { p: AssistantProduct; large?: boolean }) {
-  return (
-    <div className={cn("space-y-1", large ? "p-4 pb-2" : "p-3 pb-1.5")}>
-      <Link href={`/product/${p.slug}`} className="block hover:text-ali-red">
-        <span className={cn("line-clamp-2 min-h-8 font-medium leading-snug text-neutral-900", large ? "text-sm" : "text-[13px]")}>
-          {p.title}
-        </span>
-      </Link>
-      <div className="flex items-center gap-1 text-[11px] text-neutral-500">
-        <RatingStars rating={p.ratingAvg} />
-        <span className="font-semibold text-neutral-700">{p.ratingAvg.toFixed(1)}</span>
-        {typeof p.soldCount === "number" ? (
-          <>
-            <span aria-hidden>·</span>
-            <span>{formatSold(p.soldCount)}</span>
-          </>
-        ) : null}
-      </div>
-      <div className="flex items-center gap-1.5">
-        <span className={cn("font-extrabold tracking-tight text-ali-red", large ? "text-xl" : "text-[17px]")}>
-          {formatUSD(p.price)}
-        </span>
-        {p.compareAt ? (
-          <span className="text-[11px] text-neutral-400 line-through">{formatUSD(p.compareAt)}</span>
-        ) : null}
-        {p.freeShipping ? (
-          <span className="ml-auto inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-700">
-            <Truck className="size-3" /> Free
+    <div
+      style={stagger ? { animationDelay: `${delay ?? 0}ms` } : undefined}
+      className={cn(
+        "ai-card flex gap-3 rounded-[18px] p-2.5 ring-1 ring-black/5 transition duration-200 hover:shadow-[0_2px_6px_rgba(20,16,12,0.08),0_10px_28px_rgba(20,16,12,0.10)]",
+        stagger && "ai-msg-in"
+      )}
+    >
+      <button
+        onClick={() => onDrill(p)}
+        aria-label={`Details about ${p.title}`}
+        className="relative size-[72px] shrink-0 self-start overflow-hidden rounded-xl bg-neutral-100"
+      >
+        <Image
+          src={p.image}
+          alt=""
+          fill
+          sizes="72px"
+          className="object-cover transition duration-300 hover:scale-105"
+        />
+        {pct ? (
+          <span className="absolute bottom-1 left-1 rounded-full bg-ali-sale px-1.5 text-[10px] font-bold text-white shadow">
+            -{pct}%
           </span>
         ) : null}
+      </button>
+      <div className="min-w-0 flex-1 space-y-1 py-0.5">
+        <button onClick={() => onDrill(p)} className="block w-full text-left hover:text-ali-red">
+          <span className="line-clamp-2 text-[13px] font-semibold leading-snug text-neutral-900">{p.title}</span>
+        </button>
+        <div className="flex items-center gap-1 text-[11px] text-neutral-500">
+          <RatingStars rating={p.ratingAvg} />
+          <span className="font-semibold text-neutral-700">{p.ratingAvg.toFixed(1)}</span>
+          {typeof p.soldCount === "number" ? (
+            <>
+              <span aria-hidden>·</span>
+              <span>{formatSold(p.soldCount)}</span>
+            </>
+          ) : null}
+        </div>
+        <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
+          <span className="text-[15px] font-extrabold tracking-tight text-ali-red">{formatUSD(p.price)}</span>
+          {p.compareAt ? (
+            <span className="text-[11px] text-neutral-400 line-through">{formatUSD(p.compareAt)}</span>
+          ) : null}
+          {p.freeShipping ? (
+            <span className="inline-flex items-center gap-0.5 text-[11px] font-semibold text-emerald-700">
+              <Truck className="size-3" /> Free shipping
+            </span>
+          ) : null}
+        </div>
+      </div>
+      <div className="flex w-[68px] shrink-0 flex-col justify-center gap-1.5">
+        <button
+          onClick={() => quickAdd(p)}
+          aria-label={`Add ${p.title} to cart`}
+          className="flex items-center justify-center gap-0.5 rounded-full bg-ali-red py-1.5 text-[12px] font-bold text-white shadow-sm transition hover:bg-ali-red-dark active:scale-95"
+        >
+          <Plus className="size-3.5" /> Add
+        </button>
+        <Link
+          href={`/product/${p.slug}`}
+          className="inline-flex items-center justify-center gap-0.5 rounded-full border border-neutral-200 py-1 text-[11px] font-bold text-neutral-700 transition hover:border-ali-red hover:text-ali-red"
+        >
+          View <ArrowRight className="size-3" />
+        </Link>
       </div>
     </div>
   );
 }
 
-function CardActions({ p }: { p: AssistantProduct }) {
+function Section({
+  title,
+  items,
+  onDrill,
+  stagger,
+  baseDelay,
+}: {
+  title: string;
+  items: AssistantProduct[];
+  onDrill: (p: AssistantProduct) => void;
+  stagger?: boolean;
+  baseDelay?: number;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const visible = expanded ? items : items.slice(0, 3);
   return (
-    <div className={cn("flex gap-1.5 px-3 pb-3")}>
-      <Link
-        href={`/product/${p.slug}`}
-        className="flex flex-1 items-center justify-center gap-0.5 rounded-full border border-neutral-200 py-1.5 text-[12px] font-bold text-neutral-800 transition hover:border-ali-red hover:text-ali-red"
-      >
-        View <ArrowRight className="size-3.5" />
-      </Link>
-      <button
-        onClick={() => quickAdd(p)}
-        aria-label={`Add ${p.title} to cart`}
-        className="flex flex-1 items-center justify-center gap-1 rounded-full bg-ali-red py-1.5 text-[12px] font-bold text-white shadow-sm transition hover:bg-ali-red-dark active:scale-95"
-      >
-        <Plus className="size-3.5" /> Add
-      </button>
-    </div>
+    <section aria-label={title} className="space-y-2">
+      <div className="flex items-center justify-between px-1">
+        <h4 className="text-[13px] font-extrabold tracking-tight text-neutral-900">{title}</h4>
+        {items.length > 3 ? (
+          <button
+            onClick={() => setExpanded((v) => !v)}
+            aria-expanded={expanded}
+            className="inline-flex items-center gap-0.5 text-[12px] font-bold text-ali-red hover:text-ali-red-dark"
+          >
+            {expanded ? "Show less" : `See more (${items.length - 3})`}
+            <ChevronDown className={cn("size-3.5 transition-transform", expanded && "rotate-180")} />
+          </button>
+        ) : null}
+      </div>
+      {visible.map((p, i) => (
+        <ProductRow key={p.slug} p={p} onDrill={onDrill} stagger={stagger} delay={(baseDelay ?? 0) + i * 55} />
+      ))}
+    </section>
   );
+}
+
+function groupItems(items: AssistantProduct[]): { sections: Array<{ title: string; items: AssistantProduct[] }>; rest: AssistantProduct[] } {
+  const byBrand = new Map<string, AssistantProduct[]>();
+  const loose: AssistantProduct[] = [];
+  for (const p of items) {
+    const b = p.brand?.trim();
+    if (b) {
+      const key = b.toLowerCase();
+      byBrand.set(key, [...(byBrand.get(key) ?? []), p]);
+    } else {
+      loose.push(p);
+    }
+  }
+  const sections: Array<{ title: string; items: AssistantProduct[] }> = [];
+  const rest: AssistantProduct[] = [...loose];
+  for (const list of byBrand.values()) {
+    // A lone brand gets no "Top" section — it joins the overflow list.
+    if (list.length >= 2) sections.push({ title: `Top ${list[0].brand!.trim()}`, items: list });
+    else rest.push(...list);
+  }
+  return { sections, rest };
 }
 
 /**
- * Alexa-style product rail: image-first cards with staggered entrances.
- * The lead pick renders as a full-width hero; the rest ride a snap rail
- * with a card peeking past the edge to invite the swipe.
+ * Grouped list answers: brand sections ("Top Apple") with inline see-more,
+ * overflow under "More picks". Two or fewer picks render as a flat list.
+ * Row taps drill into details in-chat via onDrill.
  */
-export function ProductCarousel({ items, stagger = false }: { items: AssistantProduct[]; stagger?: boolean }) {
-  const railRef = useRef<HTMLDivElement>(null);
-  const [atStart, setAtStart] = useState(true);
-  const [atEnd, setAtEnd] = useState(false);
-
+export function ProductGroups({
+  items,
+  onDrill,
+  stagger = false,
+  sectioned = true,
+}: {
+  items: AssistantProduct[];
+  onDrill: (p: AssistantProduct) => void;
+  stagger?: boolean;
+  sectioned?: boolean;
+}) {
   if (items.length === 0) return null;
-  const [hero, ...rest] = items;
-
-  const syncEdges = () => {
-    const el = railRef.current;
-    if (!el) return;
-    setAtStart(el.scrollLeft <= 4);
-    setAtEnd(el.scrollLeft + el.clientWidth >= el.scrollWidth - 4);
-  };
-
-  const nudge = (dir: 1 | -1) => {
-    railRef.current?.scrollBy({ left: dir * 440, behavior: "smooth" });
-  };
-
-  return (
-    <div className="space-y-2.5">
-      <div
-        style={stagger ? { animationDelay: "60ms" } : undefined}
-        className={cn(
-          "ai-card group overflow-hidden rounded-[20px] ring-1 ring-black/5 transition duration-200 hover:-translate-y-0.5 hover:shadow-[0_2px_6px_rgba(20,16,12,0.08),0_12px_32px_rgba(20,16,12,0.12)]",
-          stagger && "ai-msg-in"
-        )}
-      >
-        <Link href={`/product/${hero.slug}`} className="block">
-          <div className="relative aspect-[16/10] overflow-hidden bg-neutral-100">
-            <Image
-              src={hero.image}
-              alt={hero.title}
-              fill
-              sizes="360px"
-              className="object-cover transition duration-500 group-hover:scale-[1.03]"
-            />
-            <div className="pointer-events-none absolute inset-x-0 bottom-0 h-10 bg-gradient-to-t from-black/15 to-transparent" />
-            <CardBadges p={hero} />
-          </div>
-        </Link>
-        <CardInfo p={hero} large />
-        <CardActions p={hero} />
+  if (!sectioned || items.length <= 2) {
+    return (
+      <div className="space-y-2">
+        {items.map((p, i) => (
+          <ProductRow key={p.slug} p={p} onDrill={onDrill} stagger={stagger} delay={60 + i * 55} />
+        ))}
       </div>
+    );
+  }
+  const { sections, rest } = groupItems(items);
+  // No shared brand at all: one flat list, no section chrome.
+  if (sections.length === 0) {
+    return (
+      <div className="space-y-2">
+        {items.slice(0, 3).map((p, i) => (
+          <ProductRow key={p.slug} p={p} onDrill={onDrill} stagger={stagger} delay={60 + i * 55} />
+        ))}
+        <FlatOverflow items={items.slice(3)} onDrill={onDrill} stagger={stagger} />
+      </div>
+    );
+  }
+  return (
+    <div className="space-y-3">
+      {sections.map((s, si) => (
+        <Section key={s.title} title={s.title} items={s.items} onDrill={onDrill} stagger={stagger} baseDelay={60 + si * 120} />
+      ))}
       {rest.length > 0 ? (
-        <div className="group/rail relative" aria-label="More recommendations">
-          <div className="flex items-center justify-between px-1">
-            <p className="text-[11px] font-semibold text-neutral-500">{rest.length + 1} picks</p>
-            <button
-              onClick={() => {
-                rest.forEach((p) => quickAdd(p));
-                quickAdd(hero);
-                toast.success(`Added ${rest.length + 1} items to cart`);
-              }}
-              className="inline-flex items-center gap-1 rounded-full bg-neutral-900 px-2.5 py-1 text-[11px] font-bold text-white transition hover:bg-neutral-700 active:scale-95"
-            >
-              <Plus className="size-3" /> Add all
-            </button>
-          </div>
-          <div
-            ref={railRef}
-            onScroll={syncEdges}
-            className="no-scrollbar -mx-1 flex snap-x snap-mandatory gap-2.5 overflow-x-auto scroll-smooth px-1 py-1"
-          >
-            {rest.map((p, i) => (
-              <div
-                key={p.slug}
-                style={stagger ? { animationDelay: `${110 + i * 55}ms` } : undefined}
-                className={cn(
-                  "ai-card group w-[216px] shrink-0 snap-start overflow-hidden rounded-[20px] ring-1 ring-black/5 transition duration-200 hover:-translate-y-0.5 hover:shadow-[0_2px_6px_rgba(20,16,12,0.08),0_12px_32px_rgba(20,16,12,0.12)]",
-                  stagger && "ai-msg-in"
-                )}
-              >
-                <Link href={`/product/${p.slug}`} className="block">
-                  <div className="relative aspect-[5/4] overflow-hidden bg-neutral-100">
-                    <Image
-                      src={p.image}
-                      alt={p.title}
-                      fill
-                      sizes="216px"
-                      className="object-cover transition duration-500 group-hover:scale-[1.05]"
-                    />
-                    <CardBadges p={p} />
-                  </div>
-                </Link>
-                <CardInfo p={p} />
-                <CardActions p={p} />
-              </div>
-            ))}
-          </div>
-          <RailButton dir={-1} hidden={atStart} onNudge={nudge} label="Scroll products left" />
-          <RailButton dir={1} hidden={atEnd} onNudge={nudge} label="Scroll products right" />
-        </div>
+        <Section title="More picks" items={rest} onDrill={onDrill} stagger={stagger} baseDelay={60 + sections.length * 120} />
       ) : null}
     </div>
   );
 }
 
-function RailButton({
-  dir,
-  hidden,
-  onNudge,
-  label,
+function FlatOverflow({
+  items,
+  onDrill,
+  stagger,
 }: {
-  dir: 1 | -1;
-  hidden: boolean;
-  onNudge: (d: 1 | -1) => void;
-  label: string;
+  items: AssistantProduct[];
+  onDrill: (p: AssistantProduct) => void;
+  stagger?: boolean;
 }) {
-  const Icon = dir === 1 ? ChevronRight : ChevronLeft;
+  const [expanded, setExpanded] = useState(false);
+  if (items.length === 0) return null;
   return (
-    <button
-      onClick={() => onNudge(dir)}
-      aria-label={label}
-      tabIndex={hidden ? -1 : 0}
-      className={cn(
-        "absolute top-[38%] hidden size-9 -translate-y-1/2 items-center justify-center rounded-full bg-white/80 text-neutral-700 opacity-0 shadow-xl ring-1 ring-black/5 backdrop-blur-md transition duration-200 hover:scale-105 group-hover/rail:opacity-100 md:flex",
-        dir === 1 ? "-right-1.5" : "-left-1.5",
-        hidden && "pointer-events-none"
-      )}
-    >
-      <Icon className="size-4" />
-    </button>
+    <>
+      {expanded
+        ? items.map((p, i) => (
+            <ProductRow key={p.slug} p={p} onDrill={onDrill} stagger={stagger} delay={i * 55} />
+          ))
+        : null}
+      <button
+        onClick={() => setExpanded((v) => !v)}
+        aria-expanded={expanded}
+        className="flex w-full items-center justify-center gap-1 rounded-full border border-neutral-200 bg-white py-2 text-[12px] font-bold text-neutral-700 shadow-sm transition hover:border-ali-red hover:text-ali-red"
+      >
+        {expanded ? "Show less" : `See more (${items.length})`}
+        <ChevronDown className={cn("size-3.5 transition-transform", expanded && "rotate-180")} />
+      </button>
+    </>
   );
 }
 
@@ -278,9 +291,9 @@ function RailButton({
  * Side-by-side comparison for "X vs Y" questions: image-led columns,
  * price hero row, icon attribute rows, sticky verdict bar.
  */
-export function CompareTable({ items, verdict }: { items: AssistantProduct[]; verdict?: string }) {
+export function CompareTable({ items, verdict, onDrill }: { items: AssistantProduct[]; verdict?: string; onDrill: (p: AssistantProduct) => void }) {
   const cols = items.slice(0, 3);
-  if (cols.length < 2) return <ProductCarousel items={items} />;
+  if (cols.length < 2) return <ProductGroups items={items} onDrill={onDrill} />;
   const rows: Array<{ label: string; icon: React.ReactNode; render: (p: AssistantProduct) => React.ReactNode }> = [
     { label: "Price", icon: <Tag className="size-3.5" />, render: (p) => <span className="text-[15px] font-extrabold tracking-tight text-ali-red">{formatUSD(p.price)}</span> },
     {
@@ -324,13 +337,13 @@ export function CompareTable({ items, verdict }: { items: AssistantProduct[]; ve
               <th className="w-14 p-0" aria-hidden />
               {cols.map((p) => (
                 <th key={p.slug} className="min-w-28 p-3 align-top font-normal">
-                  <Link href={`/product/${p.slug}`} className="group block space-y-1.5">
+                  <button onClick={() => onDrill(p)} className="group block w-full space-y-1.5" aria-label={`Details about ${p.title}`}>
                     <span className="relative mx-auto block aspect-square w-24 overflow-hidden rounded-2xl bg-neutral-100 ring-1 ring-black/5">
-                      <Image src={p.image} alt={p.title} fill sizes="96px" className="object-cover transition duration-500 group-hover:scale-105" />
+                      <Image src={p.image} alt="" fill sizes="96px" className="object-cover transition duration-500 group-hover:scale-105" />
                     </span>
                     <span className="line-clamp-2 block text-[12px] font-medium leading-snug text-neutral-800 group-hover:text-ali-red">{p.title}</span>
                     <span className="block text-[14px] font-extrabold tracking-tight text-ali-red">{formatUSD(p.price)}</span>
-                  </Link>
+                  </button>
                 </th>
               ))}
             </tr>
