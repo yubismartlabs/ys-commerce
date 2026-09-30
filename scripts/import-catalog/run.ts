@@ -12,6 +12,7 @@ import type { NormalizedListing, RawListing } from "./types";
 import * as amazon from "./sites/amazon";
 import * as ebay from "./sites/ebay";
 import * as aliexpress from "./sites/aliexpress";
+import { JADEALS_TARGETS, listUrls as jadealsList } from "./sites/jadeals";
 
 const ADAPTERS = { amazon, ebay, aliexpress };
 
@@ -35,6 +36,28 @@ async function collect(limit: number): Promise<{ raw: RawListing[]; stats: Recor
   const raw: RawListing[] = [];
   const seen = new Set<string>();
   const stats: Record<string, number> = { searchOk: 0, searchBlocked: 0, productOk: 0, productMiss: 0, dupes: 0 };
+  // Store-API targets first: structured JSON, one request per target.
+  for (const t of JADEALS_TARGETS) {
+    if (raw.length >= limit) break;
+    try {
+      const listings = await jadealsList(t, PER_TARGET);
+      stats.searchOk++;
+      console.log(`[jadeals ok] ${t.kind === "category" ? `cat ${t.id}` : `"${t.query}"`} -> ${listings.length} listings`);
+      for (const l of listings) {
+        if (raw.length >= limit) break;
+        if (seen.has(l.externalId)) {
+          stats.dupes++;
+          continue;
+        }
+        seen.add(l.externalId);
+        raw.push(l);
+        stats.productOk++;
+      }
+    } catch (e) {
+      stats.searchBlocked++;
+      console.log(`[jadeals BLOCKED] ${t.kind === "category" ? t.id : t.query}: ${(e as Error).message}`);
+    }
+  }
   for (const t of TARGETS) {
     if (raw.length >= limit) break;
     const adapter = ADAPTERS[t.site];

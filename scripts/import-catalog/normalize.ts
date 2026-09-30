@@ -32,7 +32,9 @@ const TAG_RULES: Array<{ tag: string; re: RegExp }> = [
 function slugify(title: string, externalId: string): string {
   const base =
     title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 44) || "product";
-  const hash = Buffer.from(externalId).toString("base64url").slice(0, 6);
+  // Tail of the encoding, not the head: shared prefixes ("jadeals:", "amz:")
+  // encode identically, so head-slices collide across rows.
+  const hash = Buffer.from(externalId).toString("base64url").replace(/[^a-z0-9]/gi, "").slice(-8);
   return `${base}-${hash}`;
 }
 
@@ -40,12 +42,12 @@ function slugify(title: string, externalId: string): string {
 export function normalize(raw: RawListing): NormalizedListing | null {
   if (raw.title.length < 5 || raw.images.length === 0) return null;
   const hay = `${raw.title} ${raw.categoryHint ?? ""}`;
-  const category = CATEGORY_RULES.find((r) => r.re.test(hay))?.slug ?? "electronics";
+  const category = raw.category ?? CATEGORY_RULES.find((r) => r.re.test(hay))?.slug ?? "electronics";
   const tags = TAG_RULES.filter((r) => r.re.test(hay)).map((r) => r.tag).slice(0, 8);
   return {
     slug: slugify(raw.title, raw.externalId),
     title: raw.title,
-    description: `Imported test listing from ${raw.source} for evaluation. Not a live offer.`,
+    description: raw.description?.slice(0, 500) ?? `Imported test listing from ${raw.source} for evaluation. Not a live offer.`,
     image: raw.images[0],
     images: raw.images,
     specs: raw.specs.slice(0, 12).map((s) => ({ k: s.k.slice(0, 60), v: s.v.slice(0, 300) })),
