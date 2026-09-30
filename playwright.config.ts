@@ -1,4 +1,5 @@
 import { defineConfig, devices } from "@playwright/test";
+import { testDatabaseUrl } from "./tests/db-url";
 
 /**
  * Smoke suite for the seller inventory manager.
@@ -15,6 +16,9 @@ const baseURL = process.env.E2E_BASE_URL ?? `http://127.0.0.1:${PORT}`;
 
 export default defineConfig({
   testDir: "./tests",
+  // Recreates the E2E database from migrations + seed before the run.
+  globalSetup: "./tests/global-setup.ts",
+  globalTeardown: "./tests/global-teardown.ts",
   fullyParallel: false,
   workers: 1,
   forbidOnly: !!process.env.CI,
@@ -28,13 +32,23 @@ export default defineConfig({
     screenshot: "only-on-failure",
   },
   projects: [
-    // Signs in through the real form and saves the session for every other spec.
-    { name: "setup", testMatch: /auth\.setup\.ts/ },
+    // Sign in through the real form and save the sessions other specs reuse.
+    { name: "setup-seller", testMatch: /auth\.seller\.setup\.ts/ },
+    { name: "setup-buyer", testMatch: /auth\.buyer\.setup\.ts/ },
     {
-      name: "chromium",
+      name: "seller",
       use: { ...devices["Desktop Chrome"], storageState: "playwright/.auth/seller.json" },
-      dependencies: ["setup"],
-      testIgnore: /auth\.setup\.ts/,
+      dependencies: ["setup-seller"],
+      // Each project runs only the specs written for its session; without this
+      // the seller-only inventory specs would also run as the buyer.
+      testMatch: /\.seller\.spec\.ts$/,
+    },
+    {
+      name: "buyer",
+      use: { ...devices["Desktop Chrome"], storageState: "playwright/.auth/buyer.json" },
+      // The checkout spec provisions its listing with the seller session.
+      dependencies: ["setup-seller", "setup-buyer"],
+      testMatch: /\.buyer\.spec\.ts$/,
     },
   ],
   // Skipped when E2E_BASE_URL points at an already-running server.
@@ -45,6 +59,8 @@ export default defineConfig({
         url: baseURL,
         reuseExistingServer: !process.env.CI,
         timeout: 240_000,
-        env: { AUTH_TRUST_HOST: "true" },
+        // The app under test always points at the throwaway E2E database, so a
+        // run can never write to the developer's data.
+        env: { AUTH_TRUST_HOST: "true", DATABASE_URL: testDatabaseUrl() },
       },
 });

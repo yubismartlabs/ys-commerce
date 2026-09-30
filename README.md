@@ -153,8 +153,17 @@ Every individual API call passed; the feature was unreachable. The suite runs ag
 build** (not dev, which hides prerender and client-boundary bugs), signs in through the real form, and
 asserts on stored values read back from the API rather than on toasts, because a toast left over from the
 previous action will happily satisfy the next assertion. Specs create and delete their own listings, so
-they are repeatable and don't depend on specific seeded rows. `workers: 1` is deliberate — they mutate
-a shared database.
+they don't depend on specific seeded rows, and `workers: 1` is deliberate — they mutate a shared
+database.
+
+**Buyer checkout** (`tests/checkout.buyer.spec.ts`) covers the money path: product page -> cart ->
+checkout -> order, asserting on the stock actually decremented in the database rather than on what the
+page claims. It pins two properties that are easy to break and expensive to discover late: checkout
+**re-prices server-side** (the cart API accepts a client-supplied `price`; posting `$0.01` for a `$20`
+item must still bill `$20`), and an order **beyond available stock is refused** with the listing's
+stock left untouched rather than driven negative. That oversell case is driven through the API on
+purpose, because the product page caps its quantity stepper at available stock — the UI cannot express
+an oversell, so the guard worth testing is the server's.
 
 ---
 
@@ -174,6 +183,10 @@ npm run test:e2e           # Playwright smoke suite (builds + starts the app)
 npm run test:e2e:ui        # interactive debugger
 ```
 
-`npm run test:e2e` needs `DATABASE_URL` pointing at a database it may write to — the suite creates and
-deletes its own listings. It starts its own server on port 3210; set `E2E_BASE_URL` to reuse a server
-that is already running.
+The suite runs against its **own throwaway database** (`ys_commerce_e2e`, derived from `DATABASE_URL`),
+which `tests/global-setup.ts` drops, recreates, migrates, and seeds before each run and
+`tests/global-teardown.ts` drops afterwards. This matters because the suite places real orders, and a
+listing with order history cannot be deleted through the API — pointing this at your development data
+would leave unrecoverable debris on every run. Set `E2E_KEEP_DB=1` to keep the database for inspection
+after a failure. The app under test is always started with the test `DATABASE_URL`, on port 3210; set
+`E2E_BASE_URL` to reuse a server you started yourself (in which case you own its database).
