@@ -102,6 +102,21 @@ rather than random, so catalogue URLs stay clean and indexable.
 
 **Stock.** `ProductVariant.stock` covers options; `Product.trackStock` + `Product.stock` covers variantless listings, which previously had no stock field at all and were sellable without limit. `trackStock` is opt-in so existing listings are unaffected until a seller turns it on. Checkout re-reads stock inside the transaction and sums quantities **per product across all cart lines**, so two lines of the same item can't each pass the check and oversell together.
 
+**Bulk inventory actions.** `/selling/listings` selects rows and applies publish/unpublish, a percentage
+price change, or an absolute stock set in one audited call (`POST /api/v1/selling/products/bulk-action`).
+Price actions are a **multiplier on the current price**, not a delta, so repeating a −20% markdown halves
+each time rather than compounding into nonsense. A selection spanning two stores is refused — the API is
+store-scoped, and the UI says so rather than silently applying to the first store it finds. A price change
+that would round a listing to $0.00 is skipped with an explanation instead of being clamped.
+
+**PATCH bodies must not be trusted to mean "unchanged"** (`lib/api/patch.ts`). `z.number().default(0)`
+inside `.partial()` still yields `0` for an omitted key, so spreading the parse result straight into a
+Prisma update silently resets every defaulted field on every partial edit. Editing a product's price used
+to zero its `stock`, clear `images`/`specs`, and — because `variants` defaulted to `[]`, which is truthy —
+**delete all of its variants**; editing a coupon's `active` flag wiped the store/category scoping built for
+seller `FREESHIP`. `pickSent` keeps only keys the client actually sent. Any new PATCH route built on a
+create schema must use it.
+
 **Returns vs disputes.** They are deliberately separate. A return is ordinary after-sales and freezes escrow for the lines involved; a dispute is adversarial and settles via admin ruling. Money only moves on `REFUNDED`, which is admin-only — a seller cannot self-serve a refund.
 
 **Payments are simulated.** No card is collected or charged; orders are written as `PAID` immediately. `payments.provider` is `mock` only. Wire a real provider before taking money — see "Not yet built" below.
@@ -119,9 +134,10 @@ Deliberately incomplete — see the plan in the git history:
 - **Review moderation** is not implemented. Reviews publish immediately.
 - **Chat uploads** are written to local disk and served publicly. They are not access-controlled, which is intentional for trust & safety but means they are not private. Use object storage for production.
 - **Product taxonomy** is a free-text column, not a real category tree. `lib/categories.ts` provides a canonical slug list and alias normalization, and filters are case-insensitive, but sellers can still enter arbitrary category strings.
-- **Bulk listing import exists; a full inventory manager does not.** Sellers can import up to 500 products
-  per CSV at `/selling/listings/bulk` (dry-run preview, per-row errors, deterministic slugs). There is
-  still no bulk *edit*/price update across existing listings, and no scheduled publish.
+- **The inventory manager has no scheduling.** Sellers can import up to 500 products per CSV at
+  `/selling/listings/bulk` (dry-run preview, per-row errors, deterministic slugs), run bulk *updates* from
+  the same page matched by slug, and apply selection-based price/stock/status actions at `/selling/listings`.
+  There is no scheduled publish, no variant-level bulk edit, and no CSV of images.
 - **Seller coupons are manual**: no scheduled campaigns, no auto-apply, no stacking
   (one coupon per order). A seller `FREESHIP` code waives only their own parcel's
   shipping, never a peer's.

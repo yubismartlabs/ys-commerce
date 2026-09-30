@@ -1,7 +1,8 @@
 import { db } from "@/lib/db";
 import { fail, ok } from "@/lib/api/http";
 import { audit, withAdmin } from "@/lib/api/guard";
-import { couponInput } from "@/lib/coupons/schema";
+import { couponFields } from "@/lib/coupons/schema";
+import { pickSent } from "@/lib/api/patch";
 
 export const GET = withAdmin(
   async (_req, _actor, { params }: { params: Promise<{ id: string }> }) => {
@@ -22,8 +23,11 @@ export const PATCH = withAdmin(
   async (req, actor, { params }: { params: Promise<{ id: string }> }) => {
     const { id } = await params;
     // Partial update: code is immutable (rotating codes = new coupon).
-    const schema = couponInput.omit({ code: true }).partial();
-    const parsed = schema.safeParse(await req.json().catch(() => null));
+    // `couponFields` (not `couponInput`) so create-only cross-field rules
+    // aren't applied to a partial edit.
+    const schema = couponFields.omit({ code: true }).partial();
+    const body = await req.json().catch(() => null);
+    const parsed = schema.safeParse(body);
     if (!parsed.success) {
       return fail("VALIDATION", parsed.error.issues[0]?.message ?? "Invalid coupon", 422);
     }
@@ -31,7 +35,9 @@ export const PATCH = withAdmin(
     const coupon = await db.coupon.findUnique({ where: { id } });
     if (!coupon) return fail("NOT_FOUND", "Coupon not found", 404);
 
-    const { startsAt, endsAt, ...rest } = parsed.data;
+    // Drop schema defaults for unsent keys, otherwise editing `active` on a
+    // scoped FREESHIP coupon wipes its storeIds/categories and flips it to PERCENT.
+    const { startsAt, endsAt, ...rest } = pickSent(parsed.data, body) as typeof parsed.data;
     const type = rest.type ?? coupon.type;
     if (type === "PERCENT" && rest.pctOff === undefined && coupon.pctOff === null) {
       return fail("VALIDATION", "pctOff is required for percent coupons", 422);
@@ -44,9 +50,9 @@ export const PATCH = withAdmin(
       where: { id },
       data: {
         ...rest,
-        ...(rest.type === "PERCENT" ? { amountOff: null } : {}),
-        ...(rest.type === "FIXED" ? { pctOff: null } : {}),
-        ...(rest.type === "FREESHIP" ? { pctOff: null, amountOff: null } : {}),
+        ...(type === "PERCENT" ? { amountOff: null } : {}),
+        ...(type === "FIXED" ? { pctOff: null } : {}),
+        ...(type === "FREESHIP" ? { pctOff: null, amountOff: null } : {}),
         ...(startsAt !== undefined ? { startsAt: startsAt ? new Date(startsAt) : null } : {}),
         ...(endsAt !== undefined ? { endsAt: endsAt ? new Date(endsAt) : null } : {}),
       },

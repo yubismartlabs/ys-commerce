@@ -1,7 +1,12 @@
 import { z } from "zod";
 
-/** Full coupon payload (create). PATCH uses .omit({ code }).partial(). */
-export const couponInput = z.object({
+/**
+ * Base field shapes, WITHOUT the create-time cross-field rules. PATCH builds
+ * on this so an edit can't be rejected by create-only invariants (e.g. a
+ * FREESHIP coupon has no `pctOff`); the PATCH route validates the merged
+ * row instead.
+ */
+export const couponFields = z.object({
   code: z.string().min(3).max(32).toUpperCase(),
   type: z.enum(["PERCENT", "FIXED", "FREESHIP"]).default("PERCENT"),
   pctOff: z.number().int().min(1).max(90).optional(),
@@ -14,7 +19,10 @@ export const couponInput = z.object({
   perUserLimit: z.number().int().min(1).max(1000).nullable().optional(),
   categories: z.array(z.string().min(1).max(60)).max(50).default([]),
   storeIds: z.array(z.string().min(1)).max(100).default([]),
-}).superRefine((v, ctx) => {
+});
+
+/** Full coupon payload (create). */
+export const couponInput = couponFields.superRefine((v, ctx) => {
   if (v.type === "PERCENT" && v.pctOff === undefined) {
     ctx.addIssue({ code: "custom", message: "pctOff is required for percent coupons" });
   }

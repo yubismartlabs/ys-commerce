@@ -37,6 +37,26 @@ type Preview = {
  * rejected before anything is written to their catalogue.
  */
 export function BulkListingImport({ stores }: { stores: Array<{ id: string; name: string }> }) {
+  const [mode, setMode] = useState<"create" | "update">("create");
+  return (
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-center gap-1.5">
+        {(["create", "update"] as const).map((m) => (
+          <Button key={m} size="sm" variant={mode === m ? "default" : "outline"} aria-pressed={mode === m} onClick={() => setMode(m)}>
+            {m === "create" ? "Import new listings" : "Update existing (price/stock feed)"}
+          </Button>
+        ))}
+      </div>
+      {mode === "create" ? (
+        <CreatePanel stores={stores} />
+      ) : (
+        <UpdatePanel stores={stores} />
+      )}
+    </div>
+  );
+}
+
+function CreatePanel({ stores }: { stores: Array<{ id: string; name: string }> }) {
   const fileRef = useRef<HTMLInputElement>(null);
   const [csv, setCsv] = useState("");
   const [storeId, setStoreId] = useState(stores[0]?.id ?? "");
@@ -48,7 +68,7 @@ export function BulkListingImport({ stores }: { stores: Array<{ id: string; name
   });
 
   const run = useMutation({
-    mutationFn: async () => readData<BulkResult>(await postJson({ csv, storeId, publish })),
+    mutationFn: async () => readData<BulkResult>(await postJson({ mode: "create", csv, storeId, publish })),
     onSuccess: (r) => {
       toast.success(`Imported ${r.createdCount} product${r.createdCount === 1 ? "" : "s"}.`);
       setCsv("");
@@ -276,3 +296,161 @@ async function putJson(body: unknown): Promise<Response> {
     body: JSON.stringify(body),
   });
 }
+
+/**
+ * Bulk UPDATE panel: a price/stock feed matched by slug.
+ *
+ * Only the columns present in the file are applied, so a seller can upload
+ * `slug,price` alone without blanking every stock count.
+ */
+function UpdatePanel({ stores }: { stores: Array<{ id: string; name: string }> }) {
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [csv, setCsv] = useState("");
+  const [storeId, setStoreId] = useState(stores[0]?.id ?? "");
+
+  const run = useMutation({
+    mutationFn: async () => readData<UpdateResult>(await postJson({ mode: "update", csv, storeId })),
+    onSuccess: (r) => {
+      const bits = [`${r.changedCount} updated`];
+      if (r.changedCount < r.updated.length) bits.push(`${r.updated.length - r.changedCount} already up to date`);
+      const skips = r.skippedCount + r.errors.length;
+      if (skips > 0) bits.push(`${skips} skipped`);
+      toast.success(bits.join(" · "));
+      setCsv("");
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Update failed."),
+  });
+
+  const onFile = async (file: File) => {
+    if (file.size > 2 * 1024 * 1024) {
+      toast.error("That file is larger than 2MB.");
+      return;
+    }
+    setCsv(await file.text());
+  };
+
+  const busy = run.isPending;
+  const canRun = csv.trim().length > 0 && !!storeId && !busy;
+
+  return (
+    <div className="space-y-3">
+      <Card className="space-y-3 p-4">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <p className="text-sm font-semibold">Upload a price or stock feed</p>
+          <div className="flex flex-wrap gap-2">
+            <Button variant="outline" size="sm" asChild>
+              <a href="/api/v1/selling/products/bulk/template-update" download>
+                <Download className="size-4" /> Update template
+              </a>
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => fileRef.current?.click()} disabled={busy}>
+              <Upload className="size-4" /> Choose CSV
+            </Button>
+            <input
+              ref={fileRef}
+              type="file"
+              accept=".csv,text/csv"
+              className="sr-only"
+              aria-label="Upload a price or stock feed"
+              onChange={(e) => {
+                const f = e.target.files?.[0];
+                if (f) void onFile(f);
+                e.target.value = "";
+              }}
+            />
+          </div>
+        </div>
+
+        <div className="space-y-1">
+          <label htmlFor="bulk-update-store" className="text-sm font-medium">Apply to store</label>
+          <Select value={storeId} onValueChange={setStoreId}>
+            <SelectTrigger id="bulk-update-store">
+              <SelectValue placeholder="Pick a store" />
+            </SelectTrigger>
+            <SelectContent>
+              {stores.map((s) => (
+                <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="space-y-1">
+          <label htmlFor="bulk-update-csv" className="text-sm font-medium">CSV data</label>
+          <Textarea
+            id="bulk-update-csv"
+            value={csv}
+            onChange={(e) => setCsv(e.target.value)}
+            rows={7}
+            placeholder={"slug,price,stock\nproduct-1,22.49,40\nproduct-2,9.99,120"}
+            className="font-mono text-xs"
+          />
+        </div>
+
+        <Button size="sm" onClick={() => run.mutate()} disabled={!canRun} className="bg-ali-red text-white hover:bg-ali-red-dark">
+          {busy ? <Loader2 className="size-4 animate-spin" /> : <Upload className="size-4" />} Apply update
+        </Button>
+      </Card>
+
+      {run.data ? <UpdateReport data={run.data} /> : null}
+
+      <Card className="space-y-2 p-4 text-sm">
+        <p className="font-bold">How updates work</p>
+        <ul className="list-disc space-y-1 pl-5 text-neutral-600 dark:text-neutral-300">
+          <li>Rows are matched by <span className="font-medium">slug</span> — the product&apos;s URL, not its title.</li>
+          <li>
+            Only columns you include are touched. Upload <span className="font-mono text-xs">slug,price</span> to
+            change prices without affecting stock.
+          </li>
+          <li>Slugs from another store, or ones that don&apos;t exist, are reported and skipped.</li>
+          <li>Stock can only be set on listings that have stock tracking switched on.</li>
+          <li>Every price change is recorded in the product&apos;s public price history.</li>
+        </ul>
+        <p className="text-xs text-neutral-500">Maximum 500 rows (2MB) per update.</p>
+      </Card>
+    </div>
+  );
+}
+
+function UpdateReport({ data }: { data: UpdateResult }) {
+  const changes = data.updated.filter((u) => u.changes.length > 0);
+  const unchanged = data.updated.filter((u) => u.changes.length === 0);
+  return (
+    <Card className="space-y-2 p-4">
+      <p className="text-sm font-bold">
+        {data.changedCount} listing{data.changedCount === 1 ? "" : "s"} updated
+        {unchanged.length > 0 ? ` · ${unchanged.length} already up to date` : ""}
+        {data.rejectedCount > 0 ? ` · ${data.rejectedCount} skipped` : ""}
+      </p>
+      <ErrorList errors={data.errors} />
+      {data.failed.length > 0 ? (
+        <ul className="space-y-0.5 text-xs text-neutral-600">
+          {data.failed.slice(0, 20).map((f, i) => (
+            <li key={i}>Line {f.line} — {f.slug}: {f.reason}</li>
+          ))}
+        </ul>
+      ) : null}
+      {changes.length > 0 ? (
+        <ul className="space-y-0.5 text-xs">
+          {changes.slice(0, 20).map((c) => (
+            <li key={c.slug}>
+              <Link href={`/product/${c.slug}`} className="underline">{c.title}</Link>
+              <span className="ml-2 text-neutral-500">{c.changes.join(", ")}</span>
+            </li>
+          ))}
+          {changes.length > 20 ? <li className="text-neutral-400">and {changes.length - 20} more</li> : null}
+        </ul>
+      ) : null}
+    </Card>
+  );
+}
+
+type UpdateResult = {
+  updated: Array<{ slug: string; title: string; changes: string[] }>;
+  changedCount: number;
+  rejectedCount: number;
+  skippedCount: number;
+  total: number;
+  errors: RowError[];
+  failed: Array<{ line: number; slug: string; reason: string }>;
+};

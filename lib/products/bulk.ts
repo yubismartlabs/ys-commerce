@@ -349,3 +349,108 @@ export const CSV_TEMPLATE = [
     "ACTIVE",
   ].join(","),
 ].join("\n");
+
+// ---------------------------------------------------------------------------
+// Update mode
+//
+// Sellers maintain a price/stock feed and re-upload it. Rows are matched by
+// SLUG (the stable public identifier) rather than title, so renaming a product
+// never silently re-targets a price change.
+// ---------------------------------------------------------------------------
+
+export const BULK_UPDATE_HEADERS = ["slug", "price", "compare_at", "stock", "status"] as const;
+
+export type ValidatedUpdate = {
+  line: number;
+  slug: string;
+  // undefined = "leave alone". A price feed usually carries only what changed.
+  price?: number;
+  compareAt?: number | null;
+  stock?: number;
+  status?: "DRAFT" | "ACTIVE";
+};
+
+export function validateUpdateRows(rows: CsvRow[], startLine = 2): {
+  valid: ValidatedUpdate[];
+  errors: RowError[];
+  total: number;
+} {
+  const errors: RowError[] = [];
+  const valid: ValidatedUpdate[] = [];
+  const seen = new Set<string>();
+
+  rows.forEach((row, idx) => {
+    const line = startLine + idx;
+    const rowErrors: RowError[] = [];
+
+    const slug = (row.slug ?? "").trim();
+    if (!slug) {
+      rowErrors.push({ line, field: "slug", message: "Slug is required — it's the product's URL, e.g. product-1." });
+    } else if (slug.length > 120) {
+      rowErrors.push({ line, field: "slug", message: "Slug is too long (120 max)." });
+    }
+
+    const out: ValidatedUpdate = { line, slug };
+
+    const rawPrice = (row.price ?? "").trim();
+    if (rawPrice) {
+      const price = parseMoney(rawPrice);
+      if (price === null) rowErrors.push({ line, field: "price", message: "Price must be a number." });
+      else if (price <= 0) rowErrors.push({ line, field: "price", message: "Price must be greater than 0." });
+      else out.price = price;
+    }
+
+    const rawStock = (row.stock ?? "").trim();
+    if (rawStock) {
+      const n = Number(rawStock);
+      if (!Number.isInteger(n) || n < 0) {
+        rowErrors.push({ line, field: "stock", message: "Stock must be a whole number of 0 or more." });
+      } else {
+        out.stock = n;
+      }
+    }
+
+    const rawStatus = (row.status ?? "").trim().toUpperCase();
+    if (rawStatus) {
+      if (rawStatus !== "DRAFT" && rawStatus !== "ACTIVE") {
+        rowErrors.push({ line, field: "status", message: "Status must be DRAFT or ACTIVE." });
+      } else {
+        out.status = rawStatus;
+      }
+    }
+
+    const rawCompare = (row.compare_at ?? "").trim();
+    if (rawCompare) {
+      const c = parseMoney(rawCompare);
+      if (c === null) rowErrors.push({ line, field: "compare_at", message: "Compare-at must be a number." });
+      else if (out.price !== undefined && c <= out.price) {
+        rowErrors.push({ line, field: "compare_at", message: "Compare-at must be higher than the price." });
+      } else {
+        out.compareAt = c;
+      }
+    }
+
+    if (rowErrors.length > 0) {
+      errors.push(...rowErrors);
+      return;
+    }
+    // Duplicate slugs in one feed would apply twice; the second is a no-op at
+    // best and confusing at worst.
+    if (seen.has(slug)) {
+      errors.push({ line, field: "slug", message: `"${slug}" appears more than once in this file.` });
+      return;
+    }
+    seen.add(slug);
+    valid.push(out);
+  });
+
+  return { valid, errors, total: rows.length };
+}
+
+/** Template for the update (price/stock feed) workflow. */
+export const CSV_UPDATE_TEMPLATE = [
+  BULK_UPDATE_HEADERS.join(","),
+  "product-1,22.49,39.99,40,ACTIVE",
+  "product-2,9.99,,120,ACTIVE",
+  "product-3,,,15,DRAFT",
+].join("\n");

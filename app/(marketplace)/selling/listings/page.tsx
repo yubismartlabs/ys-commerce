@@ -9,6 +9,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { StatusBadge, Pager } from "@/components/refine/ui";
+import { BulkActionBar, SelectAllCheckbox } from "@/components/products/bulk-action-bar";
+import { Checkbox } from "@/components/ui/checkbox";
 import { readEnvelope } from "@/lib/api/client";
 import { formatUSD } from "@/lib/format";
 
@@ -20,7 +22,7 @@ type Listing = {
   soldCount: number;
   ratingAvg: number;
   ratingCount: number;
-  store: { name: string };
+  store: { name: string; id?: string };
   variants: Array<{ stock: number }>;
   trackStock: boolean;
   stock: number;
@@ -40,6 +42,7 @@ export default function ListingsPage() {
   const [status, setStatus] = useState<string | undefined>(undefined);
   const [q, setQ] = useState("");
   const [appliedQ, setAppliedQ] = useState("");
+  const [selected, setSelected] = useState<string[]>([]);
   const [page, setPage] = useState(1);
   const query = useQuery({
     queryKey: ["selling-products", status ?? "all", appliedQ, page],
@@ -60,6 +63,21 @@ export default function ListingsPage() {
   });
   const rows = query.data?.data ?? [];
   const total = query.data?.total ?? 0;
+
+  const rowIds = rows.map((r) => r.id);
+  const allSelected = rowIds.length > 0 && rowIds.every((id) => selected.includes(id));
+  const someSelected = rowIds.some((id) => selected.includes(id)) && !allSelected;
+  const toggleAll = () => setSelected(allSelected ? [] : rowIds);
+  const toggleOne = (id: string) =>
+    setSelected((s) => (s.includes(id) ? s.filter((x) => x !== id) : [...s, id]));
+
+  // Bulk actions are per-store: a selection spanning two stores has no single
+  // target, so the bar stays disabled until the seller narrows it.
+  const selectedStores = [
+    ...new Set(rows.filter((r) => selected.includes(r.id)).map((r) => r.store?.id).filter(Boolean)),
+  ];
+  const scopeStoreId = selectedStores.length === 1 ? selectedStores[0] : undefined;
+  const mixedStores = selected.length > 0 && selectedStores.length > 1;
   const pages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
   return (
@@ -68,7 +86,7 @@ export default function ListingsPage() {
         <h1 className="text-xl font-bold">Listings</h1>
         <div className="flex flex-wrap items-center gap-1.5">
           {(["DRAFT", "ACTIVE", "TAKEDOWN"] as const).map((s) => (
-            <Button key={s} size="sm" variant={status === s ? "default" : "outline"} aria-pressed={status === s} className="rounded-full" onClick={() => { setStatus(status === s ? undefined : s); setPage(1); }}>
+            <Button key={s} size="sm" variant={status === s ? "default" : "outline"} aria-pressed={status === s} className="rounded-full" onClick={() => { setStatus(status === s ? undefined : s); setPage(1); setSelected([]); }}>
               {s}
             </Button>
           ))}
@@ -80,7 +98,7 @@ export default function ListingsPage() {
           </Button>
         </div>
       </div>
-      <form className="flex gap-2" onSubmit={(e) => { e.preventDefault(); setAppliedQ(q); setPage(1); }}>
+      <form className="flex gap-2" onSubmit={(e) => { e.preventDefault(); setAppliedQ(q); setPage(1); setSelected([]); }}>
         <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search my listings…" aria-label="Search my listings" className="max-w-64" />
         <Button type="submit" size="sm" variant="outline">Search</Button>
       </form>
@@ -97,11 +115,22 @@ export default function ListingsPage() {
         ) : (
           <Table>
             <TableHeader>
-              <TableRow><TableHead>Product</TableHead><TableHead>Price</TableHead><TableHead>Stock</TableHead><TableHead>Sold</TableHead><TableHead>Rating</TableHead><TableHead>Status</TableHead><TableHead className="text-right">Action</TableHead></TableRow>
+              <TableRow>
+                <TableHead className="w-10">
+                  <SelectAllCheckbox checked={allSelected} indeterminate={someSelected} onToggle={toggleAll} />
+                </TableHead>
+                <TableHead>Product</TableHead><TableHead>Price</TableHead><TableHead>Stock</TableHead><TableHead>Sold</TableHead><TableHead>Rating</TableHead><TableHead>Status</TableHead><TableHead className="text-right">Action</TableHead></TableRow>
             </TableHeader>
             <TableBody>
               {rows.map((p) => (
-                <TableRow key={p.id}>
+                <TableRow key={p.id} data-state={selected.includes(p.id) ? "selected" : undefined}>
+                  <TableCell>
+                    <Checkbox
+                      checked={selected.includes(p.id)}
+                      aria-label={`Select ${p.title}`}
+                      onCheckedChange={() => toggleOne(p.id)}
+                    />
+                  </TableCell>
                   <TableCell>
                     <p className="line-clamp-1 max-w-64 font-medium">{p.title}</p>
                     <p className="text-xs text-neutral-500">{p.store.name}</p>
@@ -129,8 +158,15 @@ export default function ListingsPage() {
         )}
       </Card>
       {pages > 1 ? (
-        <Pager page={page} pageCount={pages} total={total} onPage={setPage} />
+        <Pager page={page} pageCount={pages} total={total} onPage={(n) => { setPage(n); setSelected([]); }} />
       ) : null}
+      {mixedStores ? (
+        <p className="rounded-lg bg-amber-50 p-2 text-xs text-amber-700 dark:bg-amber-950/40 dark:text-amber-300">
+          Your selection spans {selectedStores.length} stores. Bulk actions apply to one store at a time —
+          filter to a single store first.
+        </p>
+      ) : null}
+      <BulkActionBar storeId={scopeStoreId} selected={selected} onClear={() => setSelected([])} />
     </div>
   );
 }

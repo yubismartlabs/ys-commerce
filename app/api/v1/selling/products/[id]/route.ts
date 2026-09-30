@@ -6,6 +6,7 @@ import { fail, ok } from "@/lib/api/http";
 import { audit } from "@/lib/api/guard";
 import { isSuspended } from "@/lib/api/identity";
 import { productInput, variantSchema } from "@/lib/products/schema";
+import { pickSent, wasSent } from "@/lib/api/patch";
 
 async function ownProduct(userId: string, id: string) {
   const stores = await db.store.findMany({ where: { ownerId: userId }, select: { id: true } });
@@ -88,17 +89,21 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   if (!product) return fail("NOT_FOUND", "Product not found", 404);
   if (product.status === "TAKEDOWN") return fail("CONFLICT", "Taken-down listings can only be restored by support", 409);
 
-  const parsed = updateSchema.safeParse(await req.json().catch(() => null));
+  const body = await req.json().catch(() => null);
+  const parsed = updateSchema.safeParse(body);
   if (!parsed.success) return fail("VALIDATION", parsed.error.issues[0]?.message ?? "Invalid product", 422);
 
-  const { variants, specs, ...rest } = parsed.data;
+  // Drop schema defaults for keys the seller didn't send, otherwise a price-only
+  // edit resets stock/images/specs/variants and flips freeShipping back on.
+  const sent = pickSent(parsed.data, body) as typeof parsed.data;
+  const { variants, specs, ...rest } = sent;
   const updated = await db.$transaction(async (tx) => {
     if (variants) {
       await syncVariants(tx, id, variants, product.variants);
     }
     const saved = await tx.product.update({
       where: { id },
-      data: { ...rest, ...(specs ? { specs: specs as object } : {}) },
+      data: { ...rest, ...(wasSent(body, "specs") && specs ? { specs: specs as object } : {}) },
       include: { variants: true },
     });
 

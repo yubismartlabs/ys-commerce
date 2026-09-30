@@ -4,7 +4,7 @@ import { db } from "@/lib/db";
 import { fail, ok } from "@/lib/api/http";
 import { audit } from "@/lib/api/guard";
 import { isSuspended } from "@/lib/api/identity";
-import { parseCsv, validateBulkRows, uniqueSlug } from "@/lib/products/bulk";
+import { parseCsv, type CsvRow, validateBulkRows, validateUpdateRows, uniqueSlug } from "@/lib/products/bulk";
 import { getSettingGroup } from "@/lib/server-settings";
 
 /**
@@ -20,10 +20,12 @@ const MAX_ROWS = 500;
 const MAX_BYTES = 2 * 1024 * 1024;
 
 const bodySchema = z.object({
+  /** "create" adds products; "update" edits existing ones by slug. */
+  mode: z.enum(["create", "update"]).default("create"),
   csv: z.string().min(1, "Paste or upload a CSV."),
-  /** Anything not in this list is rejected — a seller can't bulk-create into another store. */
+  /** Anything not in this list is rejected — a seller can't bulk-edit into another store. */
   storeId: z.string().min(1),
-  /** Mark created listings ACTIVE immediately instead of DRAFT. */
+  /** Create-only: mark new listings ACTIVE immediately instead of DRAFT. */
   publish: z.boolean().optional(),
 });
 
@@ -47,6 +49,164 @@ function describeWriteFailure(e: unknown): string {
   if (code === "P2025") return "This row no longer matches a product; re-run the import.";
   console.error("[bulk-import] write failed:", e);
   return "Could not save these rows. Check for duplicate SKUs or values, then re-import.";
+}
+
+/**
+ * Bulk update: a price/stock feed matched by slug.
+ *
+ * Only columns present in the file are touched — a seller who uploads just
+ * `slug,price` must not accidentally blank every stock count.
+ */
+async function updateExisting(
+  rows: CsvRow[],
+  storeId: string,
+  userId: string
+): Promise<Response> {
+  const validation = validateUpdateRows(rows);
+  if (validation.valid.length === 0) {
+    return fail("VALIDATION", "No rows could be applied.", 422, {
+      errors: validation.errors,
+      total: validation.total,
+    });
+  }
+
+  const slugs = [...new Set(validation.valid.map((r) => r.slug))];
+  const existing = await db.product.findMany({
+    where: { slug: { in: slugs }, storeId },
+    select: { id: true, slug: true, title: true, price: true, compareAt: true, stock: true, trackStock: true, status: true },
+  });
+  const bySlug = new Map(existing.map((p) => [p.slug, p]));
+
+  const updated: Array<{ slug: string; title: string; changes: string[] }> = [];
+  const failed: Array<{ line: number; slug: string; reason: string }> = [];
+  const errors = [...validation.errors];
+
+  // Slugs that exist elsewhere (another seller's, or a typo) are reported
+  // distinctly — "not found" and "not yours" are different problems.
+  for (const r of validation.valid) {
+    if (!bySlug.has(r.slug)) {
+      const existsElsewhere = await db.product.findUnique({ where: { slug: r.slug }, select: { id: true } });
+      errors.push({
+        line: r.line,
+        field: "slug",
+        message: existsElsewhere
+          ? `"${r.slug}" belongs to another store.`
+          : `No product in this store has the slug "${r.slug}".`,
+      });
+    }
+  }
+
+  const CHUNK = 50;
+  const applicable = validation.valid.filter((r) => bySlug.has(r.slug));
+
+  for (let i = 0; i < applicable.length; i += CHUNK) {
+    const chunk = applicable.slice(i, i + CHUNK);
+    for (const r of chunk) {
+      const current = bySlug.get(r.slug)!;
+      const changes: string[] = [];
+      const data: Record<string, unknown> = {};
+
+      if (r.price !== undefined && r.price !== Number(current.price)) {
+        data.price = r.price;
+        changes.push(`price ${current.price} → ${r.price}`);
+      }
+      if (r.compareAt !== undefined) {
+        const nextCompare = r.compareAt;
+        const nextPrice = r.price ?? Number(current.price);
+        if (nextCompare !== null && nextCompare <= nextPrice) {
+          failed.push({ line: r.line, slug: r.slug, reason: "Compare-at must be higher than the price." });
+          continue;
+        }
+        if (Number(current.compareAt ?? 0) !== Number(nextCompare ?? 0)) {
+          data.compareAt = nextCompare;
+          changes.push("compare-at updated");
+        }
+      }
+      if (r.stock !== undefined && !current.trackStock) {
+        // Writing stock on a listing that doesn't track it would imply a
+        // quantity the storefront never enforces — misleading.
+        failed.push({
+          line: r.line,
+          slug: r.slug,
+          reason: "This listing doesn't track stock. Turn on stock tracking first.",
+        });
+        continue;
+      }
+      if (r.stock !== undefined && r.stock !== current.stock) {
+        data.stock = r.stock;
+        changes.push(`stock ${current.stock} → ${r.stock}`);
+      }
+      if (r.status !== undefined && r.status !== current.status) {
+        if (current.status === "TAKEDOWN") {
+          failed.push({
+            line: r.line,
+            slug: r.slug,
+            reason: "This listing was taken down by support and can't be republished here.",
+          });
+          continue;
+        }
+        data.status = r.status;
+        changes.push(`status → ${r.status}`);
+      }
+
+      if (Object.keys(data).length === 0) {
+        updated.push({ slug: r.slug, title: current.title, changes: [] });
+        continue;
+      }
+
+      try {
+        await db.$transaction(async (tx) => {
+          await tx.product.update({ where: { id: current.id }, data: data as never });
+          if (data.price !== undefined || data.compareAt !== undefined) {
+            await tx.priceSnapshot.create({
+              data: {
+                productId: current.id,
+                price: Number(data.price ?? current.price),
+                compareAt:
+                  data.compareAt === undefined
+                    ? current.compareAt
+                    : data.compareAt === null
+                      ? null
+                      : Number(data.compareAt),
+                source: "bulk_update",
+              },
+            });
+          }
+          // Keep variant stock aligned with the listing when it tracks stock
+          // and has no options of its own.
+          if (data.stock !== undefined) {
+            await tx.productVariant.updateMany({
+              where: { productId: current.id, name: "Default" },
+              data: { stock: Number(data.stock) },
+            });
+          }
+        });
+        updated.push({ slug: r.slug, title: current.title, changes });
+      } catch (e) {
+        failed.push({ line: r.line, slug: r.slug, reason: describeWriteFailure(e) });
+      }
+    }
+  }
+
+  const changed = updated.filter((u) => u.changes.length > 0).length;
+  if (changed > 0) {
+    await audit(userId, "product.bulk_update", "Product", storeId, {
+      storeId,
+      rows: validation.total,
+      changed,
+      failed: failed.length,
+    });
+  }
+
+  return ok({
+    updated,
+    changedCount: changed,
+    unchangedCount: updated.length - changed,
+    rejectedCount: errors.length + failed.length,
+    total: validation.total,
+    errors,
+    failed,
+  });
 }
 
 export async function POST(req: Request) {
@@ -79,6 +239,14 @@ export async function POST(req: Request) {
   if (rows.length > MAX_ROWS) {
     return fail("VALIDATION", `Too many rows (${rows.length}). Import ${MAX_ROWS} at a time.`, 422);
   }
+
+  if (parsed.data.mode === "update") {
+    if (!headers.includes("slug")) {
+      return fail("VALIDATION", "An update CSV must have a `slug` column.", 422);
+    }
+    return updateExisting(rows, store.id, userId);
+  }
+
   if (!headers.includes("title") || !headers.includes("price")) {
     return fail("VALIDATION", "The CSV must have at least `title` and `price` columns.", 422);
   }
