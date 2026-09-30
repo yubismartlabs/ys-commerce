@@ -1,7 +1,8 @@
 /** System prompt: Alexa-for-Shopping behavior with strict catalog grounding. */
-export function buildSystemPrompt(opts: { siteName: string }): string {
+export function buildSystemPrompt(opts: { siteName: string; assistantName?: string }): string {
+  const name = opts.assistantName?.trim() || "shopping assistant";
   return [
-    `You are the ${opts.siteName} shopping assistant, like Alexa for Shopping: helpful, concise, conversational.`,
+    `You are ${name}, the ${opts.siteName} shopping assistant, like Alexa for Shopping: helpful, concise, conversational.`,
     `You answer product questions, compare items, summarize reviews, recommend products, explain deals/price history, and help with orders, shipping, returns and coupons.`,
     `GROUNDING (strict, like Amazon):`,
     `- Prices, stock, deals, ratings, shipping, ETAs, and order status come ONLY from the CATALOG CONTEXT below. Never invent them.`,

@@ -34,7 +34,7 @@ function ProductCard({ c }: { c: Citation }) {
 /** Left push-drawer body: header, context badge, messages, suggestions, input. */
 export function AssistantDrawer() {
   const { context, close } = useAssistant();
-  const { aiEnabled } = usePublicSettings();
+  const { aiEnabled, aiName } = usePublicSettings();
   const { status } = useSession();
   const [messages, setMessages] = useState<ChatMsg[]>([]);
   const [citations, setCitations] = useState<Citation[]>([]);
@@ -97,7 +97,7 @@ export function AssistantDrawer() {
   if (status === "unauthenticated") {
     return (
       <div className="flex h-full flex-col">
-        <DrawerHeader onClose={close} />
+        <DrawerHeader name={aiName} onClose={close} />
         <div className="flex flex-1 flex-col items-center justify-center gap-3 p-6 text-center">
           <Sparkles className="size-8 text-ali-red" />
           <p className="text-sm font-semibold">Sign in for the shopping assistant</p>
@@ -113,7 +113,7 @@ export function AssistantDrawer() {
   if (!aiEnabled) {
     return (
       <div className="flex h-full flex-col">
-        <DrawerHeader onClose={close} />
+        <DrawerHeader name={aiName} onClose={close} />
         <div className="flex flex-1 items-center justify-center p-6 text-center text-sm text-neutral-500">
           The shopping assistant is off. An admin can enable it in System settings → AI Assistant.
         </div>
@@ -123,7 +123,7 @@ export function AssistantDrawer() {
 
   return (
     <div className="flex h-full flex-col bg-white">
-      <DrawerHeader onClose={close} />
+      <DrawerHeader name={aiName} onClose={close} />
       {context.productSlug || context.searchQuery ? (
         <p className="border-b px-4 py-2 text-[11px] text-neutral-500" aria-live="polite">
           {context.productSlug ? `Viewing: ${context.productSlug}` : null}
@@ -181,7 +181,7 @@ export function AssistantDrawer() {
           value={input}
           onChange={(e) => setInput(e.target.value)}
           placeholder="Ask about products, deals, orders…"
-          aria-label="Ask the shopping assistant"
+          aria-label={`Ask ${aiName}`}
           className="h-10 flex-1 rounded-full border px-3 text-sm outline-none focus:border-ali-red"
           maxLength={2000}
         />
@@ -194,11 +194,11 @@ export function AssistantDrawer() {
   );
 }
 
-function DrawerHeader({ onClose }: { onClose: () => void }) {
+function DrawerHeader({ name, onClose }: { name: string; onClose: () => void }) {
   return (
     <div className="flex items-center gap-2 border-b px-4 py-3">
       <Sparkles className="size-4 text-ali-red" />
-      <p className="flex-1 text-sm font-bold">Shopping assistant</p>
+      <p className="flex-1 text-sm font-bold">{name}</p>
       <Button variant="ghost" size="icon-sm" onClick={onClose} aria-label="Close assistant">
         <X />
       </Button>

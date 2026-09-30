@@ -109,6 +109,7 @@ export const FREE_AI_MODELS = [
 
 export const aiSchema = z.object({
   enabled: z.boolean().default(false),
+  name: z.string().trim().min(1).max(40).default("YS Assistant"),
   provider: z.enum(["huggingface"]).default("huggingface"),
   model: z.string().min(1).max(120).default("meta-llama/Meta-Llama-3.1-8B-Instruct"),
   hfApiKey: z.string().max(200).default(""),

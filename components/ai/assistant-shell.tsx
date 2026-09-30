@@ -3,6 +3,7 @@
 import { Sparkles, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAssistant } from "@/lib/store/assistant";
+import { usePublicSettings } from "@/lib/public-settings";
 import { AssistantDrawer } from "@/components/ai/assistant-drawer";
 import { cn } from "@/lib/utils";
 
@@ -38,29 +39,16 @@ export function AssistantShell({ children }: { children: React.ReactNode }) {
         </div>
       </aside>
       <div className="min-w-0 flex-1">{children}</div>
-      {!open ? <AssistantFab /> : null}
     </div>
-  );
-}
-
-function AssistantFab() {
-  const { toggle } = useAssistant();
-  return (
-    <Button
-      onClick={toggle}
-      aria-label="Open shopping assistant"
-      className="fixed bottom-6 left-4 z-40 gap-1.5 rounded-full bg-ali-red px-4 py-6 text-white shadow-lg hover:bg-ali-red-dark"
-    >
-      <Sparkles className="size-4" /> Assistant
-    </Button>
   );
 }
 
 /** Header icon trigger (shares the same store). */
 export function AssistantHeaderButton({ className }: { className?: string }) {
   const { open, toggle } = useAssistant();
+  const { aiName } = usePublicSettings();
   return (
-    <Button variant="ghost" size="icon" onClick={toggle} aria-label="Shopping assistant" aria-expanded={open} className={className}>
+    <Button variant="ghost" size="icon" onClick={toggle} aria-label={aiName} title={aiName} aria-expanded={open} className={className}>
       {open ? <X /> : <Sparkles />}
     </Button>
   );

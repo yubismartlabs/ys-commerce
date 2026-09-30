@@ -12,6 +12,7 @@ type PublicSettings = {
   shipFrom: string;
   maintenance: { enabled: boolean; message: string };
   aiEnabled: boolean;
+  aiName: string;
 };
 
 const FALLBACK: PublicSettings = {
@@ -24,6 +25,7 @@ const FALLBACK: PublicSettings = {
   shipFrom: "",
   maintenance: { enabled: false, message: "" },
   aiEnabled: false,
+  aiName: "YS Assistant",
 };
 
 async function fetchPublicSettings(): Promise<PublicSettings> {

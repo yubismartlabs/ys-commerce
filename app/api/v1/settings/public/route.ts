@@ -17,5 +17,6 @@ export async function GET() {
     shipFrom: s.shipping.shipFrom,
     maintenance: { enabled: s.maintenance.enabled, message: s.maintenance.message },
     aiEnabled: s.ai.enabled,
+    aiName: s.ai.name,
   });
 }

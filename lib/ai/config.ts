@@ -3,6 +3,7 @@ import { FREE_AI_MODELS } from "@/lib/settings";
 
 export type AiConfig = {
   enabled: boolean;
+  name: string;
   model: string;
   token: string | null;
   hasToken: boolean;
@@ -22,6 +23,7 @@ export async function getAiConfig(): Promise<AiConfig> {
     : "meta-llama/Meta-Llama-3.1-8B-Instruct";
   return {
     enabled: ai.enabled,
+    name: ai.name?.trim() || "YS Assistant",
     model,
     token: envToken ?? dbToken,
     hasToken: Boolean(envToken ?? dbToken),

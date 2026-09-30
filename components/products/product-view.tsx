@@ -33,7 +33,7 @@ export function ProductView({ product, shippingFee }: { product: ProductDetail; 
   const router = useRouter();
   const add = useCart((s) => s.add);
   const openWith = useAssistant((s) => s.openWith);
-  const { buyerProtectionText, buyerProtectionDays, etaText, shipFrom, aiEnabled } = usePublicSettings();
+  const { buyerProtectionText, buyerProtectionDays, etaText, shipFrom, aiEnabled, aiName } = usePublicSettings();
   const [imgIdx, setImgIdx] = useState(0);
   const [variantId, setVariantId] = useState<string | null>(null);
   const [qty, setQty] = useState(1);
@@ -252,7 +252,7 @@ export function ProductView({ product, shippingFee }: { product: ProductDetail; 
                   onClick={() => openWith({ productSlug: product.slug })}
                   className="gap-1.5 border-ali-red text-ali-red"
                 >
-                  <Sparkles className="size-3.5" /> Ask AI about this product
+                  <Sparkles className="size-3.5" /> Ask {aiName} about this product
                 </Button>
               ) : null}
             </CardContent>

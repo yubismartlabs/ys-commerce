@@ -9,6 +9,7 @@ import {
   MapPin,
   Menu,
   ShoppingCart,
+  Sparkles,
   Store,
   User,
 } from "lucide-react";
@@ -22,13 +23,14 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Badge } from "@/components/ui/badge";
-import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import { Sheet, SheetClose, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { useCart } from "@/lib/store/cart";
 import { CATEGORIES, categoryHref } from "@/lib/categories";
 import { usePublicSettings } from "@/lib/public-settings";
 import { BuyerBell } from "@/components/notifications/buyer-bell";
 import { SearchBox } from "@/components/search/search-box";
 import { AssistantHeaderButton } from "@/components/ai/assistant-shell";
+import { useAssistant } from "@/lib/store/assistant";
 import { signOut, useSession } from "next-auth/react";
 
 export function MarketplaceHeader() {
@@ -37,7 +39,9 @@ export function MarketplaceHeader() {
   const role = (session?.user as { role?: string } | undefined)?.role;
   const isSeller = role === "SELLER" || role === "ADMIN";
   const firstName = session?.user?.name?.split(" ")[0] ?? "Buyer";
-  const { siteName, logoUrl } = usePublicSettings();
+  const { siteName, logoUrl, aiEnabled, aiName } = usePublicSettings();
+  const assistantOpen = useAssistant((s) => s.open);
+  const openAssistant = useAssistant((s) => s.openWith);
 
   return (
     <header className="sticky top-0 z-40 bg-white">
@@ -75,6 +79,17 @@ export function MarketplaceHeader() {
             <SheetContent side="left" className="w-72">
               <p className="mb-3 text-lg font-extrabold text-ali-red">ys-commerce</p>
               <div className="grid gap-1">
+                {aiEnabled ? (
+                  <SheetClose asChild>
+                    <button
+                      onClick={() => openAssistant()}
+                      aria-expanded={assistantOpen}
+                      className="flex items-center gap-2 rounded px-2 py-2 text-left text-sm font-semibold text-ali-red hover:bg-neutral-100"
+                    >
+                      <Sparkles className="size-4" /> {aiName}
+                    </button>
+                  </SheetClose>
+                ) : null}
                 <Link href="/search" className="rounded px-2 py-2 text-sm font-semibold hover:bg-neutral-100">
                   All Categories
                 </Link>
@@ -148,7 +163,7 @@ export function MarketplaceHeader() {
               </Link>
             </Button>
             <BuyerBell />
-            <AssistantHeaderButton />
+            {aiEnabled ? <AssistantHeaderButton /> : null}
             <Button variant="ghost" size="icon" asChild className="relative" aria-label="Cart">
               <Link href="/cart">
                 <ShoppingCart />
@@ -194,6 +209,15 @@ export function MarketplaceHeader() {
           <Link href="/deals" className="whitespace-nowrap hover:text-ali-red">Flash Deals</Link>
           <Link href="/search?badge=Choice&sort=rating" className="whitespace-nowrap hover:text-ali-red">Choice</Link>
           <Link href="/search?deals=1" className="whitespace-nowrap hover:text-ali-red">SuperDeals</Link>
+          {aiEnabled ? (
+            <button
+              onClick={() => openAssistant()}
+              aria-expanded={assistantOpen}
+              className="inline-flex items-center gap-1 whitespace-nowrap font-semibold text-ali-red hover:text-ali-red-dark"
+            >
+              <Sparkles className="size-3.5" /> {aiName}
+            </button>
+          ) : null}
           <Link href="/selling/onboarding" className="whitespace-nowrap hover:text-ali-red">Sell on YS</Link>
         </div>
       </nav>

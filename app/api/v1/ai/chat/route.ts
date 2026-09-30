@@ -51,7 +51,7 @@ export async function POST(req: Request) {
   const site = await getSettingGroup("site").catch(() => ({ siteName: "ys-commerce" }));
   const prior = parsed.data.messages.slice(0, -1).slice(-7).map((m) => ({ role: m.role as "user" | "assistant", content: m.content }));
   const messages = [
-    { role: "system" as const, content: buildSystemPrompt({ siteName: (site as { siteName: string }).siteName ?? "ys-commerce" }) },
+    { role: "system" as const, content: buildSystemPrompt({ siteName: (site as { siteName: string }).siteName ?? "ys-commerce", assistantName: cfg.name }) },
     ...prior,
     { role: "user" as const, content: `CATALOG CONTEXT:\n${ctx.text || "none"}\n\nQUESTION: ${lastUser.content}` },
   ];

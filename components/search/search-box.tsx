@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { Clock, Search, Sparkles, TrendingUp } from "lucide-react";
 import { useAssistant } from "@/lib/store/assistant";
+import { usePublicSettings } from "@/lib/public-settings";
 
 export type Suggestion = { type: "product" | "category" | "query"; text: string; meta?: string };
 
@@ -36,6 +37,7 @@ function pushRecent(q: string): void {
 export function SearchBox({ inputClassName = "", className = "" }: { inputClassName?: string; className?: string }) {
   const router = useRouter();
   const openWith = useAssistant((s) => s.openWith);
+  const { aiEnabled, aiName } = usePublicSettings();
   const [q, setQ] = useState("");
   const [debounced, setDebounced] = useState("");
   const [open, setOpen] = useState(false);
@@ -90,15 +92,17 @@ export function SearchBox({ inputClassName = "", className = "" }: { inputClassN
     <div ref={boxRef} className={`relative w-full ${className}`}>
       <form onSubmit={submit} className="flex flex-1 items-center" role="search">
         <div className="flex w-full items-stretch overflow-hidden rounded-full border-2 border-ali-red bg-white">
-          <button
-            type="button"
-            onClick={() => openWith({ searchQuery: q.trim() || undefined })}
-            aria-label="Ask shopping assistant"
-            title="Ask shopping assistant"
-            className="flex shrink-0 items-center px-3 text-ali-red hover:bg-ali-red/5"
-          >
-            <Sparkles className="size-4" />
-          </button>
+          {aiEnabled ? (
+            <button
+              type="button"
+              onClick={() => openWith({ searchQuery: q.trim() || undefined })}
+              aria-label={`Ask ${aiName}`}
+              title={`Ask ${aiName}`}
+              className="flex shrink-0 items-center px-3 text-ali-red hover:bg-ali-red/5"
+            >
+              <Sparkles className="size-4" />
+            </button>
+          ) : null}
           <input
             value={q}
             onChange={(e) => {
