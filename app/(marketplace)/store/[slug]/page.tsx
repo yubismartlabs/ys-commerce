@@ -14,6 +14,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { apiGet, readData, readEnvelope } from "@/lib/api/client";
 import { formatSold, timeAgo } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
@@ -58,23 +59,22 @@ async function fetchStore(slug: string, category: string, sort: string, page: nu
   const q = new URLSearchParams({ page: String(page), pageSize: "12" });
   if (category) q.set("category", category);
   if (sort) q.set("sort", sort);
-  const res = await fetch(`/api/v1/stores/${slug}?${q.toString()}`);
-  if (!res.ok) throw new Error("Store not found.");
-  const json = await res.json();
+  const envelope = await readEnvelope<{ store: StoreProfile; products: ApiCardRow[]; following: boolean }>(
+    await fetch(`/api/v1/stores/${slug}?${q.toString()}`)
+  );
+  const total = envelope.pagination?.total ?? 0;
   return {
-    store: json.data.store,
-    products: json.data.products,
-    following: json.data.following,
-    total: json.pagination.total,
-    pages: Math.max(1, Math.ceil(json.pagination.total / 12)),
-    categories: json.meta?.categories ?? [],
+    store: envelope.data.store,
+    products: envelope.data.products ?? [],
+    following: envelope.data.following,
+    total,
+    pages: Math.max(1, Math.ceil(total / 12)),
+    categories: (envelope.meta?.categories as Array<{ category: string; count: number }>) ?? [],
   };
 }
 
 async function fetchStoreReviews(slug: string): Promise<StoreReview[]> {
-  const res = await fetch(`/api/v1/stores/${slug}/reviews?pageSize=10`);
-  if (!res.ok) throw new Error("Couldn't load reviews.");
-  return (await res.json()).data as StoreReview[];
+  return apiGet<StoreReview[]>(`/api/v1/stores/${slug}/reviews?pageSize=10`);
 }
 
 function FollowButton({ slug, following, onChange }: { slug: string; following: boolean; onChange: (v: boolean) => void }) {
@@ -83,22 +83,27 @@ function FollowButton({ slug, following, onChange }: { slug: string; following: 
     setBusy(true);
     try {
       const res = await fetch(`/api/v1/stores/${slug}/follow`, { method: following ? "DELETE" : "POST" });
-      const json = await res.json().catch(() => null);
       if (res.status === 401) {
         toast.error("Sign in to follow stores.");
         return;
       }
-      if (!res.ok) throw new Error("Follow failed.");
-      onChange(json.data.following);
-      toast.success(json.data.following ? "Following this store." : "Unfollowed.");
-    } catch {
-      toast.error("Follow failed.");
+      const json = await readData<{ following: boolean }>(res);
+      onChange(json.following);
+      toast.success(json.following ? "Following this store." : "Unfollowed.");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Follow failed.");
     } finally {
       setBusy(false);
     }
   };
   return (
-    <Button onClick={toggle} disabled={busy} variant={following ? "outline" : "default"} className={cn(!following && "bg-ali-red text-white hover:bg-ali-red-dark")}>
+    <Button
+      onClick={toggle}
+      disabled={busy}
+      variant={following ? "outline" : "default"}
+      aria-pressed={following}
+      className={cn(!following && "bg-ali-red text-white hover:bg-ali-red-dark")}
+    >
       {busy ? <Loader2 className="size-4 animate-spin" /> : <Heart className={cn("size-4", following && "fill-current")} />}
       {following ? "Following" : "Follow"}
     </Button>
@@ -249,6 +254,15 @@ export default function StorePage({ params }: { params: Promise<{ slug: string }
           <Card className="px-4 py-1">
             {reviewsQuery.isLoading ? (
               <p className="py-4 text-sm text-neutral-500">Loading reviews…</p>
+            ) : reviewsQuery.isError ? (
+              // Previously unhandled: a failed fetch rendered "No reviews yet",
+              // so a 500 was indistinguishable from an empty store.
+              <div className="flex items-center gap-2 py-4">
+                <p className="text-sm text-red-600" role="alert">
+                  {reviewsQuery.error instanceof Error ? reviewsQuery.error.message : "Couldn't load reviews."}
+                </p>
+                <Button size="sm" variant="outline" onClick={() => reviewsQuery.refetch()}>Retry</Button>
+              </div>
             ) : reviews.length === 0 ? (
               <p className="py-4 text-sm text-neutral-500">No reviews yet.</p>
             ) : (

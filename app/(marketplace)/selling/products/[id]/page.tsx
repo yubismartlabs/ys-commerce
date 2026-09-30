@@ -10,6 +10,8 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { StatusBadge } from "@/components/refine/ui";
+import { QueryErrorCard } from "@/components/commerce/query-error";
+import { apiGet } from "@/lib/api/client";
 import { formatUSD, timeAgo } from "@/lib/format";
 import { ProductForm } from "@/components/products/product-form";
 
@@ -42,11 +44,7 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
   const [deleting, setDeleting] = useState(false);
   const query = useQuery({
     queryKey: ["selling-product", id],
-    queryFn: async (): Promise<Detail> => {
-      const res = await fetch(`/api/v1/selling/products/${id}`);
-      if (!res.ok) throw new Error("Product not found.");
-      return (await res.json()).data as Detail;
-    },
+    queryFn: () => apiGet<Detail>(`/api/v1/selling/products/${id}`),
     retry: false,
   });
   const p = query.data;
@@ -89,12 +87,7 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
 
   if (query.isLoading) return <Card className="p-6 text-sm text-neutral-500">Loading listing…</Card>;
   if (query.isError || !p) {
-    return (
-      <Card className="space-y-2 p-6 text-sm text-neutral-500">
-        <p>Listing not found.</p>
-        <Button size="sm" variant="outline" asChild><Link href="/selling/listings">Back to listings</Link></Button>
-      </Card>
-    );
+    return <QueryErrorCard error={query.error} what="listing" backHref="/selling/listings" onRetry={() => query.refetch()} />;
   }
 
   return (

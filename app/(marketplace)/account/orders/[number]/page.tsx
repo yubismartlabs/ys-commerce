@@ -10,6 +10,8 @@ import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 import { StatusBadge } from "@/components/refine/ui";
+import { QueryErrorCard } from "@/components/commerce/query-error";
+import { apiGet } from "@/lib/api/client";
 import { formatUSD, timeAgo } from "@/lib/format";
 import { FileDisputeDialog } from "@/components/disputes/file-dispute-dialog";
 import { MessageButton } from "@/components/chat/message-button";
@@ -19,9 +21,9 @@ import type { Order } from "@/lib/refine/types";
 const STEPS = ["PENDING", "PAID", "SHIPPED", "DELIVERED"] as const;
 
 async function fetchOrder(number: string): Promise<Order> {
-  const res = await fetch(`/api/v1/account/orders/${encodeURIComponent(number)}`);
-  if (!res.ok) throw new Error("Order not found.");
-  return (await res.json()).data as Order;
+  // Typed fetch: a 401 now surfaces as a sign-in prompt instead of
+  // "Order not found." (an expired session is not missing data).
+  return apiGet<Order>(`/api/v1/account/orders/${encodeURIComponent(number)}`);
 }
 
 export default function BuyerOrderPage({ params }: { params: Promise<{ number: string }> }) {
@@ -35,12 +37,7 @@ export default function BuyerOrderPage({ params }: { params: Promise<{ number: s
 
   if (query.isLoading) return <Card className="p-6 text-sm text-neutral-500">Loading order…</Card>;
   if (query.isError || !o) {
-    return (
-      <Card className="space-y-2 p-6 text-sm text-neutral-500">
-        <p>Order not found.</p>
-        <Button size="sm" variant="outline" asChild><Link href="/account">Back to my orders</Link></Button>
-      </Card>
-    );
+    return <QueryErrorCard error={query.error} what="order" backHref="/account" onRetry={() => query.refetch()} />;
   }
 
   const stepIdx = STEPS.indexOf(o.status as (typeof STEPS)[number]);

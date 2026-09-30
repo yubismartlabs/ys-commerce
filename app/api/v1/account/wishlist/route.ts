@@ -62,16 +62,27 @@ export async function POST(req: Request) {
   // Arm alerts: price target, or restock when currently unavailable.
   const outOfStock = product.variants.length > 0 && product.variants.every((v) => v.stock <= 0);
   if (parsed.data.targetPrice) {
+    // Match on the whole set so a previously-fired alert is re-armed with the
+    // new target instead of leaving a tombstoned row behind.
     const existing = await db.priceAlert.findFirst({
-      where: { userId, productId: product.id, kind: "PRICE_DROP", sentAt: null },
+      where: { userId, productId: product.id, kind: "PRICE_DROP" },
+      orderBy: { createdAt: "desc" },
     });
     if (existing) {
-      await db.priceAlert.update({ where: { id: existing.id }, data: { target: parsed.data.targetPrice } });
+      await db.priceAlert.update({
+        where: { id: existing.id },
+        data: { target: parsed.data.targetPrice, sentAt: null },
+      });
     } else {
       await db.priceAlert.create({
         data: { userId, productId: product.id, kind: "PRICE_DROP", target: parsed.data.targetPrice },
       });
     }
+  } else {
+    // Clearing the target must actually disarm the alert. Previously the
+    // WishlistItem target was nulled but the armed PriceAlert row survived, so
+    // the buyer kept getting emails for a target they'd removed.
+    await db.priceAlert.deleteMany({ where: { userId, productId: product.id, kind: "PRICE_DROP" } });
   }
   if (outOfStock) {
     const existing = await db.priceAlert.findFirst({

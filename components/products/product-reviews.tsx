@@ -10,6 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { RatingStars } from "@/components/commerce/rating-stars";
+import { readData, readEnvelope } from "@/lib/api/client";
 import { timeAgo } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
@@ -30,9 +31,9 @@ export type ReviewRow = {
 
 async function fetchReviews(slug: string, sort: string, page: number): Promise<{ data: ReviewRow[]; total: number; pages: number }> {
   const res = await fetch(`/api/v1/products/${slug}/reviews?sort=${sort}&page=${page}&pageSize=5`);
-  if (!res.ok) throw new Error("Couldn't load reviews.");
-  const json = await res.json();
-  return { data: json.data, total: json.pagination.total, pages: Math.ceil(json.pagination.total / 5) };
+  const envelope = await readEnvelope<ReviewRow[]>(res);
+  const total = envelope.pagination?.total ?? envelope.data.length;
+  return { data: envelope.data ?? [], total, pages: Math.max(1, Math.ceil(total / 5)) };
 }
 
 function ReviewCard({ slug, review }: { slug: string; review: ReviewRow }) {
@@ -45,17 +46,16 @@ function ReviewCard({ slug, review }: { slug: string; review: ReviewRow }) {
     setBusy(true);
     try {
       const res = await fetch(`/api/v1/reviews/${review.id}/helpful`, { method: "POST" });
-      const json = await res.json().catch(() => null);
       if (res.status === 401) {
         toast.error("Sign in to vote.");
         return;
       }
-      if (!res.ok) throw new Error("Vote failed.");
-      setVoted(json.data.voted);
-      setHelpful(json.data.helpful);
+      const updated = await readData<{ voted: boolean; helpful: number }>(res);
+      setVoted(updated.voted);
+      setHelpful(updated.helpful);
       queryClient.invalidateQueries({ queryKey: ["reviews", slug] });
-    } catch {
-      toast.error("Vote failed.");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Vote failed.");
     } finally {
       setBusy(false);
     }
@@ -209,7 +209,12 @@ export function ProductReviews({
         {query.isLoading ? (
           <p className="py-4 text-sm text-neutral-500">Loading reviews…</p>
         ) : query.isError ? (
-          <p className="py-4 text-sm text-neutral-500">Couldn&apos;t load reviews.</p>
+          <div className="flex items-center gap-2 py-4">
+            <p className="text-sm text-red-600" role="alert">
+              {query.error instanceof Error ? query.error.message : "Couldn't load reviews."}
+            </p>
+            <Button size="sm" variant="outline" onClick={() => query.refetch()}>Retry</Button>
+          </div>
         ) : rows.length === 0 ? (
           <p className="py-4 text-sm text-neutral-500">No reviews yet — be the first.</p>
         ) : (

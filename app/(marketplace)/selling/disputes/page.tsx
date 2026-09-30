@@ -1,10 +1,13 @@
 "use client";
 
 import Link from "next/link";
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { ChevronRight } from "lucide-react";
 import { Card } from "@/components/ui/card";
-import { StatusBadge } from "@/components/refine/ui";
+import { Button } from "@/components/ui/button";
+import { StatusBadge, Pager } from "@/components/refine/ui";
+import { readEnvelope } from "@/lib/api/client";
 import { timeAgo } from "@/lib/format";
 
 type SellerDispute = {
@@ -17,18 +20,23 @@ type SellerDispute = {
   buyer: { email: string };
 };
 
+const PAGE_SIZE = 20;
+
 export default function SellingDisputesPage() {
+  const [page, setPage] = useState(1);
   const query = useQuery({
-    queryKey: ["selling-disputes"],
-    queryFn: async (): Promise<SellerDispute[]> => {
-      const res = await fetch("/api/v1/selling/disputes");
+    queryKey: ["selling-disputes", page],
+    queryFn: async (): Promise<{ rows: SellerDispute[]; total: number }> => {
+      const res = await fetch(`/api/v1/selling/disputes?page=${page}&pageSize=${PAGE_SIZE}`);
       if (res.status === 401) throw new Error("Sign in as a seller.");
-      if (!res.ok) throw new Error("Couldn't load disputes.");
-      return (await res.json()).data as SellerDispute[];
+      const envelope = await readEnvelope<SellerDispute[]>(res);
+      return { rows: envelope.data ?? [], total: envelope.pagination?.total ?? 0 };
     },
     retry: false,
   });
-  const rows = query.data ?? [];
+  const rows = query.data?.rows ?? [];
+  const total = query.data?.total ?? 0;
+  const pages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
   return (
     <div className="space-y-3">
@@ -40,7 +48,10 @@ export default function SellingDisputesPage() {
         ) : query.isError ? (
           <p className="py-4 text-sm text-neutral-500">{query.error.message}</p>
         ) : rows.length === 0 ? (
-          <p className="py-4 text-sm text-neutral-500">No disputes on your items.</p>
+          <div className="space-y-2 py-6 text-center text-sm text-neutral-500">
+            <p>No disputes on your items. Open disputes freeze your escrow — respond fast if one appears.</p>
+            <Button size="sm" variant="outline" asChild><Link href="/selling/orders">View your orders</Link></Button>
+          </div>
         ) : (
           <ul className="divide-y">
             {rows.map((d) => (
@@ -59,6 +70,7 @@ export default function SellingDisputesPage() {
           </ul>
         )}
       </Card>
+      {pages > 1 ? <Pager page={page} pageCount={pages} total={total} onPage={setPage} /> : null}
     </div>
   );
 }

@@ -8,7 +8,8 @@ import { Card } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { StatusBadge } from "@/components/refine/ui";
+import { StatusBadge, Pager } from "@/components/refine/ui";
+import { readEnvelope } from "@/lib/api/client";
 import { formatUSD } from "@/lib/format";
 
 type Listing = {
@@ -27,28 +28,37 @@ type Listing = {
 type ListResponse = {
   data: Listing[];
   total: number;
-  stores: Array<{ id: string; name: string }>;
-};
+  stores: Array<{ id: string; name: string }>;};
+
+type Row = Listing;
+
+const PAGE_SIZE = 20;
 
 export default function ListingsPage() {
   const [status, setStatus] = useState<string | undefined>(undefined);
   const [q, setQ] = useState("");
   const [appliedQ, setAppliedQ] = useState("");
+  const [page, setPage] = useState(1);
   const query = useQuery({
-    queryKey: ["selling-products", status ?? "all", appliedQ],
+    queryKey: ["selling-products", status ?? "all", appliedQ, page],
     queryFn: async (): Promise<ListResponse> => {
-      const params = new URLSearchParams();
+      const params = new URLSearchParams({ page: String(page), pageSize: String(PAGE_SIZE) });
       if (status) params.set("status", status);
       if (appliedQ) params.set("q", appliedQ);
       const res = await fetch(`/api/v1/selling/products?${params.toString()}`);
       if (res.status === 401) throw new Error("Sign in as a seller.");
-      if (!res.ok) throw new Error("Couldn't load listings.");
-      const json = await res.json();
-      return { data: json.data, total: json.pagination.total, stores: json.meta?.stores ?? [] };
+      const envelope = await readEnvelope<Row[]>(res);
+      return {
+        data: envelope.data ?? [],
+        total: envelope.pagination?.total ?? 0,
+        stores: (envelope.meta?.stores as Array<{ id: string; name: string }>) ?? [],
+      };
     },
     retry: false,
   });
   const rows = query.data?.data ?? [];
+  const total = query.data?.total ?? 0;
+  const pages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
   return (
     <div className="space-y-3">
@@ -56,7 +66,7 @@ export default function ListingsPage() {
         <h1 className="text-xl font-bold">Listings</h1>
         <div className="flex flex-wrap items-center gap-1.5">
           {(["DRAFT", "ACTIVE", "TAKEDOWN"] as const).map((s) => (
-            <Button key={s} size="sm" variant={status === s ? "default" : "outline"} className="rounded-full" onClick={() => setStatus(status === s ? undefined : s)}>
+            <Button key={s} size="sm" variant={status === s ? "default" : "outline"} aria-pressed={status === s} className="rounded-full" onClick={() => { setStatus(status === s ? undefined : s); setPage(1); }}>
               {s}
             </Button>
           ))}
@@ -65,8 +75,8 @@ export default function ListingsPage() {
           </Button>
         </div>
       </div>
-      <form className="flex gap-2" onSubmit={(e) => { e.preventDefault(); setAppliedQ(q); }}>
-        <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search my listings…" className="max-w-64" />
+      <form className="flex gap-2" onSubmit={(e) => { e.preventDefault(); setAppliedQ(q); setPage(1); }}>
+        <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search my listings…" aria-label="Search my listings" className="max-w-64" />
         <Button type="submit" size="sm" variant="outline">Search</Button>
       </form>
       <Card className="overflow-hidden p-0">
@@ -107,6 +117,9 @@ export default function ListingsPage() {
           </Table>
         )}
       </Card>
+      {pages > 1 ? (
+        <Pager page={page} pageCount={pages} total={total} onPage={setPage} />
+      ) : null}
     </div>
   );
 }

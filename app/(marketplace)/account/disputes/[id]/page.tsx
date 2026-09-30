@@ -8,6 +8,8 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { StatusBadge } from "@/components/refine/ui";
+import { QueryErrorCard } from "@/components/commerce/query-error";
+import { apiGet } from "@/lib/api/client";
 import { formatUSD, timeAgo } from "@/lib/format";
 import { DisputeThread } from "@/components/disputes/dispute-thread";
 
@@ -26,11 +28,7 @@ export default function BuyerDisputePage({ params }: { params: Promise<{ id: str
   const queryClient = useQueryClient();
   const query = useQuery({
     queryKey: ["account-dispute", id],
-    queryFn: async (): Promise<Detail> => {
-      const res = await fetch(`/api/v1/account/disputes/${id}`);
-      if (!res.ok) throw new Error("Dispute not found.");
-      return (await res.json()).data as Detail;
-    },
+    queryFn: () => apiGet<Detail>(`/api/v1/account/disputes/${id}`),
     retry: false,
   });
   const d = query.data;
@@ -38,12 +36,7 @@ export default function BuyerDisputePage({ params }: { params: Promise<{ id: str
 
   if (query.isLoading) return <Card className="p-6 text-sm text-neutral-500">Loading dispute…</Card>;
   if (query.isError || !d) {
-    return (
-      <Card className="space-y-2 p-6 text-sm text-neutral-500">
-        <p>Dispute not found.</p>
-        <Button size="sm" variant="outline" asChild><Link href="/account/disputes">Back to disputes</Link></Button>
-      </Card>
-    );
+    return <QueryErrorCard error={query.error} what="dispute" backHref="/account/disputes" onRetry={() => query.refetch()} />;
   }
 
   return (

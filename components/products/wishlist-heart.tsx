@@ -5,6 +5,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { Heart, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { readData } from "@/lib/api/client";
 import { cn } from "@/lib/utils";
 
 /** Heart toggle wired to the wishlist backend. */
@@ -26,7 +27,9 @@ export function WishlistHeart({ slug, wishlisted, queryKey }: { slug: string; wi
         toast.error("Sign in to use the wishlist.");
         return;
       }
-      if (!res.ok) throw new Error("Wishlist update failed.");
+      // Surface the server's reason (e.g. "Product is unavailable") instead of
+      // a blanket "Wishlist update failed."
+      await readData(res);
       setOn(!on);
       toast.success(!on ? "Saved to watchlist." : "Removed from watchlist.");
       queryClient.invalidateQueries({ queryKey });
