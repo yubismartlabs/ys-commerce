@@ -49,6 +49,32 @@ The seed prints the admin email/password. Dev-only credentials are in `.env` (`A
 
 ---
 
+## Migrations — read this before running `prisma migrate dev`
+
+> **`Product.search` must not be dropped.**
+>
+> It is a `GENERATED ALWAYS AS ... STORED` `tsvector` created by a hand-written
+> migration, backing the GIN index (`Product_search_idx`) that
+> `lib/search/engine.ts` ranks every search against. Prisma cannot model
+> generated columns, so a *generated* migration proposes dropping the column
+> and both search indexes — which silently disables full-text search while
+> every query still succeeds and returns the wrong rows.
+>
+> It is declared as `search Unsupported("tsvector")?` in `schema.prisma` so at
+> least the column is visible to Prisma. `migrate deploy` only replays
+> migration files, so **production is safe**. The risk is local
+> `prisma migrate dev`: always read the generated SQL before applying it.
+>
+> If it does get dropped, restore it with the statements in
+> `prisma/migrations/20260929054000_search_fts/migration.sql`.
+
+Because of this, migrations that need judgement (data backfills, destructive
+drops) are written by hand. `20260929120000_split_shipments_and_returns` is the
+worked example: it backfills existing orders into `Shipment` rows before
+dropping the order-level tracking columns.
+
+---
+
 ## Architecture notes
 
 **Route layout.** `/` , `/search`, `/cart`, `/product/*`, `/store/*`, `/account/*`, `/selling/*` live in the `(marketplace)` group (no URL segment). `/ys-admin/*` is a separate staff console gated by `middleware.ts`. `/maintenance` is a holding page.
@@ -59,7 +85,11 @@ The seed prints the admin email/password. Dev-only credentials are in `.env` (`A
 
 **Authorization.** Session JWTs carry `role` + `scopes`. Admin routes are gated twice: `middleware.ts` by path→area, and `withAdmin(handler, area)` in the handler. The API re-reads the principal from the database on every call, so a scope change takes effect immediately even though the JWT is only refreshed on sign-in.
 
-**Money.** Checkout re-validates the coupon and stock *inside* the transaction, takes prices from `resolveCart` (never the client payload), and locks each seller's net in `EscrowHold`. Funds release `escrowReleaseDays` after the buyer-protection window closes, unless a dispute freezes them.
+**Money.** Checkout re-validates the coupon and stock *inside* the transaction, takes prices from `resolveCart` (never the client payload), and locks each seller's net in `EscrowHold`. Funds release `escrowReleaseDays` after the buyer-protection window closes, unless a dispute or return freezes them.
+
+**Split fulfilment.** A multi-seller basket is N separate parcels, so tracking lives on `Shipment` (one row per store per order), not on `Order`. `Order.carrier`/`trackingNumber`/`shippedAt`/`deliveredAt` were removed rather than left behind, to avoid a second source of truth. `Order.status` is derived: `DELIVERED` only once every parcel has arrived, and the buyer-protection clock starts at the *last* delivery. A seller's transition only moves their own parcels.
+
+**Returns vs disputes.** They are deliberately separate. A return is ordinary after-sales and freezes escrow for the lines involved; a dispute is adversarial and settles via admin ruling. Money only moves on `REFUNDED`, which is admin-only — a seller cannot self-serve a refund.
 
 **Payments are simulated.** No card is collected or charged; orders are written as `PAID` immediately. `payments.provider` is `mock` only. Wire a real provider before taking money — see "Not yet built" below.
 
@@ -78,6 +108,7 @@ Deliberately incomplete — see the plan in the git history:
 - **Product taxonomy** is a free-text column, not a real category tree. `lib/categories.ts` provides a canonical slug list and alias normalization, and filters are case-insensitive, but sellers can still enter arbitrary category strings.
 - **`Product` has no stock column.** A listing with no variants is treated as always in stock.
 - **Seller-side bulk tooling** (CSV import, inventory manager) does not exist.
+- **Returns are manual end to end.** There are no return shipping labels or automated carrier integration; the seller marks an item received by hand and support releases the refund.
 
 ---
 
