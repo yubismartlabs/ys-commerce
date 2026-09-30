@@ -35,6 +35,8 @@ export default defineConfig({
     // Sign in through the real form and save the sessions other specs reuse.
     { name: "setup-seller", testMatch: /auth\.seller\.setup\.ts/ },
     { name: "setup-buyer", testMatch: /auth\.buyer\.setup\.ts/ },
+    { name: "setup-admin", testMatch: /auth\.admin\.setup\.ts/ },
+    { name: "setup-seller2", testMatch: /auth\.seller2\.setup\.ts/ },
     {
       name: "seller",
       use: { ...devices["Desktop Chrome"], storageState: "playwright/.auth/seller.json" },
@@ -49,6 +51,16 @@ export default defineConfig({
       // The checkout spec provisions its listing with the seller session.
       dependencies: ["setup-seller", "setup-buyer"],
       testMatch: /\.buyer\.spec\.ts$/,
+    },
+    {
+      // Cross-role lifecycle specs (buyer files, seller responds, support
+      // refunds). They act as three different users, so they drive the API
+      // through per-role contexts built from the saved sessions rather than
+      // through a single page session.
+      name: "flow",
+      use: { ...devices["Desktop Chrome"] },
+      dependencies: ["setup-seller", "setup-seller2", "setup-buyer", "setup-admin"],
+      testMatch: /\.flow\.spec\.ts$/,
     },
   ],
   // Skipped when E2E_BASE_URL points at an already-running server.

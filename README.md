@@ -156,6 +156,17 @@ previous action will happily satisfy the next assertion. Specs create and delete
 they don't depend on specific seeded rows, and `workers: 1` is deliberate — they mutate a shared
 database.
 
+**Returns and escrow** (`tests/returns.flow.spec.ts`) cover the after-sales chain, which is three
+different users acting in sequence: the buyer files, the seller responds, support refunds. Each role is
+a separate session, so these specs drive the API through per-role contexts rather than a single page
+session. What they protect is the escrow accounting and the state machine — that a refund is
+`admin`-only and unreachable in one jump, that a rejected return is terminal, that an unrelated seller
+is refused a return id that is real, that a second request cannot double-claim the same units, and
+that a return cannot span two stores. The refund is asserted to be the **net** the seller was owed
+rather than the buyer's gross charge, because commission was already deducted when the hold was
+created. Note the admin transitions live at `PATCH /api/v1/admin/returns?id=…` — the id is a query
+parameter, not a path segment.
+
 **Buyer checkout** (`tests/checkout.buyer.spec.ts`) covers the money path: product page -> cart ->
 checkout -> order, asserting on the stock actually decremented in the database rather than on what the
 page claims. It pins two properties that are easy to break and expensive to discover late: checkout

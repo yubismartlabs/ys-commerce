@@ -7,7 +7,13 @@ import path from "node:path";
  * a login. Also acts as the smoke test of the credentials flow itself.
  */
 export const SELLER = { email: "seller1@ys.local", password: "seller123" };
+export const SELLER2 = { email: "seller2@ys.local", password: "seller123" };
 export const BUYER = { email: "buyer@ys.local", password: "buyer123" };
+// Mirrors prisma/seed.ts, which seeds the admin from the same env vars.
+export const ADMIN = {
+  email: process.env.ADMIN_EMAIL ?? "admin@ys.local",
+  password: process.env.ADMIN_PASSWORD ?? "admin123",
+};
 
 const AUTH_DIR = path.join(process.cwd(), "playwright", ".auth");
 
