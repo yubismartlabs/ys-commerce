@@ -22,7 +22,7 @@ type Listing = {
   soldCount: number;
   ratingAvg: number;
   ratingCount: number;
-  store: { name: string; id?: string };
+  store: { id: string; name: string };
   variants: Array<{ stock: number }>;
   trackStock: boolean;
   stock: number;
@@ -32,7 +32,8 @@ type Listing = {
 type ListResponse = {
   data: Listing[];
   total: number;
-  stores: Array<{ id: string; name: string }>;};
+  stores: Array<{ id: string; name: string }>;
+};
 
 type Row = Listing;
 

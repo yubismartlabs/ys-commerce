@@ -144,6 +144,18 @@ Deliberately incomplete — see the plan in the git history:
 - **Returns are manual end to end.** There are no return shipping labels or automated carrier integration; the seller marks an item received by hand and support releases the refund.
 - **Flash-deal prices aren't in price history.** `PriceSnapshot` records seller edits; deal pricing is resolved at read time, so a temporary deal price won't appear as a data point.
 
+**End-to-end tests** (`tests/`, `playwright.config.ts`) cover the seller inventory manager through a real
+browser, because the failure mode that unit-level and curl-level checks miss is exactly the one that
+matters here: an API that works perfectly while the UI that calls it is dead. That is not hypothetical —
+the action bar's Apply button was permanently disabled because the listings endpoint selected only
+`store: { name: true }` and the bar derived its store scope from a field the response never contained.
+Every individual API call passed; the feature was unreachable. The suite runs against a **production
+build** (not dev, which hides prerender and client-boundary bugs), signs in through the real form, and
+asserts on stored values read back from the API rather than on toasts, because a toast left over from the
+previous action will happily satisfy the next assertion. Specs create and delete their own listings, so
+they are repeatable and don't depend on specific seeded rows. `workers: 1` is deliberate — they mutate
+a shared database.
+
 ---
 
 ## Commands
@@ -156,4 +168,12 @@ npm run lint         # eslint
 npm run db:migrate   # apply migrations
 npm run db:seed      # seed demo data
 npm run db:studio    # Prisma Studio
+
+npm run test:e2e:install   # one-time: download the Chromium build
+npm run test:e2e           # Playwright smoke suite (builds + starts the app)
+npm run test:e2e:ui        # interactive debugger
 ```
+
+`npm run test:e2e` needs `DATABASE_URL` pointing at a database it may write to — the suite creates and
+deletes its own listings. It starts its own server on port 3210; set `E2E_BASE_URL` to reuse a server
+that is already running.

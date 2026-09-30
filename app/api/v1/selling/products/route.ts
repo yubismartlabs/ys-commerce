@@ -32,7 +32,10 @@ export async function GET(req: Request) {
       take: pageSize,
       orderBy: { updatedAt: "desc" },
       include: {
-        store: { select: { name: true } },
+        // `id` is required: the listings table derives the store scope for
+        // bulk actions from each row, so omitting it left the action bar
+        // permanently disabled.
+        store: { select: { id: true, name: true } },
         variants: true,
         _count: { select: { reviews: true } },
       },
