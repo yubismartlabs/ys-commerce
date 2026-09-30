@@ -44,6 +44,67 @@ async function productSnippets(productId: string): Promise<string> {
   return `reviews: ${r || "none"} || q&a: ${q || "none"}`;
 }
 
+type CardProduct = {
+  slug: string;
+  title: string;
+  price: unknown;
+  compareAt: unknown;
+  image: string;
+  ratingAvg: number;
+  ratingCount: number;
+  soldCount: number;
+  badge: string | null;
+  freeShipping: boolean;
+};
+
+/** One shoppable citation, deal-aware (deal price wins, base becomes was). */
+export function toCitation(p: CardProduct, dealPrice?: number | null): AiCitation {
+  return {
+    slug: p.slug,
+    title: p.title,
+    price: dealPrice ?? Number(p.price),
+    image: safeImageSrc(p.image),
+    ratingAvg: p.ratingAvg,
+    compareAt: dealPrice != null ? Number(p.price) : p.compareAt == null ? null : Number(p.compareAt),
+    soldCount: p.soldCount,
+    ratingCount: p.ratingCount,
+    badge: p.badge,
+    freeShipping: p.freeShipping,
+  };
+}
+
+/**
+ * Every (slug) the answer mentions becomes a card — even products the
+ * retrieval pass missed. ACTIVE only, deduped, capped. This is what makes
+ * "compare these three" render three cards instead of one.
+ */
+export async function resolveMentionedProducts(
+  reply: string,
+  existing: AiCitation[],
+  limit = 6
+): Promise<AiCitation[]> {
+  const seen = new Set(existing.map((c) => c.slug.toLowerCase()));
+  const slugs = [...new Set([...reply.matchAll(/\(?([a-z0-9]+(?:-[a-z0-9]+)*-\d+)\)?/gi)].map((m) => m[1].toLowerCase()))].filter(
+    (s) => !seen.has(s)
+  );
+  const out = [...existing];
+  for (const slug of slugs) {
+    if (out.length >= limit) break;
+    const p = await db.product.findUnique({
+      where: { slug },
+      select: {
+        slug: true, title: true, price: true, compareAt: true, image: true,
+        ratingAvg: true, ratingCount: true, soldCount: true, badge: true,
+        freeShipping: true, status: true, id: true,
+      },
+    });
+    if (!p || p.status !== "ACTIVE") continue;
+    const deal = await getActiveDeal(p.id);
+    out.push(toCitation(p, deal ? Number(deal.dealPrice) : null));
+  }
+  return out;
+}
+
 /**
  * Retrieve-then-stuff context for the model. Deliberately small: top hits,
  * one focused product, recent user signals. Keeps free-tier tokens low.
@@ -80,18 +141,9 @@ export async function buildAiContext(opts: {
           `${history.length ? ` price-history ${history.map((h) => `$${Number(h.price)}`).join(">")}` : ""}` +
           ` desc: ${clip(p.description, 300)} || ${snip}`
       );
-      citations.push({
-        slug: p.slug,
-        title: p.title,
-        price: deal ? Number(deal.dealPrice) : Number(p.price),
-        image: safeImageSrc(p.image),
-        ratingAvg: p.ratingAvg,
-        compareAt: deal ? Number(p.price) : p.compareAt === null ? null : Number(p.compareAt),
-        soldCount: p.soldCount,
-        ratingCount: p.ratingCount,
-        badge: p.badge,
-        freeShipping: p.freeShipping,
-      });
+      citations.push(
+        toCitation(p, deal ? Number(deal.dealPrice) : null)
+      );
     }
   }
 
@@ -107,18 +159,7 @@ export async function buildAiContext(opts: {
         );
         for (const h of hits.slice(0, 3)) {
           if (!citations.some((c) => c.slug === h.slug)) {
-            citations.push({
-              slug: h.slug,
-              title: h.title,
-              price: h.price,
-              image: safeImageSrc(h.image),
-              ratingAvg: h.ratingAvg,
-              compareAt: h.compareAt,
-              soldCount: h.soldCount,
-              ratingCount: h.ratingCount,
-              badge: h.badge,
-              freeShipping: h.freeShipping,
-            });
+            citations.push(toCitation(h));
           }
         }
       }
@@ -128,7 +169,11 @@ export async function buildAiContext(opts: {
   }
 
   // Personal signals (signed-in only route, so these are the buyer's own rows).
-  const [orders, wishlist] = await Promise.all([
+  // Non-sensitive only: first name, tenure, order counts and watchlist — used
+  // for greeting and personalization, never payment data or addresses.
+  const [profile, orderStats, orders, wishlist] = await Promise.all([
+    db.user.findUnique({ where: { id: opts.userId }, select: { name: true, createdAt: true } }),
+    db.order.aggregate({ where: { buyerId: opts.userId }, _count: true, _sum: { total: true } }),
     db.order.findMany({
       where: { buyerId: opts.userId },
       orderBy: { createdAt: "desc" },
@@ -142,6 +187,14 @@ export async function buildAiContext(opts: {
       take: 5,
     }),
   ]);
+  const firstName = profile?.name?.split(" ")[0]?.slice(0, 30) || null;
+  const memberYear = profile ? new Date(profile.createdAt).getFullYear() : null;
+  parts.push(
+    `BUYER: ${firstName ? `first name ${firstName}` : "name unknown"}` +
+      `${memberYear ? `, member since ${memberYear}` : ""}` +
+      `, ${orderStats._count} orders${orderStats._sum.total != null ? ` totaling $${Number(orderStats._sum.total).toFixed(0)}` : ""}` +
+      `. Greet by first name when known; never reveal order numbers, totals or addresses unprompted.`
+  );
   if (orders.length > 0) {
     parts.push(`BUYER ORDERS: ${orders.map((o) => `${o.number} ${o.status} $${Number(o.total)}`).join(" | ")}`);
   }

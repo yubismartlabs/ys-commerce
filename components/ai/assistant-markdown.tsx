@@ -3,7 +3,7 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 
-const SLUG_RE = /([a-z0-9]+(?:-[a-z0-9]+)*-\d+)/gi;
+const SLUG_RE = /\(?\b([a-z0-9]+(?:-[a-z0-9]+)*-\d+)\b\)?/gi;
 const BULLET_RE = /^\s*[-*•]\s+/;
 const ORDERED_RE = /^\s*\d+[.)]\s+/;
 

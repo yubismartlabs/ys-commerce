@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
 import {
+  ArrowDown,
   BadgePercent,
   Eye,
   Gift,
@@ -15,6 +16,8 @@ import {
   Send,
   Sparkles,
   Star,
+  ThumbsDown,
+  ThumbsUp,
   Ticket,
   TriangleAlert,
   X,
@@ -29,11 +32,15 @@ import { AssistantText, isCompareAnswer, splitVerdict } from "@/components/ai/as
 import { CompareTable, ProductCarousel, type AssistantProduct } from "@/components/ai/assistant-products";
 
 type ChatMsg = {
+  id?: string;
   role: "user" | "assistant";
   content: string;
   time: number;
   citations?: AssistantProduct[];
   compare?: boolean;
+  feedback?: 1 | -1 | null;
+  /** Only live messages animate in — restored history appears settled. */
+  fresh?: boolean;
 };
 
 /** Keyword-matched icon so suggestion chips read visually, not just text. */
@@ -53,7 +60,7 @@ function SuggestionChip({ text, onPick }: { text: string; onPick: (t: string) =>
   return (
     <button
       onClick={() => onPick(text)}
-      className="inline-flex shrink-0 items-center gap-1.5 rounded-full border bg-white px-2.5 py-1 text-xs hover:border-ali-red hover:text-ali-red"
+      className="inline-flex shrink-0 items-center gap-1.5 rounded-full border bg-white px-2.5 py-1 text-xs shadow-sm transition hover:border-ali-red hover:text-ali-red active:scale-95"
     >
       <ChipIcon icon={iconForSuggestion(text)} /> {text}
     </button>
@@ -66,9 +73,54 @@ function ChipIcon({ icon: Icon }: { icon: LucideIcon }) {
 
 function AssistantAvatar({ size = "size-5", icon = "size-3" }: { size?: string; icon?: string }) {
   return (
-    <span className={cn("flex shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-ali-red to-ali-orange text-white", size)}>
+    <span className={cn("flex shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-ali-red to-ali-orange text-white shadow-sm", size)}>
       <Sparkles className={icon} />
     </span>
+  );
+}
+
+function TypingDots() {
+  return (
+    <span className="inline-flex items-center gap-1 px-1 py-1.5" aria-label="Assistant is typing">
+      {[0, 1, 2].map((i) => (
+        <span
+          key={i}
+          className="ai-dot size-1.5 rounded-full bg-neutral-400"
+          style={{ animationDelay: `${i * 0.18}s` }}
+        />
+      ))}
+    </span>
+  );
+}
+
+function FeedbackRow({
+  messageId,
+  value,
+  onVote,
+}: {
+  messageId: string;
+  value?: 1 | -1 | null;
+  onVote: (id: string, v: 1 | -1) => void;
+}) {
+  const btn = (v: 1 | -1, label: string, Icon: LucideIcon) => (
+    <button
+      onClick={() => onVote(messageId, v)}
+      aria-label={label}
+      aria-pressed={value === v}
+      title={label}
+      className={cn(
+        "flex size-7 items-center justify-center rounded-full transition active:scale-90",
+        value === v ? "bg-ali-red text-white shadow-sm" : "text-neutral-400 hover:bg-neutral-200/70 hover:text-neutral-600"
+      )}
+    >
+      <Icon className="size-3.5" />
+    </button>
+  );
+  return (
+    <div className="flex items-center gap-0.5 pl-1" aria-label="Rate this answer">
+      {btn(1, "Helpful", ThumbsUp)}
+      {btn(-1, "Not helpful", ThumbsDown)}
+    </div>
   );
 }
 
@@ -76,23 +128,57 @@ function AssistantAvatar({ size = "size-5", icon = "size-3" }: { size?: string; 
 export function AssistantDrawer() {
   const { context, close } = useAssistant();
   const { aiEnabled, aiName } = usePublicSettings();
-  const { status } = useSession();
+  const { data: session, status } = useSession();
+  const firstName = session?.user?.name?.split(" ")[0]?.slice(0, 30);
   const [messages, setMessages] = useState<ChatMsg[]>([]);
+  const [loaded, setLoaded] = useState(false);
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const [dealPicks, setDealPicks] = useState<AssistantProduct[]>([]);
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
+  const [showLatest, setShowLatest] = useState(false);
   const listRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const pinnedRef = useRef(true);
 
   useEffect(() => {
     inputRef.current?.focus();
   }, []);
 
+  // Restore the persistent thread (Alexa-style continuity across sessions).
   useEffect(() => {
-    listRef.current?.scrollTo({ top: listRef.current.scrollHeight });
-  }, [messages, busy]);
+    if (status !== "authenticated" || !aiEnabled || loaded) return;
+    fetch("/api/v1/ai/history")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => {
+        const rows = (j?.data ?? []) as Array<{
+          id: string; role: "user" | "assistant"; content: string;
+          citations: AssistantProduct[]; feedback: 1 | -1 | null; createdAt: string;
+        }>;
+        let prevUser = "";
+        setMessages(
+          rows.map((r) => {
+            const compare = r.role === "assistant" ? isCompareAnswer(prevUser, (r.citations ?? []).length) : undefined;
+            if (r.role === "user") prevUser = r.content;
+            return {
+              id: r.id,
+              role: r.role,
+              content: r.content,
+              time: new Date(r.createdAt).getTime(),
+              citations: r.citations ?? [],
+              compare,
+              feedback: r.feedback,
+            };
+          })
+        );
+        setLoaded(true);
+        requestAnimationFrame(() => {
+          listRef.current?.scrollTo({ top: listRef.current.scrollHeight });
+        });
+      })
+      .catch(() => setLoaded(true));
+  }, [status, aiEnabled, loaded]);
 
   useEffect(() => {
     if (status !== "authenticated" || !aiEnabled) return;
@@ -138,14 +224,37 @@ export function AssistantDrawer() {
       .catch(() => {});
   }, [context.productSlug, context.searchQuery, status, aiEnabled]);
 
-  // Every known product title, for (slug) linkification in answers.
+  // Seamless scroll: follow live messages only while pinned to the bottom.
+  useEffect(() => {
+    const el = listRef.current;
+    if (!el || !pinnedRef.current) return;
+    const fresh = messages.length > 0 && messages[messages.length - 1].fresh;
+    el.scrollTo({ top: el.scrollHeight, behavior: fresh ? "smooth" : "auto" });
+  }, [messages, busy]);
+
+  const onScroll = () => {
+    const el = listRef.current;
+    if (!el) return;
+    const pinned = el.scrollHeight - el.scrollTop - el.clientHeight < 140;
+    pinnedRef.current = pinned;
+    setShowLatest(!pinned && messages.length > 0);
+  };
+
+  const jumpToLatest = () => {
+    pinnedRef.current = true;
+    setShowLatest(false);
+    listRef.current?.scrollTo({ top: listRef.current.scrollHeight, behavior: "smooth" });
+  };
+
+  // Every known product title, for clean title-only links in answers.
   const titles = useMemo(() => {
     const map = new Map<string, string>();
     for (const m of messages) {
       for (const c of m.citations ?? []) map.set(c.slug.toLowerCase(), c.title);
     }
+    for (const c of dealPicks) map.set(c.slug.toLowerCase(), c.title);
     return map;
-  }, [messages]);
+  }, [messages, dealPicks]);
 
   const lastAssistantIdx = useMemo(() => {
     for (let i = messages.length - 1; i >= 0; i--) {
@@ -159,11 +268,9 @@ export function AssistantDrawer() {
     if (!content || busy) return;
     setInput("");
     setNotice(null);
-    const userMsg: ChatMsg = {
-      role: "user",
-      content,
-      time: Date.now(),
-    };
+    pinnedRef.current = true;
+    setShowLatest(false);
+    const userMsg: ChatMsg = { role: "user", content, time: Date.now(), fresh: true };
     const next = [...messages, userMsg];
     setMessages(next);
     setBusy(true);
@@ -171,10 +278,7 @@ export function AssistantDrawer() {
       const res = await fetch("/api/v1/ai/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          messages: next.slice(-12).map((m) => ({ role: m.role, content: m.content })),
-          context,
-        }),
+        body: JSON.stringify({ message: content, context }),
       });
       const json = await res.json().catch(() => null);
       if (!res.ok && !json?.data?.reply) {
@@ -184,11 +288,13 @@ export function AssistantDrawer() {
       setMessages([
         ...next,
         {
+          id: (json.data.messageId as string | null) ?? undefined,
           role: "assistant",
           content: json.data.reply as string,
           time: Date.now(),
           citations,
           compare: isCompareAnswer(content, citations.length),
+          fresh: true,
         },
       ]);
       if (!res.ok) setNotice("Degraded mode — catalog facts shown while the model recovers.");
@@ -196,6 +302,23 @@ export function AssistantDrawer() {
       setNotice(e instanceof Error ? e.message : "Assistant unavailable.");
     } finally {
       setBusy(false);
+    }
+  };
+
+  const vote = async (id: string, v: 1 | -1) => {
+    const prev = messages;
+    setMessages((ms) => ms.map((m) => (m.id === id ? { ...m, feedback: m.feedback === v ? null : v } : m)));
+    try {
+      const res = await fetch("/api/v1/ai/feedback", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ messageId: id, value: v }),
+      });
+      const json = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(json?.error?.message ?? "Vote failed.");
+      setMessages((ms) => ms.map((m) => (m.id === id ? { ...m, feedback: (json.data.feedback as 1 | -1 | null) ?? null } : m)));
+    } catch {
+      setMessages(prev);
     }
   };
 
@@ -246,101 +369,124 @@ export function AssistantDrawer() {
           ) : null}
         </p>
       ) : null}
-      <div ref={listRef} className="flex-1 space-y-4 overflow-y-auto bg-neutral-50 p-3" role="log" aria-label="Assistant conversation">
-        {messages.length === 0 && !busy ? (
-          <div className="space-y-3">
-            <div className="space-y-3 rounded-xl bg-white p-4 shadow-sm">
-              <p className="flex items-center gap-2 text-sm font-bold">
-                <AssistantAvatar size="size-6" icon="size-3.5" />
-                Hi, I&apos;m {aiName}
-              </p>
-              <p className="text-xs text-neutral-500">
-                I can compare products, summarize reviews, check prices and track your orders. Try one:
-              </p>
-              <div className="flex flex-wrap gap-1.5">
-                {suggestions.map((s) => (
-                  <SuggestionChip key={s} text={s} onPick={send} />
-                ))}
-              </div>
-            </div>
-            {dealPicks.length > 0 ? (
-              <div className="space-y-2 rounded-xl bg-white p-3 shadow-sm">
-                <p className="flex items-center gap-1.5 text-xs font-bold">
-                  <Zap className="size-3.5 fill-current text-ali-orange" /> Today&apos;s flash deals
+      <div className="relative flex-1 overflow-hidden bg-neutral-50">
+        <div
+          ref={listRef}
+          onScroll={onScroll}
+          className="h-full space-y-4 overflow-y-auto scroll-smooth p-3"
+          role="log"
+          aria-label="Assistant conversation"
+        >
+          {messages.length === 0 && !busy && loaded ? (
+            <div className="ai-msg-in space-y-3">
+              <div className="space-y-3 rounded-2xl bg-white p-4 shadow-[0_1px_2px_rgba(0,0,0,0.05),0_4px_16px_rgba(0,0,0,0.05)]">
+                <p className="flex items-center gap-2 text-sm font-bold">
+                  <AssistantAvatar size="size-7" icon="size-4" />
+                  {firstName ? `Hi ${firstName}, I'm ${aiName}` : `Hi, I'm ${aiName}`}
                 </p>
-                <ProductCarousel items={dealPicks} />
-              </div>
-            ) : null}
-          </div>
-        ) : null}
-        {messages.map((m, i) => {
-          if (m.role === "user") {
-            return (
-              <div key={i} className="ml-auto max-w-[88%] rounded-2xl rounded-br-md bg-neutral-900 px-3 py-2 text-sm text-white">
-                {m.content}
-              </div>
-            );
-          }
-          const { body, verdict } = m.compare ? splitVerdict(m.content) : { body: m.content, verdict: undefined };
-          const showFollowups = i === lastAssistantIdx && !busy && suggestions.length > 0;
-          return (
-            <div key={i} className="space-y-2">
-              <div className="flex items-center gap-1.5 text-[11px] text-neutral-500">
-                <AssistantAvatar />
-                <span className="font-semibold text-neutral-700">{aiName}</span>
-                <span>·</span>
-                <time>{new Date(m.time).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</time>
-              </div>
-              <div className="rounded-2xl rounded-tl-md bg-white px-3 py-2.5 text-sm shadow-sm">
-                <AssistantText text={body} titles={titles} />
-              </div>
-              {m.citations && m.citations.length > 0 ? (
-                m.compare ? (
-                  <CompareTable items={m.citations} verdict={verdict} />
-                ) : (
-                  <ProductCarousel items={m.citations} />
-                )
-              ) : null}
-              {showFollowups ? (
-                <div className="no-scrollbar flex gap-1.5 overflow-x-auto pb-0.5" aria-label="Follow-up questions">
+                <p className="text-xs leading-5 text-neutral-500">
+                  Your shopping companion — I can compare products, summarize reviews, check prices and track your orders. Try one:
+                </p>
+                <div className="flex flex-wrap gap-1.5">
                   {suggestions.map((s) => (
                     <SuggestionChip key={s} text={s} onPick={send} />
                   ))}
                 </div>
+              </div>
+              {dealPicks.length > 0 ? (
+                <div className="space-y-2 rounded-2xl bg-white p-3 shadow-[0_1px_2px_rgba(0,0,0,0.05),0_4px_16px_rgba(0,0,0,0.05)]">
+                  <p className="flex items-center gap-1.5 text-xs font-bold">
+                    <Zap className="size-3.5 fill-current text-ali-orange" /> Today&apos;s flash deals
+                  </p>
+                  <ProductCarousel items={dealPicks} />
+                </div>
               ) : null}
             </div>
-          );
-        })}
-        {busy ? (
-          <div className="space-y-2" aria-label="Assistant is thinking">
-            <div className="flex items-center gap-1.5 text-[11px] text-neutral-500">
-              <AssistantAvatar />
-              <span className="font-semibold text-neutral-700">{aiName}</span>
-            </div>
-            <div className="animate-pulse space-y-1.5 rounded-2xl rounded-tl-md bg-white p-3 shadow-sm">
-              <div className="h-2.5 w-11/12 rounded bg-neutral-200" />
-              <div className="h-2.5 w-3/4 rounded bg-neutral-200" />
-              <div className="h-2.5 w-2/3 rounded bg-neutral-200" />
-            </div>
-            <div className="flex gap-2">
-              {[0, 1].map((k) => (
-                <div key={k} className="w-[168px] shrink-0 animate-pulse overflow-hidden rounded-xl border bg-white">
-                  <div className="flex aspect-square items-center justify-center bg-neutral-200">
-                    <ImageIcon className="size-8 text-neutral-400" />
-                  </div>
-                  <div className="space-y-1.5 p-2">
-                    <div className="h-2.5 w-full rounded bg-neutral-200" />
-                    <div className="h-4 w-1/2 rounded bg-neutral-200" />
-                  </div>
+          ) : null}
+          {messages.map((m, i) => {
+            if (m.role === "user") {
+              return (
+                <div
+                  key={m.id ?? `u-${i}`}
+                  className={cn(
+                    "ml-auto w-fit max-w-[88%] rounded-[20px] rounded-br-md bg-neutral-900 px-3.5 py-2.5 text-sm leading-6 text-white shadow-sm",
+                    m.fresh && "ai-msg-in"
+                  )}
+                >
+                  {m.content}
                 </div>
-              ))}
+              );
+            }
+            const { body, verdict } = m.compare ? splitVerdict(m.content) : { body: m.content, verdict: undefined };
+            const showFollowups = i === lastAssistantIdx && !busy && suggestions.length > 0;
+            return (
+              <div key={m.id ?? `a-${i}`} className={cn("space-y-2", m.fresh && "ai-msg-in")}>
+                <div className="flex items-center gap-1.5 text-[11px] text-neutral-500">
+                  <AssistantAvatar />
+                  <span className="font-semibold text-neutral-700">{aiName}</span>
+                  <span aria-hidden>·</span>
+                  <time>{new Date(m.time).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</time>
+                </div>
+                <div className="rounded-[20px] rounded-tl-md bg-white px-3.5 py-3 text-sm leading-6 shadow-[0_1px_2px_rgba(0,0,0,0.05),0_4px_16px_rgba(0,0,0,0.05)]">
+                  <AssistantText text={body} titles={titles} />
+                </div>
+                {m.id ? (
+                  <FeedbackRow messageId={m.id} value={m.feedback} onVote={vote} />
+                ) : null}
+                {m.citations && m.citations.length > 0 ? (
+                  m.compare ? (
+                    <CompareTable items={m.citations} verdict={verdict} />
+                  ) : (
+                    <ProductCarousel items={m.citations} />
+                  )
+                ) : null}
+                {showFollowups ? (
+                  <div className="no-scrollbar flex gap-1.5 overflow-x-auto pb-0.5" aria-label="Follow-up questions">
+                    {suggestions.map((s) => (
+                      <SuggestionChip key={s} text={s} onPick={send} />
+                    ))}
+                  </div>
+                ) : null}
+              </div>
+            );
+          })}
+          {busy ? (
+            <div className="ai-msg-in space-y-2" aria-label="Assistant is thinking">
+              <div className="flex items-center gap-1.5 text-[11px] text-neutral-500">
+                <AssistantAvatar />
+                <span className="font-semibold text-neutral-700">{aiName}</span>
+              </div>
+              <div className="w-fit rounded-[20px] rounded-tl-md bg-white px-3 shadow-[0_1px_2px_rgba(0,0,0,0.05)]">
+                <TypingDots />
+              </div>
+              <div className="flex gap-2.5">
+                {[0, 1].map((k) => (
+                  <div key={k} className="w-[188px] shrink-0 animate-pulse overflow-hidden rounded-2xl bg-white ring-1 ring-black/5">
+                    <div className="flex aspect-[5/4] items-center justify-center bg-neutral-200/70">
+                      <ImageIcon className="size-8 text-neutral-400" />
+                    </div>
+                    <div className="space-y-1.5 p-3">
+                      <div className="h-2.5 w-full rounded bg-neutral-200/80" />
+                      <div className="h-4 w-1/2 rounded bg-neutral-200/80" />
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
-          </div>
-        ) : null}
-        {notice ? (
-          <p className="flex items-start gap-1.5 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800">
-            <TriangleAlert className="mt-0.5 size-3.5 shrink-0" /> <span>{notice}</span>
-          </p>
+          ) : null}
+          {notice ? (
+            <p className="ai-msg-in flex items-start gap-1.5 rounded-2xl bg-amber-50 px-3.5 py-2.5 text-xs leading-5 text-amber-800 ring-1 ring-amber-200/60">
+              <TriangleAlert className="mt-0.5 size-3.5 shrink-0" /> <span>{notice}</span>
+            </p>
+          ) : null}
+        </div>
+        {showLatest ? (
+          <button
+            onClick={jumpToLatest}
+            className="absolute bottom-3 left-1/2 flex -translate-x-1/2 items-center gap-1 rounded-full bg-neutral-900/90 px-3 py-1.5 text-xs font-semibold text-white shadow-lg backdrop-blur transition hover:bg-neutral-900 active:scale-95"
+          >
+            <ArrowDown className="size-3.5" /> Latest
+          </button>
         ) : null}
       </div>
       <form
@@ -348,7 +494,7 @@ export function AssistantDrawer() {
           e.preventDefault();
           send();
         }}
-        className="flex items-center gap-2 border-t bg-white p-3"
+        className="flex items-center gap-2 border-t bg-white/95 p-3 backdrop-blur"
       >
         <input
           ref={inputRef}
@@ -356,10 +502,16 @@ export function AssistantDrawer() {
           onChange={(e) => setInput(e.target.value)}
           placeholder="Ask about products, deals, orders…"
           aria-label={`Ask ${aiName}`}
-          className={cn("h-10 flex-1 rounded-full border px-3 text-sm outline-none focus:border-ali-red")}
+          className="h-11 flex-1 rounded-full border border-neutral-200 bg-neutral-50 px-4 text-sm outline-none transition placeholder:text-neutral-400 focus:border-ali-red/50 focus:bg-white focus:ring-4 focus:ring-ali-red/10"
           maxLength={2000}
         />
-        <Button type="submit" size="icon" disabled={busy || !input.trim()} aria-label="Send" className="bg-ali-red text-white hover:bg-ali-red-dark">
+        <Button
+          type="submit"
+          size="icon"
+          disabled={busy || !input.trim()}
+          aria-label="Send"
+          className="size-11 shrink-0 rounded-full bg-ali-red text-white shadow-sm transition hover:bg-ali-red-dark active:scale-90 disabled:opacity-40"
+        >
           <Send className="size-4" />
         </Button>
       </form>
@@ -370,10 +522,10 @@ export function AssistantDrawer() {
 
 function DrawerHeader({ name, onClose }: { name: string; onClose: () => void }) {
   return (
-    <div className="flex items-center gap-2 border-b bg-white px-4 py-3">
+    <div className="flex items-center gap-2 border-b bg-white/95 px-4 py-3 backdrop-blur">
       <AssistantAvatar size="size-7" icon="size-4" />
       <p className="flex-1 text-sm font-bold">{name}</p>
-      <Button variant="ghost" size="icon-sm" onClick={onClose} aria-label="Close assistant">
+      <Button variant="ghost" size="icon-sm" onClick={onClose} aria-label="Close assistant" className="rounded-full">
         <X />
       </Button>
     </div>

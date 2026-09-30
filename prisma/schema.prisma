@@ -96,6 +96,7 @@ model User {
   auditLogs AuditLog[] @relation("AuditActor")
   apiTokens ApiToken[]
   notifications Notification[]
+  aiMessages AiMessage[]
 }
 
 model Account {
@@ -874,4 +875,27 @@ model SearchLog {
 
   @@index([query])
   @@index([createdAt])
+}
+
+enum AiRole {
+  USER
+  ASSISTANT
+}
+
+// Persistent shopping-assistant thread (one per buyer, Alexa-style continuity
+// across sessions). Message bodies are the buyer's own shopping questions —
+// no payment data, no secrets. citations is the AiCitation JSON shown as
+// product cards; feedback is +1/-1 from the thumbs vote, used to tune answers.
+model AiMessage {
+  id        String   @id @default(cuid())
+  userId    String
+  role      AiRole
+  content   String
+  citations Json?
+  feedback  Int?
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
 }

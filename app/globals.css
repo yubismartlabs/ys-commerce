@@ -150,4 +150,40 @@
     -ms-overflow-style: none;
     scrollbar-width: none;
   }
+
+  /* Shopping-assistant motion: soft Apple-like entrance + typing dots. */
+  @keyframes ai-msg-in {
+    from {
+      opacity: 0;
+      transform: translateY(10px) scale(0.99);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+    }
+  }
+  .ai-msg-in {
+    animation: ai-msg-in 0.32s cubic-bezier(0.21, 0.9, 0.35, 1) both;
+  }
+  @keyframes ai-dot-bounce {
+    0%,
+    60%,
+    100% {
+      transform: translateY(0);
+      opacity: 0.35;
+    }
+    30% {
+      transform: translateY(-4px);
+      opacity: 1;
+    }
+  }
+  .ai-dot {
+    animation: ai-dot-bounce 1.2s ease-in-out infinite;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .ai-msg-in,
+    .ai-dot {
+      animation: none;
+    }
+  }
 }
