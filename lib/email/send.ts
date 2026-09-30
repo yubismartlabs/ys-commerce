@@ -26,7 +26,7 @@ export async function getEmailConfig(): Promise<EmailConfig> {
     from: settings.notifications.fromEmail || process.env.EMAIL_FROM || "onboarding@resend.dev",
     replyTo: settings.notifications.replyTo || undefined,
     adminAlertEmail: settings.notifications.adminAlertEmail,
-    siteName: settings.site.siteName || "7Krave",
+    siteName: settings.site.siteName || "ys-commerce",
     orderEmails: settings.notifications.orderEmails,
     disputeEmails: settings.notifications.disputeEmails,
     vendorEmails: settings.notifications.vendorEmails,

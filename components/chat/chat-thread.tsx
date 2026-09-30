@@ -145,7 +145,7 @@ export function ChatThread({ conversationId, userId }: { conversationId: string;
           <p className="py-4 text-center text-sm text-neutral-500">Loading messages…</p>
         ) : chat.messages.length === 0 ? (
           <p className="py-6 text-center text-sm text-neutral-500">
-            No messages yet. Say hello — keep deals and contact details on 7Krave.
+            No messages yet. Say hello — keep deals and contact details on ys-commerce.
           </p>
         ) : (
           chat.messages.map((m) => {
@@ -189,7 +189,7 @@ export function ChatThread({ conversationId, userId }: { conversationId: string;
         <Card className="space-y-2 p-3">
           <p className="flex items-start gap-1.5 rounded-lg bg-amber-400/10 px-3 py-2 text-xs text-amber-800 dark:text-amber-300">
             <ShieldCheck className="mt-0.5 size-3.5 shrink-0" />
-            Keep it on 7Krave: no phone numbers, emails, links, or off-site payments.
+            Keep it on ys-commerce: no phone numbers, emails, links, or off-site payments.
             Deals made outside lose buyer protection and seller escrow.
           </p>
           {warnAck === draft && draft.trim() ? (

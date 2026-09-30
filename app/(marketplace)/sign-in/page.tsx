@@ -113,7 +113,7 @@ function SignInForm() {
         </Button>
       </form>
       <p className="text-center text-sm text-neutral-500">
-        New to 7Krave? <Link href="/sign-up" className="font-semibold text-ali-red hover:underline">Create an account</Link>
+        New to ys-commerce? <Link href="/sign-up" className="font-semibold text-ali-red hover:underline">Create an account</Link>
       </p>
     </Card>
   );

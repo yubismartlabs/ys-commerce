@@ -5,7 +5,7 @@ export function MarketplaceFooter() {
     <footer className="mt-10 border-t bg-white">
       <div className="mx-auto grid max-w-7xl gap-8 px-4 py-10 text-sm text-neutral-600 md:grid-cols-4">
         <div>
-          <p className="mb-3 text-xl font-black"><span className="text-ali-red">7</span>Krave</p>
+          <p className="mb-3 text-xl font-black"><span className="text-ali-red">ys</span>-commerce</p>
           <p>Multi-vendor marketplace with buyer protection on every order. USD / English.</p>
         </div>
         <div>
@@ -37,7 +37,7 @@ export function MarketplaceFooter() {
         </div>
       </div>
       <div className="border-t py-4 text-center text-xs text-neutral-500">
-        © 2026 7Krave · Demo marketplace · Payments are simulated
+        © 2026 ys-commerce · Demo marketplace · Payments are simulated
       </div>
     </footer>
   );

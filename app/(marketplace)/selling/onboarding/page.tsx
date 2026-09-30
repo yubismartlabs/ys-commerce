@@ -24,7 +24,7 @@ export default function SellingOnboardingPage() {
   if (status === "unauthenticated") {
     return (
       <div className="mx-auto max-w-xl space-y-4">
-        <h1 className="text-xl font-bold">Start selling on 7Krave</h1>
+        <h1 className="text-xl font-bold">Start selling on ys-commerce</h1>
         <Card className="space-y-3 p-6 text-center">
           <p className="text-sm text-neutral-500">Sign in first — your buyer account becomes your seller account.</p>
           <Button asChild className="bg-ali-red text-white hover:bg-ali-red-dark">
@@ -63,7 +63,7 @@ export default function SellingOnboardingPage() {
 
   return (
     <div className="mx-auto max-w-xl space-y-4">
-      <h1 className="text-xl font-bold">Start selling on 7Krave</h1>
+      <h1 className="text-xl font-bold">Start selling on ys-commerce</h1>
       <Card className="space-y-3 p-4">
         <p className="text-sm text-neutral-500">
           One account for buying + selling. Your store opens in <strong>pending</strong> status until an admin approves it.

@@ -1,4 +1,4 @@
-# 7Krave marketplace
+# ys-commerce
 
 A multi-vendor marketplace (AliExpress/eBay-shaped) built with Next.js 16 (App Router), React 19, Prisma and PostgreSQL.
 
@@ -16,7 +16,7 @@ npm run db:seed           # creates a demo admin + catalogue
 npm run dev
 ```
 
-Storefront: <https://marketplace.7krave.com> (local dev: <http://localhost:3000>) · Admin console: `/ys-admin`
+Storefront: <http://localhost:3000> · Admin console: <http://localhost:3000/ys-admin>
 
 The seed prints the admin email/password. Dev-only credentials are in `.env` (`ADMIN_EMAIL` / `ADMIN_PASSWORD`).
 
