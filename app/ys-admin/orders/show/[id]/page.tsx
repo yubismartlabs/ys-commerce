@@ -14,6 +14,7 @@ import { BackLink, ErrorState, Field, SectionTitle, StatusBadge, TableSkeleton }
 import { toast } from "sonner";
 import { formatUSD, timeAgo } from "@/lib/format";
 import { cn } from "@/lib/utils";
+import { OrderAddress } from "@/components/orders/order-address";
 import type { Order } from "@/lib/refine/types";
 
 const STEPS = ["PENDING", "PAID", "SHIPPED", "DELIVERED"] as const;
@@ -124,13 +125,7 @@ export default function OrderShowPage({ params }: { params: Promise<{ id: string
             </dl>
             <div className="mt-4">
               <SectionTitle><span className="inline-flex items-center gap-1.5"><MapPin className="size-4" /> Ship to</span></SectionTitle>
-              <p className="mt-2 text-sm">
-                {o.shipName ?? "—"}{o.shipPhone ? ` · ${o.shipPhone}` : ""}
-                <br />
-                <span className="text-neutral-500">
-                  {o.shipStreet ?? "—"}, {o.shipCity ?? "—"} {o.shipZip ?? ""}
-                </span>
-              </p>
+              <OrderAddress address={o} className="mt-2 text-sm" />
             </div>
           </div>
           <div>

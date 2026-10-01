@@ -24,8 +24,8 @@ const START_STOCK = 5;
 const PRICE = 20;
 
 async function createListing(request: APIRequestContext): Promise<Listing> {
-  const storeEnvelope = await (await request.get("/api/v1/selling/store")).json();
-  const res = await request.post("/api/v1/selling/products", {
+  const storeEnvelope = await (await request.get("/api/v1/account/selling/store")).json();
+  const res = await request.post("/api/v1/account/selling/products", {
     data: {
       storeId: storeEnvelope.data[0].id,
       title: STORE_TITLE,
@@ -42,7 +42,7 @@ async function createListing(request: APIRequestContext): Promise<Listing> {
 
   // The create endpoint always files a listing as DRAFT, and `resolveCart`
   // refuses anything that isn't ACTIVE, so publish it before it can be bought.
-  const published = await request.patch(`/api/v1/selling/products/${listing.id}`, {
+  const published = await request.patch(`/api/v1/account/selling/products/${listing.id}`, {
     data: { status: "ACTIVE" },
   });
   expect(published.ok(), await published.text()).toBeTruthy();
@@ -50,7 +50,7 @@ async function createListing(request: APIRequestContext): Promise<Listing> {
 }
 
 async function stockOf(request: APIRequestContext, listing: Listing) {
-  return (await (await request.get(`/api/v1/selling/products/${listing.id}`)).json()).data.stock;
+  return (await (await request.get(`/api/v1/account/selling/products/${listing.id}`)).json()).data.stock;
 }
 
 /** Add to cart through the real product page, then land on the cart. */
@@ -61,11 +61,21 @@ async function addToCartViaUi(page: Page, listing: Listing) {
   await expect(page.getByText(STORE_TITLE).first()).toBeVisible();
 }
 
+/**
+ * Fill the inline checkout address form. The state and country selects are
+ * Radix popups, not <select>, so they are driven through their trigger +
+ * listbox rather than a native value change.
+ */
 async function fillAddress(page: Page) {
   const main = page.getByRole("main");
   await main.getByLabel("Full name *").fill("Jane Doe");
   await main.getByLabel("Street *").fill("123 Main St");
   await main.getByLabel("City *").fill("New York");
+
+  // "State / Province *" is a Select; the trigger carries the label's htmlFor.
+  await main.getByLabel("State / Province *").click();
+  await page.getByRole("option", { name: "New York", exact: true }).click();
+
   await main.getByLabel("ZIP *").fill("10001");
 }
 
@@ -82,7 +92,7 @@ test.describe("buyer checkout", () => {
   });
 
   test.afterAll(async () => {
-    if (listing) await sellerApi.delete(`/api/v1/selling/products/${listing.id}`);
+    if (listing) await sellerApi.delete(`/api/v1/account/selling/products/${listing.id}`);
     await sellerApi.dispose();
   });
 
@@ -119,7 +129,7 @@ test.describe("buyer checkout", () => {
   });
 
   test("the server refuses an order beyond available stock", async ({ page }) => {
-    await sellerApi.patch(`/api/v1/selling/products/${listing.id}`, {
+    await sellerApi.patch(`/api/v1/account/selling/products/${listing.id}`, {
       data: { trackStock: true, stock: 1 },
     });
 
@@ -130,7 +140,7 @@ test.describe("buyer checkout", () => {
     const res = await page.request.post("/api/v1/checkout", {
       data: {
         items: [{ slug: listing.slug, qty: 5 }],
-        address: { name: "Jane Doe", street: "123 Main St", city: "New York", zip: "10001" },
+        address: { name: "Jane Doe", line1: "123 Main St", city: "New York", region: "New York", postalCode: "10001", country: "US" },
       },
     });
     expect(res.ok(), `oversell should be rejected, got ${res.status()}`).toBe(false);
@@ -142,7 +152,7 @@ test.describe("buyer checkout", () => {
   });
 
   test("checkout re-prices server-side and ignores a tampered cart price", async ({ page }) => {
-    await sellerApi.patch(`/api/v1/selling/products/${listing.id}`, {
+    await sellerApi.patch(`/api/v1/account/selling/products/${listing.id}`, {
       data: { trackStock: true, stock: 10 },
     });
 
@@ -151,7 +161,7 @@ test.describe("buyer checkout", () => {
     const res = await page.request.post("/api/v1/checkout", {
       data: {
         items: [{ slug: listing.slug, qty: 1, price: 0.01, title: listing.title, image: "" }],
-        address: { name: "Jane Doe", street: "123 Main St", city: "New York", zip: "10001" },
+        address: { name: "Jane Doe", line1: "123 Main St", city: "New York", region: "New York", postalCode: "10001", country: "US" },
       },
     });
     expect(res.ok(), await res.text()).toBeTruthy();
@@ -162,7 +172,7 @@ test.describe("buyer checkout", () => {
   });
 
   test("checkout rejects an incomplete payload", async ({ page }) => {
-    const address = { name: "Jane Doe", street: "123 Main St", city: "New York", zip: "10001" };
+    const address = { name: "Jane Doe", line1: "123 Main St", city: "New York", region: "New York", postalCode: "10001", country: "US" };
 
     const cases: Array<[string, unknown]> = [
       ["no address", { items: [{ slug: listing.slug, qty: 1 }] }],

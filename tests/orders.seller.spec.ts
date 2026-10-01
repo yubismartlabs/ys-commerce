@@ -27,8 +27,8 @@ test.afterAll(async () => {
 
 /** Publish a listing, buy it as the buyer, and return the new order. */
 async function paidOrder() {
-  const storeEnvelope = await (await sellerApi.get("/api/v1/selling/store")).json();
-  const created = await sellerApi.post("/api/v1/selling/products", {
+  const storeEnvelope = await (await sellerApi.get("/api/v1/account/selling/store")).json();
+  const created = await sellerApi.post("/api/v1/account/selling/products", {
     data: {
       storeId: storeEnvelope.data[0].id,
       title: TITLE,
@@ -42,7 +42,7 @@ async function paidOrder() {
   });
   expect(created.ok(), await created.text()).toBeTruthy();
   const listing = (await created.json()).data;
-  await sellerApi.patch(`/api/v1/selling/products/${listing.id}`, { data: { status: "ACTIVE" } });
+  await sellerApi.patch(`/api/v1/account/selling/products/${listing.id}`, { data: { status: "ACTIVE" } });
 
   const buyer = await playwrightRequest.newContext({
     storageState: "playwright/.auth/buyer.json",
@@ -51,7 +51,7 @@ async function paidOrder() {
   const checkout = await buyer.post("/api/v1/checkout", {
     data: {
       items: [{ slug: listing.slug, qty: 1 }],
-      address: { name: "Jane Doe", street: "123 Main St", city: "New York", zip: "10001" },
+      address: { name: "Jane Doe", line1: "123 Main St", city: "New York", region: "New York", postalCode: "10001", country: "US" },
     },
   });
   expect(checkout.ok(), await checkout.text()).toBeTruthy();
@@ -64,7 +64,7 @@ test.describe("seller order fulfilment", () => {
   test("the orders list shows the order and its status filter narrows it", async ({ page }) => {
     const order = await paidOrder();
 
-    await page.goto("/selling/orders");
+    await page.goto("/account/orders?view=selling");
     const row = page.getByRole("row", { name: new RegExp(order.number) });
     await expect(row).toBeVisible();
     await expect(row).toContainText("PAID");
@@ -80,7 +80,7 @@ test.describe("seller order fulfilment", () => {
 
   test("a PAID order offers Mark shipped and records the tracking number", async ({ page, request }) => {
     const order = await paidOrder();
-    await page.goto(`/selling/orders/${order.id}`);
+    await page.goto(`/account/sales/${order.id}`);
 
     const main = page.getByRole("main");
     await expect(main.getByText(order.number)).toBeVisible();
@@ -95,7 +95,7 @@ test.describe("seller order fulfilment", () => {
     // The tracking number must be persisted and shown back, not just accepted.
     await expect(main.getByText("E2E-TRACK-42")).toBeVisible();
 
-    const envelope = await (await request.get(`/api/v1/selling/orders/${order.id}`)).json();
+    const envelope = await (await request.get(`/api/v1/account/selling/orders/${order.id}`)).json();
     const reloaded = envelope.data;
     expect(reloaded.status).toBe("SHIPPED");
     const shipment = reloaded.shipments.find((s: { trackingNumber: string | null }) => s.trackingNumber === "E2E-TRACK-42");
@@ -106,11 +106,11 @@ test.describe("seller order fulfilment", () => {
   test("Update tracking stays disabled until a number is entered", async ({ page }) => {
     const order = await paidOrder();
     // Move it to SHIPPED so the SHIPPED-only controls render.
-    await page.request.patch(`/api/v1/selling/orders/${order.id}`, {
+    await page.request.patch(`/api/v1/account/selling/orders/${order.id}`, {
       data: { status: "SHIPPED", trackingNumber: "E2E-SEED-1", carrier: "E2E" },
     });
 
-    await page.goto(`/selling/orders/${order.id}`);
+    await page.goto(`/account/sales/${order.id}`);
     const main = page.getByRole("main");
     const update = main.getByRole("button", { name: "Update tracking" });
     await expect(update).toBeVisible();
@@ -124,11 +124,11 @@ test.describe("seller order fulfilment", () => {
 
   test("Mark delivered advances the order and retires the fulfilment form", async ({ page, request }) => {
     const order = await paidOrder();
-    await page.request.patch(`/api/v1/selling/orders/${order.id}`, {
+    await page.request.patch(`/api/v1/account/selling/orders/${order.id}`, {
       data: { status: "SHIPPED", trackingNumber: "E2E-SEED-3", carrier: "E2E" },
     });
 
-    await page.goto(`/selling/orders/${order.id}`);
+    await page.goto(`/account/sales/${order.id}`);
     const main = page.getByRole("main");
     await main.getByRole("button", { name: "Mark delivered" }).click();
 
@@ -137,7 +137,7 @@ test.describe("seller order fulfilment", () => {
     await expect(main.getByRole("button", { name: "Mark shipped" })).toHaveCount(0);
     await expect(main.getByPlaceholder("Tracking number")).toHaveCount(0);
 
-    const envelope = await (await request.get(`/api/v1/selling/orders/${order.id}`)).json();
+    const envelope = await (await request.get(`/api/v1/account/selling/orders/${order.id}`)).json();
     expect(envelope.data.status).toBe("DELIVERED");
   });
 
@@ -151,7 +151,7 @@ test.describe("seller order fulfilment", () => {
       // 404, not 403: the route filters to the seller's own items, so another
       // store's order is indistinguishable from one that does not exist. That
       // is the right answer — a 403 would confirm the order id is real.
-      const res = await seller2.get(`/api/v1/selling/orders/${order.id}`);
+      const res = await seller2.get(`/api/v1/account/selling/orders/${order.id}`);
       expect(res.status()).toBe(404);
     } finally {
       await seller2.dispose();

@@ -26,7 +26,7 @@ test.afterAll(async () => {
 type Store = { id: string; name: string };
 
 async function storeOf(role: "seller" | "seller2"): Promise<Store> {
-  const envelope = await (await roles[role].get("/api/v1/selling/store")).json();
+  const envelope = await (await roles[role].get("/api/v1/account/selling/store")).json();
   return envelope.data[0];
 }
 
@@ -47,7 +47,7 @@ type Fixture = {
 /** Publish a listing for the given seller, priced so shipping is charged. */
 async function listing(role: "seller" | "seller2", price = PRICE): Promise<Fixture> {
   const store = await storeOf(role);
-  const created = await roles[role].post("/api/v1/selling/products", {
+  const created = await roles[role].post("/api/v1/account/selling/products", {
     data: {
       storeId: store.id,
       title: `E2E Coupon ${role} ${uniqueCode("P")}`,
@@ -60,7 +60,7 @@ async function listing(role: "seller" | "seller2", price = PRICE): Promise<Fixtu
   });
   expect(created.ok(), await created.text()).toBeTruthy();
   const p = (await created.json()).data;
-  await roles[role].patch(`/api/v1/selling/products/${p.id}`, { data: { status: "ACTIVE" } });
+  await roles[role].patch(`/api/v1/account/selling/products/${p.id}`, { data: { status: "ACTIVE" } });
   // Built field by field rather than spread: spreading an `any` collapses the
   // return type to `any` and silently disables checking at every call site.
   return { id: p.id, slug: p.slug, owner: role, storeId: store.id, storeName: store.name };
@@ -81,7 +81,7 @@ async function buy(items: Array<{ slug: string; qty?: number }>, couponCode?: st
     data: {
       items: items.map((i) => ({ slug: i.slug, qty: i.qty ?? 1 })),
       ...(couponCode ? { couponCode } : {}),
-      address: { name: "Jane Doe", street: "123 Main St", city: "New York", zip: "10001" },
+      address: { name: "Jane Doe", line1: "123 Main St", city: "New York", region: "New York", postalCode: "10001", country: "US" },
     },
   });
   expect(res.ok(), await res.text()).toBeTruthy();
@@ -121,7 +121,7 @@ test.describe("coupons at checkout", () => {
       data: {
         items: [{ slug: cheap.slug, qty: 1 }],
         couponCode: coupon.code,
-        address: { name: "Jane Doe", street: "123 Main St", city: "New York", zip: "10001" },
+        address: { name: "Jane Doe", line1: "123 Main St", city: "New York", region: "New York", postalCode: "10001", country: "US" },
       },
     });
     expect(res.status()).toBe(422);
@@ -162,10 +162,10 @@ test.describe("coupons at checkout", () => {
     // Patch with the owning session: seller1 cannot touch a seller2 listing,
     // so using the wrong role here would leave the category unchanged and the
     // assertion below would silently measure the wrong thing.
-    await roles[other.owner].patch(`/api/v1/selling/products/${other.id}`, {
+    await roles[other.owner].patch(`/api/v1/account/selling/products/${other.id}`, {
       data: { category: "home" },
     });
-    const reloaded = await (await roles[other.owner].get(`/api/v1/selling/products/${other.id}`)).json();
+    const reloaded = await (await roles[other.owner].get(`/api/v1/account/selling/products/${other.id}`)).json();
     expect(reloaded.data.category).toBe("home");
 
     const coupon = await makeCoupon({ type: "PERCENT", pctOff: 50, categories: ["electronics"] });
@@ -184,7 +184,7 @@ test.describe("coupons at checkout", () => {
       data: {
         items: [{ slug: second.slug, qty: 1 }],
         couponCode: coupon.code,
-        address: { name: "Jane Doe", street: "123 Main St", city: "New York", zip: "10001" },
+        address: { name: "Jane Doe", line1: "123 Main St", city: "New York", region: "New York", postalCode: "10001", country: "US" },
       },
     });
     expect(res.status()).toBe(422);
@@ -195,7 +195,7 @@ test.describe("coupons at checkout", () => {
     const item = await listing("seller");
     const body = {
       items: [{ slug: item.slug, qty: 1 }],
-      address: { name: "Jane Doe", street: "123 Main St", city: "New York", zip: "10001" },
+      address: { name: "Jane Doe", line1: "123 Main St", city: "New York", region: "New York", postalCode: "10001", country: "US" },
     };
 
     const unknown = await roles.buyer.post("/api/v1/checkout", { data: { ...body, couponCode: "NOPE-NOT-A-CODE" } });

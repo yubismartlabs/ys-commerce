@@ -38,8 +38,8 @@ type Delivered = {
 };
 
 async function deliveredOrder(): Promise<Delivered> {
-  const storeEnvelope = await (await roles.seller.get("/api/v1/selling/store")).json();
-  const created = await roles.seller.post("/api/v1/selling/products", {
+  const storeEnvelope = await (await roles.seller.get("/api/v1/account/selling/store")).json();
+  const created = await roles.seller.post("/api/v1/account/selling/products", {
     data: {
       storeId: storeEnvelope.data[0].id,
       title: TITLE,
@@ -53,12 +53,12 @@ async function deliveredOrder(): Promise<Delivered> {
   });
   expect(created.ok(), await created.text()).toBeTruthy();
   const listing = (await created.json()).data;
-  await roles.seller.patch(`/api/v1/selling/products/${listing.id}`, { data: { status: "ACTIVE" } });
+  await roles.seller.patch(`/api/v1/account/selling/products/${listing.id}`, { data: { status: "ACTIVE" } });
 
   const checkout = await roles.buyer.post("/api/v1/checkout", {
     data: {
       items: [{ slug: listing.slug, qty: QTY }],
-      address: { name: "Jane Doe", street: "123 Main St", city: "New York", zip: "10001" },
+      address: { name: "Jane Doe", line1: "123 Main St", city: "New York", region: "New York", postalCode: "10001", country: "US" },
     },
   });
   expect(checkout.ok(), await checkout.text()).toBeTruthy();
@@ -66,7 +66,7 @@ async function deliveredOrder(): Promise<Delivered> {
 
   // Seller ships, then the carrier scans it in.
   for (const status of ["SHIPPED", "DELIVERED"] as const) {
-    const res = await roles.seller.patch(`/api/v1/selling/orders/${order.id}`, {
+    const res = await roles.seller.patch(`/api/v1/account/selling/orders/${order.id}`, {
       data: { status, trackingNumber: "E2E-TRACK-1", carrier: "E2E" },
     });
     expect(res.ok(), `${status}: ${await res.text()}`).toBeTruthy();
@@ -106,7 +106,7 @@ test.describe("return lifecycle and escrow", () => {
     // REQUESTED may only go to ACCEPTED, REJECTED or CANCELLED. A seller
     // jumping straight to RECEIVED must be refused, not silently accepted.
     const jump = await json(
-      await roles.seller.patch(`/api/v1/selling/returns/${ret.id}`, { data: { to: "RECEIVED" } })
+      await roles.seller.patch(`/api/v1/account/selling/returns/${ret.id}`, { data: { to: "RECEIVED" } })
     );
     expect(jump.status).toBeGreaterThanOrEqual(400);
     expect(JSON.stringify(jump.body)).toMatch(/cannot move/i);
@@ -121,7 +121,7 @@ test.describe("return lifecycle and escrow", () => {
 
     // The seller cannot even name a refund: their transition enum excludes it.
     const sellerRefund = await json(
-      await roles.seller.patch(`/api/v1/selling/returns/${ret.id}`, { data: { to: "REFUNDED" } })
+      await roles.seller.patch(`/api/v1/account/selling/returns/${ret.id}`, { data: { to: "REFUNDED" } })
     );
     expect(sellerRefund.status).toBe(422);
   });
@@ -130,12 +130,12 @@ test.describe("return lifecycle and escrow", () => {
     const { order } = await deliveredOrder();
     const ret = await fileReturn(order);
 
-    const accepted = await roles.seller.patch(`/api/v1/selling/returns/${ret.id}`, {
+    const accepted = await roles.seller.patch(`/api/v1/account/selling/returns/${ret.id}`, {
       data: { to: "ACCEPTED" },
     });
     expect(accepted.ok(), await accepted.text()).toBeTruthy();
 
-    const received = await roles.seller.patch(`/api/v1/selling/returns/${ret.id}`, {
+    const received = await roles.seller.patch(`/api/v1/account/selling/returns/${ret.id}`, {
       data: { to: "RECEIVED" },
     });
     expect(received.ok(), await received.text()).toBeTruthy();
@@ -156,7 +156,7 @@ test.describe("return lifecycle and escrow", () => {
     const { order } = await deliveredOrder();
     const ret = await fileReturn(order);
 
-    const rejected = await roles.seller.patch(`/api/v1/selling/returns/${ret.id}`, {
+    const rejected = await roles.seller.patch(`/api/v1/account/selling/returns/${ret.id}`, {
       data: { to: "REJECTED" },
     });
     expect(rejected.ok(), await rejected.text()).toBeTruthy();
@@ -172,14 +172,14 @@ test.describe("return lifecycle and escrow", () => {
     const ret = await fileReturn(order);
 
     // The store that sold the item can act on the return.
-    const own = await roles.seller.patch(`/api/v1/selling/returns/${ret.id}`, {
+    const own = await roles.seller.patch(`/api/v1/account/selling/returns/${ret.id}`, {
       data: { to: "ACCEPTED" },
     });
     expect(own.ok(), await own.text()).toBeTruthy();
 
     // An unrelated seller must be refused, even though the return id is real.
     const foreign = await json(
-      await roles.seller2.patch(`/api/v1/selling/returns/${ret.id}`, { data: { to: "RECEIVED" } })
+      await roles.seller2.patch(`/api/v1/account/selling/returns/${ret.id}`, { data: { to: "RECEIVED" } })
     );
     expect(foreign.status).toBe(403);
     expect(JSON.stringify(foreign.body)).toMatch(/isn't for your store|not for your store/i);
@@ -207,8 +207,8 @@ test.describe("return lifecycle and escrow", () => {
     // really does span stores and the guard is genuinely exercised.
     const listings: Array<{ id: string; slug: string }> = [];
     for (const api of [roles.seller, roles.seller2]) {
-      const storeEnvelope = await (await api.get("/api/v1/selling/store")).json();
-      const created = await api.post("/api/v1/selling/products", {
+      const storeEnvelope = await (await api.get("/api/v1/account/selling/store")).json();
+      const created = await api.post("/api/v1/account/selling/products", {
         data: {
           storeId: storeEnvelope.data[0].id,
           title: `E2E Multi ${listings.length + 1}`,
@@ -220,14 +220,14 @@ test.describe("return lifecycle and escrow", () => {
       });
       expect(created.ok(), await created.text()).toBeTruthy();
       const listing = (await created.json()).data;
-      await api.patch(`/api/v1/selling/products/${listing.id}`, { data: { status: "ACTIVE" } });
+      await api.patch(`/api/v1/account/selling/products/${listing.id}`, { data: { status: "ACTIVE" } });
       listings.push(listing);
     }
 
     const checkout = await roles.buyer.post("/api/v1/checkout", {
       data: {
         items: listings.map((l) => ({ slug: l.slug, qty: 1 })),
-        address: { name: "Jane Doe", street: "123 Main St", city: "New York", zip: "10001" },
+        address: { name: "Jane Doe", line1: "123 Main St", city: "New York", region: "New York", postalCode: "10001", country: "US" },
       },
     });
     expect(checkout.ok(), await checkout.text()).toBeTruthy();

@@ -35,13 +35,13 @@ function tag() {
 }
 
 async function storeOf(role: "seller" | "seller2") {
-  const envelope = await (await roles[role].get("/api/v1/selling/store")).json();
+  const envelope = await (await roles[role].get("/api/v1/account/selling/store")).json();
   return envelope.data[0] as { id: string; name: string };
 }
 
 async function deliveredOrder(role: "seller" | "seller2" = "seller", price = PRICE) {
   const store = await storeOf(role);
-  const created = await roles[role].post("/api/v1/selling/products", {
+  const created = await roles[role].post("/api/v1/account/selling/products", {
     data: {
       storeId: store.id,
       title: tag(),
@@ -53,19 +53,19 @@ async function deliveredOrder(role: "seller" | "seller2" = "seller", price = PRI
   });
   expect(created.ok(), await created.text()).toBeTruthy();
   const listing = (await created.json()).data;
-  await roles[role].patch(`/api/v1/selling/products/${listing.id}`, { data: { status: "ACTIVE" } });
+  await roles[role].patch(`/api/v1/account/selling/products/${listing.id}`, { data: { status: "ACTIVE" } });
 
   const checkout = await roles.buyer.post("/api/v1/checkout", {
     data: {
       items: [{ slug: listing.slug, qty: 1 }],
-      address: { name: "Jane Doe", street: "123 Main St", city: "New York", zip: "10001" },
+      address: { name: "Jane Doe", line1: "123 Main St", city: "New York", region: "New York", postalCode: "10001", country: "US" },
     },
   });
   expect(checkout.ok(), await checkout.text()).toBeTruthy();
   const order = (await checkout.json()).data;
 
   for (const status of ["SHIPPED", "DELIVERED"] as const) {
-    const res = await roles[role].patch(`/api/v1/selling/orders/${order.id}`, {
+    const res = await roles[role].patch(`/api/v1/account/selling/orders/${order.id}`, {
       data: { status, trackingNumber: "E2E-T", carrier: "E2E" },
     });
     expect(res.ok(), `${status}: ${await res.text()}`).toBeTruthy();
@@ -90,7 +90,7 @@ async function runOps() {
 
 /** The endpoint returns { stores, balance, payouts } — payouts is one level in. */
 async function payoutsFor(role: "seller" | "seller2") {
-  const envelope = await (await roles[role].get("/api/v1/selling/payouts")).json();
+  const envelope = await (await roles[role].get("/api/v1/account/selling/payouts")).json();
   const body = envelope.data ?? envelope;
   return (body.payouts ?? []) as Array<{ id: string; amount: string; status: string; storeId: string }>;
 }
@@ -118,7 +118,7 @@ test.describe("escrow settlement and payouts", () => {
     expect(couponRes.ok(), await couponRes.text()).toBeTruthy();
     const coupon = (await couponRes.json()).data;
 
-    const created = await roles.seller.post("/api/v1/selling/products", {
+    const created = await roles.seller.post("/api/v1/account/selling/products", {
       data: {
         storeId: store.id,
         title: tag(),
@@ -129,13 +129,13 @@ test.describe("escrow settlement and payouts", () => {
       },
     });
     const listing = (await created.json()).data;
-    await roles.seller.patch(`/api/v1/selling/products/${listing.id}`, { data: { status: "ACTIVE" } });
+    await roles.seller.patch(`/api/v1/account/selling/products/${listing.id}`, { data: { status: "ACTIVE" } });
 
     const checkout = await roles.buyer.post("/api/v1/checkout", {
       data: {
         items: [{ slug: listing.slug, qty: 1 }],
         couponCode: coupon.code,
-        address: { name: "Jane Doe", street: "123 Main St", city: "New York", zip: "10001" },
+        address: { name: "Jane Doe", line1: "123 Main St", city: "New York", region: "New York", postalCode: "10001", country: "US" },
       },
     });
     expect(checkout.ok(), await checkout.text()).toBeTruthy();

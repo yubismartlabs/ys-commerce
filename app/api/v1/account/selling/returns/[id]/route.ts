@@ -58,7 +58,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   const request = await db.returnRequest.findUnique({
     where: { id },
     include: {
-      order: { select: { number: true, status: true, shipStreet: true, shipCity: true, shipZip: true, shipName: true } },
+      order: { select: { number: true, status: true, shipName: true, shipLine1: true, shipLine2: true, shipCity: true, shipRegion: true, shipPostalCode: true, shipCountry: true } },
       buyer: { select: { email: true, name: true } },
       store: { select: { id: true, name: true, slug: true } },
     },

@@ -18,6 +18,7 @@ import { RequestReturnDialog } from "@/components/returns/request-return-dialog"
 import { MessageButton } from "@/components/chat/message-button";
 import { ShipmentList } from "@/components/orders/shipment-list";
 import { cn } from "@/lib/utils";
+import { OrderAddress } from "@/components/orders/order-address";
 import type { Order } from "@/lib/refine/types";
 import { useAccountBase } from "@/lib/account-url";
 
@@ -139,7 +140,12 @@ export default function BuyerOrderPage({ params }: { params: Promise<{ number: s
             <div className="flex justify-between text-emerald-600"><dt>Coupon {o.couponCode}</dt><dd className="tabular-nums">−{formatUSD(o.discount ?? 0)}</dd></div>
           ) : null}
           <div className="flex justify-between font-bold"><dt>Total</dt><dd className="tabular-nums">{formatUSD(o.total)}</dd></div>
-          <div className="flex justify-between text-neutral-500"><dt>Ship to</dt><dd className="text-right">{o.shipName ?? "—"}, {o.shipCity ?? "—"}</dd></div>
+          <div className="flex justify-between gap-3 text-neutral-500">
+            <dt>Ship to</dt>
+            <dd className="text-right">
+              <OrderAddress address={o} />
+            </dd>
+          </div>
         </dl>
 
         {events.length > 0 ? (

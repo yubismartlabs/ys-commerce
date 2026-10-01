@@ -102,8 +102,46 @@ model User {
   apiTokens ApiToken[]
   notifications Notification[]
   aiMessages AiMessage[]
+  addresses Address[]
 }
 
+// eBay-style address book: a buyer keeps several and picks one at checkout.
+// `label` is the buyer's own name for the address ("Home", "Office").
+// `isDefault` is the one checkout preselects; see lib/addresses for the
+// single-default invariant, which is maintained in the API, not the database.
+model Address {
+  id         String   @id @default(cuid())
+  userId     String
+  label      String?
+  name       String
+  phone      String?
+  // Two lines because "Apt 4B" needs its own field for carrier formatting;
+  // line2 is optional, line1 is not.
+  line1      String
+  line2      String?
+  city       String
+  // Free text rather than a relation: only a handful of countries have
+  // meaningful subdivisions, and the rest would need a placeholder. Validated
+  // against lib/addresses when the country has a known subdivision list.
+  region     String?
+  postalCode String
+  // ISO 3166-1 alpha-2. Stored uppercase so it sorts and compares stably.
+  country    String   @default("US")
+  isDefault  Boolean  @default(false)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, isDefault])
+  // "At most one default per buyer" is a PARTIAL unique index, which Prisma
+  // cannot express, so it is created in the migration as
+  // "Address_one_default_per_user" and intentionally absent here. Prisma
+  // ignores indexes it doesn't know about. Do NOT add @@unique([userId,
+  // isDefault]) instead — Postgres treats NULLs as distinct in unique
+  // indexes only for NULL values, not for false, so that would allow two
+  // defaults and forbid two non-defaults, the exact opposite of the rule.
+}
 
 model Account {
   id                String  @id @default(cuid())
@@ -351,11 +389,20 @@ model Order {
   couponCode String?
   total     Decimal     @db.Decimal(10, 2)
   currency  String      @default("USD")
+  // Shipping address SNAPSHOT, not a link. The order must keep showing where
+  // the parcel went even after the buyer edits or deletes the saved address —
+  // an order is a legal record, so it owns a copy. `addressId` is a nullable
+  // convenience pointer back to the book, deliberately NOT a foreign key:
+  // deleting the address must never cascade into order history.
+  addressId String?
   shipName  String?
   shipPhone String?
-  shipStreet String?
+  shipLine1 String?
+  shipLine2 String?
   shipCity  String?
-  shipZip   String?
+  shipRegion String?
+  shipPostalCode String?
+  shipCountry String?
   // Buyer-protection deadline. Starts when the LAST parcel is delivered.
   protectionUntil DateTime?
   createdAt DateTime    @default(now())

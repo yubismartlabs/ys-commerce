@@ -16,6 +16,7 @@ import { MessageButton } from "@/components/chat/message-button";
 import { QueryErrorCard } from "@/components/commerce/query-error";
 import { useAccountBase } from "@/lib/account-url";
 import { apiGet } from "@/lib/api/client";
+import { OrderAddress } from "@/components/orders/order-address";
 import type { Order, OrderItem } from "@/lib/refine/types";
 
 type SellerDetail = Order & { sellerItems: OrderItem[] };
@@ -100,9 +101,8 @@ export default function SellingOrderPage({ params }: { params: Promise<{ id: str
 
         <Separator />
         <div className="text-sm">
-          <p className="font-bold">Ship to</p>
-          <p className="mt-1">{o.shipName ?? "—"}{o.shipPhone ? ` · ${o.shipPhone}` : ""}</p>
-          <p className="text-neutral-500">{o.shipStreet ?? "—"}, {o.shipCity ?? "—"} {o.shipZip ?? ""}</p>
+          <p className="mt-1 font-bold">Ship to</p>
+          <OrderAddress address={o} className="mt-1" />
         </div>
 
         {/* Only this seller's parcel — a seller never sees a peer's tracking. */}

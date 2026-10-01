@@ -5,9 +5,9 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
+import { useAccountUrl } from "@/lib/account-url";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { useCart } from "@/lib/store/cart";
@@ -16,28 +16,45 @@ import { useQuote } from "@/components/coupons/use-quote";
 import { useShippingQuote } from "@/components/cart/use-shipping-quote";
 import { useHydrated } from "@/lib/hooks/use-hydrated";
 import { formatUSD } from "@/lib/format";
+import { displayVariantName } from "@/lib/products/variants";
+import { useSavedAddresses } from "@/components/account/use-saved-addresses";
+import {
+  AddressFields,
+  EMPTY_ADDRESS,
+  isAddressComplete,
+  type AddressFormValue,
+} from "@/components/account/address-fields";
+import { countryName } from "@/lib/addresses/countries";
+import { formatAddressLines } from "@/lib/addresses/schema";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Skeleton } from "@/components/ui/skeleton";
 
 export default function CheckoutPage() {
+  const a = useAccountUrl();
   const router = useRouter();
   const { items, subtotal, clear, couponCode } = useCart();
   const [placing, setPlacing] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [name, setName] = useState("");
-  const [phone, setPhone] = useState("");
-  const [street, setStreet] = useState("");
-  const [city, setCity] = useState("");
-  const [zip, setZip] = useState("");
+  // null = nothing chosen yet, so the default address applies. "new" = inline form.
+  const [pickedChoice, setPickedChoice] = useState<string | null>(null);
+  const [draft, setDraft] = useState<AddressFormValue>(EMPTY_ADDRESS);
+  const [saveForLater, setSaveForLater] = useState(false);
   const hydrated = useHydrated();
+  const saved = useSavedAddresses();
   const lines = items.map((i) => ({ slug: i.slug, qty: i.qty, ...(i.variant ? { variant: i.variant } : {}) }));
   const quote = useQuote(lines, couponCode);
   const shipping = useShippingQuote(lines);
   const total = subtotal();
-  const addressValid = name.trim() !== "" && street.trim() !== "" && city.trim() !== "" && zip.trim() !== "";
+
+  // Derived, not an effect: until the buyer actively picks something, the
+  // default address (else the first) is what ships. Deriving means there is
+  // no window where the Pay button is enabled with nothing selected.
+  const defaultId = saved.rows.find((r) => r.isDefault)?.id ?? saved.rows[0]?.id ?? null;
+  const choice = pickedChoice ?? defaultId;
 
   if (!hydrated) {
     return <Card className="h-72 animate-pulse bg-neutral-100 dark:bg-neutral-800" aria-label="Loading checkout" />;
   }
-
   if (items.length === 0) {
     return (
       <Card className="p-10 text-center">
@@ -50,6 +67,14 @@ export default function CheckoutPage() {
     );
   }
 
+  // A saved row wins when one is picked; otherwise the inline form must be
+  // complete. `usingInline` is true when there is nothing to pick (empty book)
+  // as well as when the buyer chose it — otherwise a buyer with no saved
+  // addresses would have no way to ever enable Pay.
+  const picked = choice && choice !== "new" ? saved.rows.find((r) => r.id === choice) : undefined;
+  const usingInline = saved.rows.length === 0 || choice === "new";
+  const addressValid = !!picked || (usingInline && isAddressComplete(draft));
+
   const pay = async () => {
     setPlacing(true);
     setError(null);
@@ -60,7 +85,22 @@ export default function CheckoutPage() {
         body: JSON.stringify({
           items: lines,
           ...(couponCode ? { couponCode } : {}),
-          address: { name, phone: phone || undefined, street, city, zip },
+          ...(picked
+            ? { addressId: picked.id }
+            : {
+                address: {
+                  label: draft.label || null,
+                  name: draft.name,
+                  phone: draft.phone || null,
+                  line1: draft.line1,
+                  line2: draft.line2 || null,
+                  city: draft.city,
+                  region: draft.region || null,
+                  postalCode: draft.postalCode,
+                  country: draft.country,
+                },
+                ...(saveForLater ? { saveAddress: true } : {}),
+              }),
         }),
       });
       const json = await res.json().catch(() => null);
@@ -84,29 +124,79 @@ export default function CheckoutPage() {
     <div className="grid gap-4 lg:grid-cols-[1fr_320px]">
       <div className="space-y-4">
         <Card className="space-y-3 p-4">
-          <p className="font-bold">Shipping address (USD / US mock)</p>
-          <div className="grid gap-3 md:grid-cols-2">
-            <div className="space-y-1">
-              <label htmlFor="co-name" className="text-xs font-semibold text-neutral-600">Full name *</label>
-              <Input id="co-name" placeholder="Jane Doe" autoComplete="name" value={name} onChange={(e) => setName(e.target.value)} />
-            </div>
-            <div className="space-y-1">
-              <label htmlFor="co-phone" className="text-xs font-semibold text-neutral-600">Phone</label>
-              <Input id="co-phone" placeholder="(555) 123-4567" autoComplete="tel" value={phone} onChange={(e) => setPhone(e.target.value)} />
-            </div>
-            <div className="space-y-1 md:col-span-2">
-              <label htmlFor="co-street" className="text-xs font-semibold text-neutral-600">Street *</label>
-              <Input id="co-street" placeholder="123 Main St, Apt 4" autoComplete="street-address" value={street} onChange={(e) => setStreet(e.target.value)} />
-            </div>
-            <div className="space-y-1">
-              <label htmlFor="co-city" className="text-xs font-semibold text-neutral-600">City *</label>
-              <Input id="co-city" placeholder="New York" autoComplete="address-level2" value={city} onChange={(e) => setCity(e.target.value)} />
-            </div>
-            <div className="space-y-1">
-              <label htmlFor="co-zip" className="text-xs font-semibold text-neutral-600">ZIP *</label>
-              <Input id="co-zip" placeholder="10001" autoComplete="postal-code" value={zip} onChange={(e) => setZip(e.target.value)} />
-            </div>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <p className="font-bold">Shipping address</p>
+            <Link href={`${a("/settings/addresses")}`} className="text-xs text-neutral-500 underline">
+              Manage addresses
+            </Link>
           </div>
+
+          {saved.isLoading && saved.rows.length === 0 ? (
+            <Skeleton className="h-24" />
+          ) : saved.rows.length > 0 ? (
+            <RadioGroup
+              value={choice ?? ""}
+              onValueChange={(v) => setPickedChoice(v)}
+              className="gap-2"
+              aria-label="Shipping address"
+            >
+              {saved.rows.map((r) => (
+                <label
+                  key={r.id}
+                  htmlFor={`ship-${r.id}`}
+                  className="flex cursor-pointer items-start gap-2 rounded-lg border border-neutral-200 p-2.5 text-sm has-checked:border-neutral-900 dark:border-neutral-700 dark:has-checked:border-white"
+                >
+                  <RadioGroupItem value={r.id} id={`ship-${r.id}`} className="mt-0.5" />
+                  <span className="min-w-0">
+                    <span className="font-semibold">{r.label || "Address"}</span>
+                    {r.isDefault ? <span className="ml-1.5 text-xs text-neutral-500">Default</span> : null}
+                    <br />
+                    <span className="text-neutral-600">
+                      {r.name} · {formatAddressLines(r).join(", ")} · {countryName(r.country)}
+                    </span>
+                  </span>
+                </label>
+              ))}
+              <label
+                htmlFor="ship-new"
+                className="flex cursor-pointer items-center gap-2 rounded-lg border border-neutral-200 p-2.5 text-sm font-semibold has-checked:border-neutral-900 dark:border-neutral-700 dark:has-checked:border-white"
+              >
+                <RadioGroupItem value="new" id="ship-new" />
+                Use a different address
+              </label>
+            </RadioGroup>
+          ) : null}
+
+          {/* The inline form is the only option when the book is empty, and a
+              deliberate choice otherwise. It is never removed from the DOM, so
+              the label/name wiring the checkout tests drive stays stable. */}
+          {usingInline ? (
+            <div className="space-y-3">
+              {saved.rows.length > 0 ? (
+                <p className="text-xs font-semibold text-neutral-600">New address</p>
+              ) : (
+                <p className="text-xs text-neutral-500">
+                  No saved addresses yet — enter where this order should ship.
+                </p>
+              )}
+              <AddressFields
+                value={draft}
+                onChange={setDraft}
+                idPrefix="co"
+                showLabel={false}
+              />
+              {saved.rows.length > 0 ? null : (
+                <label className="flex items-center gap-2 text-xs text-neutral-600">
+                  <input
+                    type="checkbox"
+                    checked={saveForLater}
+                    onChange={(e) => setSaveForLater(e.target.checked)}
+                  />
+                  Save this address to my account
+                </label>
+              )}
+            </div>
+          ) : null}
         </Card>
         <Card className="space-y-2 p-4">
           <div className="flex flex-wrap items-center gap-2">
@@ -124,7 +214,7 @@ export default function CheckoutPage() {
         <ul className="space-y-1.5 text-sm">
           {items.map((i) => (
             <li key={i.slug + (i.variant ?? "")} className="flex justify-between gap-2">
-              <span className="min-w-0 flex-1 truncate">{i.title}{i.variant ? ` · ${i.variant}` : ""} × {i.qty}</span>
+              <span className="min-w-0 flex-1 truncate">{i.title}{i.variant ? ` · ${displayVariantName(i.variant)}` : ""} × {i.qty}</span>
               <span className="shrink-0 font-medium">{formatUSD(i.price * i.qty)}</span>
             </li>
           ))}
@@ -172,10 +262,10 @@ export default function CheckoutPage() {
           {placing ? (<><Loader2 className="size-4 animate-spin" /> Placing order…</>) : "Pay now"}
         </Button>
         {!addressValid ? (
-          <p className="text-xs text-neutral-500">Enter your name, street, city, and ZIP to place the order.</p>
+          <p className="text-xs text-neutral-500">Pick a shipping address to place the order.</p>
         ) : null}
         {!couponCode ? (
-          <p className="text-xs text-neutral-500">Have a code? Apply it above — <Link href="/account" className="underline">see active coupons</Link>.</p>
+          <p className="text-xs text-neutral-500">Have a code? Apply it above — <Link href={a("/coupons")} className="underline">see active coupons</Link>.</p>
         ) : null}
       </Card>
     </div>

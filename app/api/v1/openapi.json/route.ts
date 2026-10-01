@@ -74,7 +74,7 @@ const spec = {
     "/admin/coupons/{id}": { get: { summary: "Coupon detail + redemptions (admin)" }, patch: { summary: "Update coupon (admin)" }, delete: { summary: "Delete coupon" } },
     "/coupons": { get: { summary: "Active public coupons (no auth)" } },
     "/coupons/validate": { post: { summary: "Quote a coupon against a basket (no auth)" } },
-    "/checkout": { post: { summary: "Place an order, optional couponCode (auth)" } },
+    "/checkout": { post: { summary: "Place an order with addressId or an inline address, optional couponCode (auth)" } },
     "/admin/users": { get: { summary: "User directory, filters ?q=&role=&status= (admin)" } },
     "/admin/users/{id}": {
       get: { summary: "User profile + activity (admin)" },
@@ -83,6 +83,12 @@ const spec = {
     },
     "/account/profile": { patch: { summary: "Update my display name (auth)" } },
     "/account/password": { post: { summary: "Change my password (auth)" } },
+    "/account/addresses": { get: { summary: "My address book, default first (auth)" }, post: { summary: "Save an address (auth)" } },
+    "/account/addresses/{id}": {
+      get: { summary: "One saved address (auth)" },
+      patch: { summary: "Edit an address, or set isDefault (auth)" },
+      delete: { summary: "Delete an address, promoting a new default (auth)" },
+    },
     "/admin/api-tokens": {
       get: { summary: "List mobile API tokens" },
       post: { summary: "Mint a bearer token (raw token shown once)" },

@@ -78,9 +78,12 @@ export type Order = {
   currency: string;
   shipName: string | null;
   shipPhone: string | null;
-  shipStreet: string | null;
+  shipLine1: string | null;
+  shipLine2: string | null;
   shipCity: string | null;
-  shipZip: string | null;
+  shipRegion: string | null;
+  shipPostalCode: string | null;
+  shipCountry: string | null;
   // Tracking lives on the parcel, not the order: a multi-seller basket is N
   // separate shipments.
   shipments?: ShipmentView[];

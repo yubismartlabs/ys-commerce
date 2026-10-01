@@ -163,6 +163,14 @@ async function main() {
           subtotal: p.price,
           shipping: 0,
           total: p.price,
+          // A real snapshot: the seeded orders are read by the order pages and
+          // by the returns/disputes flows, which all render "ship to".
+          shipName: "Demo Buyer",
+          shipLine1: "123 Market St",
+          shipCity: "San Francisco",
+          shipRegion: "California",
+          shipPostalCode: "94105",
+          shipCountry: "US",
           items: {
             create: {
               productId: p.id,

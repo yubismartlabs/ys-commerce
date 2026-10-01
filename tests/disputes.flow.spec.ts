@@ -38,8 +38,8 @@ function text(body: unknown) {
 async function paidOrder(
   title = TITLE
 ): Promise<{ id: string; number: string; items: Array<{ id: string; qty: number }> }> {
-  const storeEnvelope = await (await roles.seller.get("/api/v1/selling/store")).json();
-  const created = await roles.seller.post("/api/v1/selling/products", {
+  const storeEnvelope = await (await roles.seller.get("/api/v1/account/selling/store")).json();
+  const created = await roles.seller.post("/api/v1/account/selling/products", {
     data: {
       storeId: storeEnvelope.data[0].id,
       title,
@@ -53,12 +53,12 @@ async function paidOrder(
   });
   expect(created.ok(), await created.text()).toBeTruthy();
   const listing = (await created.json()).data;
-  await roles.seller.patch(`/api/v1/selling/products/${listing.id}`, { data: { status: "ACTIVE" } });
+  await roles.seller.patch(`/api/v1/account/selling/products/${listing.id}`, { data: { status: "ACTIVE" } });
 
   const checkout = await roles.buyer.post("/api/v1/checkout", {
     data: {
       items: [{ slug: listing.slug, qty: 1 }],
-      address: { name: "Jane Doe", street: "123 Main St", city: "New York", zip: "10001" },
+      address: { name: "Jane Doe", line1: "123 Main St", city: "New York", region: "New York", postalCode: "10001", country: "US" },
     },
   });
   expect(checkout.ok(), await checkout.text()).toBeTruthy();
@@ -141,13 +141,13 @@ test.describe("dispute lifecycle", () => {
     const order = await paidOrder();
     const dispute = await fileDispute(order);
 
-    const own = await roles.seller.patch(`/api/v1/selling/disputes/${dispute.id}`, {
+    const own = await roles.seller.patch(`/api/v1/account/selling/disputes/${dispute.id}`, {
       data: { message: "We shipped the parcel, tracking is attached." },
     });
     expect(own.ok(), await own.text()).toBeTruthy();
 
     const foreign = await json(
-      await roles.seller2.patch(`/api/v1/selling/disputes/${dispute.id}`, {
+      await roles.seller2.patch(`/api/v1/account/selling/disputes/${dispute.id}`, {
         data: { message: "This is not my order." },
       })
     );
@@ -167,7 +167,7 @@ test.describe("dispute lifecycle", () => {
     // The ruling must actually move money, not just flip a label.
     expect(ruled.settlement).toMatch(/refunded/i);
 
-    const fresh = await (await roles.seller.get(`/api/v1/selling/orders/${order.id}`)).json();
+    const fresh = await (await roles.seller.get(`/api/v1/account/selling/orders/${order.id}`)).json();
     expect(fresh.data.status).toBe("REFUNDED");
   });
 
@@ -182,7 +182,7 @@ test.describe("dispute lifecycle", () => {
     const ruled = (await res.json()).data;
     expect(ruled.status).toBe("RESOLVED_SELLER");
 
-    const fresh = await (await roles.seller.get(`/api/v1/selling/orders/${order.id}`)).json();
+    const fresh = await (await roles.seller.get(`/api/v1/account/selling/orders/${order.id}`)).json();
     expect(fresh.data.status).not.toBe("REFUNDED");
   });
 
@@ -204,7 +204,7 @@ test.describe("dispute lifecycle", () => {
 
     // A closed dispute is also closed to seller replies.
     const reply = await json(
-      await roles.seller.patch(`/api/v1/selling/disputes/${dispute.id}`, {
+      await roles.seller.patch(`/api/v1/account/selling/disputes/${dispute.id}`, {
         data: { message: "One more thing…" },
       })
     );

@@ -10,20 +10,27 @@ import { cartLineSchema, generateOrderNumber, resolveCart, shippingForLines } fr
 import { createHoldsForOrder } from "@/lib/escrow/escrow";
 import { isSuspended } from "@/lib/api/identity";
 import { notifyAdmins } from "@/lib/notifications/notify";
+import { addressSchema } from "@/lib/addresses/schema";
 
-const addressSchema = z.object({
-  name: z.string().min(2).max(80),
-  phone: z.string().max(30).optional(),
-  street: z.string().min(3).max(120),
-  city: z.string().min(2).max(80),
-  zip: z.string().min(3).max(20),
-});
-
-const schema = z.object({
-  items: z.array(cartLineSchema).min(1).max(50),
-  couponCode: z.string().min(1).max(32).optional(),
-  address: addressSchema,
-});
+/**
+ * A shipping address is either a reference to a saved one (`addressId`) or a
+ * one-off typed inline (`address`). Exactly one must be present. The inline
+ * form stays first-class so a guest-ish or one-time buyer never has to build a
+ * book, and so existing callers keep working unchanged.
+ */
+const schema = z
+  .object({
+    items: z.array(cartLineSchema).min(1).max(50),
+    couponCode: z.string().min(1).max(32).optional(),
+    addressId: z.string().min(1).optional(),
+    address: addressSchema.optional(),
+    // Offer to store the typed address in the book for next time. Only honoured
+    // for the inline path; a saved address is already stored.
+    saveAddress: z.boolean().optional(),
+  })
+  .refine((d) => !!d.addressId !== !!d.address, {
+    message: "Provide either addressId or address",
+  });
 
 const round = (n: number) => Math.round(n * 100) / 100;
 
@@ -48,7 +55,45 @@ export async function POST(req: Request) {
   }
 
   const parsed = schema.safeParse(await req.json().catch(() => null));
-  if (!parsed.success) return fail("VALIDATION", "items[], couponCode and a shipping address are required", 422);
+  if (!parsed.success) {
+    return fail("VALIDATION", parsed.error.issues[0]?.message ?? "items[] and a shipping address are required", 422);
+  }
+
+  // Resolve the address to a snapshot BEFORE any money is computed, so a bad
+  // or foreign addressId fails the request before stock or coupons move.
+  let ship: { addressId: string | null; name: string; phone: string | null; line1: string; line2: string | null; city: string; region: string | null; postalCode: string; country: string };
+  if (parsed.data.addressId) {
+    const saved = await db.address.findFirst({
+      where: { id: parsed.data.addressId, userId },
+    });
+    // 404, not 403: a stranger must not be able to tell an id apart from their
+    // own, nor learn that someone else's address exists.
+    if (!saved) return fail("NOT_FOUND", "Address not found.", 404);
+    ship = {
+      addressId: saved.id,
+      name: saved.name,
+      phone: saved.phone,
+      line1: saved.line1,
+      line2: saved.line2,
+      city: saved.city,
+      region: saved.region,
+      postalCode: saved.postalCode,
+      country: saved.country,
+    };
+  } else {
+    const a = parsed.data.address!;
+    ship = {
+      addressId: null,
+      name: a.name,
+      phone: a.phone ?? null,
+      line1: a.line1,
+      line2: a.line2 ?? null,
+      city: a.city,
+      region: a.region ?? null,
+      postalCode: a.postalCode,
+      country: a.country,
+    };
+  }
 
   let lines;
   try {
@@ -150,11 +195,18 @@ export async function POST(req: Request) {
           discount,
           couponCode: coupon?.code,
           total,
-          shipName: parsed.data.address.name,
-          shipPhone: parsed.data.address.phone,
-          shipStreet: parsed.data.address.street,
-          shipCity: parsed.data.address.city,
-          shipZip: parsed.data.address.zip,
+          // The snapshot, copied from the saved address at the moment of
+          // purchase: editing or deleting the address later must not rewrite
+          // where this parcel went.
+          addressId: ship.addressId,
+          shipName: ship.name,
+          shipPhone: ship.phone,
+          shipLine1: ship.line1,
+          shipLine2: ship.line2,
+          shipCity: ship.city,
+          shipRegion: ship.region,
+          shipPostalCode: ship.postalCode,
+          shipCountry: ship.country,
           items: {
             create: lines.map((l) => ({
               productId: l.productId,
@@ -255,7 +307,38 @@ export async function POST(req: Request) {
     total,
     coupon: coupon?.code,
     parcels: storeIds.length,
+    addressId: ship.addressId,
+    country: ship.country,
   });
+
+  // "Save this address for next time". Best-effort and deliberately after the
+  // order is committed: a failure to save an address must never turn a paid
+  // order into an error, and it must not hold the transaction open.
+  if (parsed.data.saveAddress && parsed.data.address) {
+    const saved = await db.address
+      .create({
+        data: {
+          userId,
+          label: parsed.data.address.label,
+          name: ship.name,
+          phone: ship.phone,
+          line1: ship.line1,
+          line2: ship.line2,
+          city: ship.city,
+          region: ship.region,
+          postalCode: ship.postalCode,
+          country: ship.country,
+          isDefault: (await db.address.count({ where: { userId } })) === 0,
+        },
+      })
+      .catch((e) => {
+        log.error("checkout address save failed", { userId, err: e });
+        return null;
+      });
+    if (saved) {
+      await db.order.update({ where: { id: orderId }, data: { addressId: saved.id } });
+    }
+  }
   await notifyAdmins({
     type: "order.created",
     title: `New order ${number} — $${total.toFixed(2)}`,
