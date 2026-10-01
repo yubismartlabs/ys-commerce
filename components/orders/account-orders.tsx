@@ -7,6 +7,7 @@ import { ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { StatusBadge, Pager } from "@/components/refine/ui";
 import { readEnvelope } from "@/lib/api/client";
+import { useAccountBase } from "@/lib/account-url";
 import { formatUSD, timeAgo } from "@/lib/format";
 import type { Order } from "@/lib/refine/types";
 
@@ -14,6 +15,7 @@ const PAGE_SIZE = 20;
 
 /** Buyer's real order history for the account tab. */
 export function AccountOrders() {
+  const base = useAccountBase();
   const [page, setPage] = useState(1);
   const query = useQuery({
     queryKey: ["account-orders", page],
@@ -53,7 +55,7 @@ export function AccountOrders() {
       <ul className="divide-y">
         {rows.map((o) => (
           <li key={o.id}>
-            <Link href={`/account/orders/${encodeURIComponent(o.number)}`} className="flex items-center gap-3 py-3">
+            <Link href={`${base}/orders/${encodeURIComponent(o.number)}`} className="flex items-center gap-3 py-3">
               <div className="min-w-0 flex-1">
                 <p className="font-mono text-sm font-bold">{o.number}</p>
                 <p className="text-xs text-neutral-500">

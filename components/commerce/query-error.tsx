@@ -26,7 +26,7 @@ function messageFor(error: unknown, fallback: string): string {
 export function QueryErrorCard({
   error,
   what,
-  backHref = "/account",
+  backHref = "/",
   onRetry,
 }: {
   error: unknown;

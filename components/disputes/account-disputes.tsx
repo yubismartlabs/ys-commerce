@@ -6,6 +6,7 @@ import { ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { StatusBadge } from "@/components/refine/ui";
 import { timeAgo } from "@/lib/format";
+import { useAccountBase } from "@/lib/account-url";
 
 type BuyerDispute = {
   id: string;
@@ -24,6 +25,7 @@ async function fetchDisputes(): Promise<BuyerDispute[]> {
 
 /** Buyer's dispute inbox for the account tab. */
 export function AccountDisputes() {
+  const base = useAccountBase();
   const query = useQuery({ queryKey: ["account-disputes"], queryFn: fetchDisputes, retry: false });
 
   if (query.isLoading) return <p className="text-sm text-neutral-500">Loading disputes…</p>;
@@ -36,7 +38,7 @@ export function AccountDisputes() {
     <ul className="divide-y">
       {query.data.map((d) => (
         <li key={d.id}>
-          <Link href={`/account/disputes/${d.id}`} className="flex items-center gap-3 py-3">
+          <Link href={`${base}/disputes/${d.id}`} className="flex items-center gap-3 py-3">
             <div className="min-w-0 flex-1">
               <p className="text-sm font-bold">Order {d.order.number} · {d.category.replace(/_/g, " ")}</p>
               <p className="text-xs text-neutral-500">Opened {timeAgo(d.createdAt)}</p>
@@ -51,11 +53,12 @@ export function AccountDisputes() {
 }
 
 export function AccountDisputesTab() {
+  const base = useAccountBase();
   return (
     <div>
       <AccountDisputes />
       <Button size="sm" variant="outline" asChild className="mt-2">
-        <Link href="/account/disputes">Open dispute center</Link>
+        <Link href={`${base}/disputes`}>Open dispute center</Link>
       </Button>
     </div>
   );

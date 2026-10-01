@@ -33,8 +33,8 @@ export async function POST(req: Request) {
   if (!(file instanceof File)) return fail("VALIDATION", "Missing 'file' field", 422);
 
   const user = await db.user.findUnique({ where: { id: me.id }, select: { role: true } });
-  if (!user || (user.role !== "BUYER" && user.role !== "SELLER" && user.role !== "ADMIN")) {
-    return fail("FORBIDDEN", "Buyers and sellers only", 403);
+  if (!user || (user.role !== "BUYER" && user.role !== "ADMIN")) {
+    return fail("FORBIDDEN", "Signed-in users only", 403);
   }
 
   const ext = ALLOWED.get(file.type);

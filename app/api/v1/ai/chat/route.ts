@@ -3,11 +3,12 @@ import { auth } from "@/auth";
 import { db } from "@/lib/db";
 import { fail, ok } from "@/lib/api/http";
 import { getAiConfig } from "@/lib/ai/config";
+import { tryChitchatReply } from "@/lib/ai/chitchat";
 import { tryAlertAction } from "@/lib/ai/actions";
 import { buyerOrders, wantsOrderCard } from "@/lib/ai/orders";
 import { matchMissionPack } from "@/lib/ai/missions";
 import { buildAiContext, resolveMentionedProducts } from "@/lib/ai/context";
-import { AiUpstreamError, chatWithHf } from "@/lib/ai/provider";
+import { AiUpstreamError, chatWithGoogle, chatWithHf } from "@/lib/ai/provider";
 import { buildSystemPrompt, offlineFallback } from "@/lib/ai/prompt";
 import { checkAiQuota } from "@/lib/ai/usage";
 import { getSettingGroup } from "@/lib/server-settings";
@@ -37,12 +38,32 @@ export async function POST(req: Request) {
 
   const cfg = await getAiConfig();
   if (!cfg.enabled) return fail("DISABLED", "Shopping assistant is off.", 503);
-  if (!cfg.hasToken || !cfg.token) return fail("NO_KEY", "Assistant has no Hugging Face token yet. Ask an admin to add one in System settings → AI Assistant.", 503);
-
-  const quota = await checkAiQuota(req, userId, cfg);
-  if (!quota.ok) return fail("RATE_LIMITED", quota.message, 429);
+  if (!cfg.hasToken || !cfg.token) {
+    return fail(
+      "NO_KEY",
+      cfg.provider === "google"
+        ? "Assistant has no Google AI key yet. Ask an admin to add one in System settings → AI Assistant."
+        : "Assistant has no Hugging Face token yet. Ask an admin to add one in System settings → AI Assistant.",
+      503
+    );
+  }
 
   const userText = parsed.data.message;
+
+  // Chitchat/spam resolves locally BEFORE any DB search, quota check, or
+  // model call: greetings, "who are you?", thanks/bye, and gibberish get a
+  // hardcoded reply. Short product queries ("boots", "red boots") are NOT
+  // chitchat — the filter lets those through to the search engine.
+  const chitchat = tryChitchatReply(userText, cfg.name);
+  if (chitchat) {
+    await db.aiMessage.create({ data: { userId, role: "USER", content: userText } }).catch((e) => {
+      log.error("ai user message persist failed", { err: e });
+    });
+    const saved = await db.aiMessage
+      .create({ data: { userId, role: "ASSISTANT", content: chitchat, citations: [] as object } })
+      .catch(() => null);
+    return ok({ reply: chitchat, citations: [], messageId: saved?.id ?? null });
+  }
 
   const [ctx, site, thread] = await Promise.all([
     buildAiContext({
@@ -96,10 +117,19 @@ export async function POST(req: Request) {
     return ok({ reply: pack.reply, citations: pack.citations, groups: pack.groups, messageId: saved?.id ?? null });
   }
 
+  // Quota is consumed only by actual model calls. The chitchat filter,
+  // alert-action and mission-pack shortcuts above resolve without model
+  // credits, and a request that dies during context build must not burn a
+  // day of budget — so the check lives here, right before the upstream call.
+  const quota = await checkAiQuota(req, userId, cfg);
+  if (!quota.ok) return fail("RATE_LIMITED", quota.message, 429);
+
+  // Prior turns are continuity only — truncate so a long thread can't
+  // smuggle thousands of tokens into every call. Full rows stay in DB.
   const prior = [...thread]
     .reverse()
-    .slice(-8)
-    .map((m) => ({ role: m.role === "USER" ? ("user" as const) : ("assistant" as const), content: m.content }));
+    .slice(-6)
+    .map((m) => ({ role: m.role === "USER" ? ("user" as const) : ("assistant" as const), content: m.content.slice(0, 500) }));
   const messages = [
     { role: "system" as const, content: buildSystemPrompt({ siteName: (site as { siteName: string }).siteName ?? "ys-commerce", assistantName: cfg.name }) },
     ...prior,
@@ -107,7 +137,8 @@ export async function POST(req: Request) {
   ];
 
   try {
-    const reply = await chatWithHf({ token: cfg.token, model: cfg.model, messages, maxTokens: cfg.maxTokens, temperature: cfg.temperature });
+    const chatArgs = { token: cfg.token, model: cfg.model, messages, maxTokens: cfg.maxTokens, temperature: cfg.temperature };
+    const reply = cfg.provider === "google" ? await chatWithGoogle(chatArgs) : await chatWithHf(chatArgs);
     // Every mentioned product becomes a card, even ones retrieval missed.
     const citations = await resolveMentionedProducts(reply, ctx.citations);
     // Order questions also carry structured cards (persisted with the message).

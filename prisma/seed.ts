@@ -16,10 +16,11 @@ async function main() {
 
   const admin = await prisma.user.upsert({
     where: { email: adminEmail },
-    update: { role: "ADMIN", passwordHash: await bcrypt.hash(adminPassword, 10) },
+    update: { role: "ADMIN", username: "ys.admin", passwordHash: await bcrypt.hash(adminPassword, 10) },
     create: {
       email: adminEmail,
       name: "YS Admin",
+      username: "ys.admin",
       role: "ADMIN",
       passwordHash: await bcrypt.hash(adminPassword, 10),
     },
@@ -27,29 +28,30 @@ async function main() {
 
   const buyer = await prisma.user.upsert({
     where: { email: "buyer@ys.local" },
-    update: {},
-    create: { email: "buyer@ys.local", name: "Demo Buyer", role: "BUYER", passwordHash: await bcrypt.hash("buyer123", 10) },
+    update: { username: "demo.buyer" },
+    create: { email: "buyer@ys.local", name: "Demo Buyer", username: "demo.buyer", role: "BUYER", passwordHash: await bcrypt.hash("buyer123", 10) },
   });
 
   const storeDefs = [
-    { name: "TechChoice Store", slug: "techchoice-store", status: "APPROVED" as const, description: "Gadgets, audio and smart home picks — tested before listing.", shippingPolicy: "Ships in 48h with tracking. Free over $25.", returnPolicy: "14-day returns, buyer pays return shipping unless faulty." },
-    { name: "FashionForward", slug: "fashionforward", status: "APPROVED" as const, description: "Trend-led fashion essentials, true-to-size guaranteed.", shippingPolicy: "Ships in 24h. Free worldwide over $25.", returnPolicy: "30-day free returns on unworn items." },
-    { name: "HomeEssentials", slug: "homeessentials", status: "PENDING" as const, description: "Home and garden staples for everyday living.", shippingPolicy: "Ships in 72h.", returnPolicy: "14-day returns." },
-    { name: "GadgetHub", slug: "gadgethub", status: "PENDING" as const, description: "New gadgets weekly — early-bird prices.", shippingPolicy: "Ships in 48h.", returnPolicy: "14-day returns." },
+    { name: "TechChoice Store", slug: "techchoice-store", username: "techchoice", status: "APPROVED" as const, description: "Gadgets, audio and smart home picks — tested before listing.", shippingPolicy: "Ships in 48h with tracking. Free over $25.", returnPolicy: "14-day returns, buyer pays return shipping unless faulty." },
+    { name: "FashionForward", slug: "fashionforward", username: "fashion.forward", status: "APPROVED" as const, description: "Trend-led fashion essentials, true-to-size guaranteed.", shippingPolicy: "Ships in 24h. Free worldwide over $25.", returnPolicy: "30-day free returns on unworn items." },
+    { name: "HomeEssentials", slug: "homeessentials", username: "home.essentials", status: "PENDING" as const, description: "Home and garden staples for everyday living.", shippingPolicy: "Ships in 72h.", returnPolicy: "14-day returns." },
+    { name: "GadgetHub", slug: "gadgethub", username: "gadget.hub", status: "PENDING" as const, description: "New gadgets weekly — early-bird prices.", shippingPolicy: "Ships in 48h.", returnPolicy: "14-day returns." },
   ];
 
   const sellers = [];
   for (const [i, s] of storeDefs.entries()) {
+    const handle = s.slug.replace(/[^a-z0-9]+/g, ".").replace(/^\.+|\.+$/g, "");
     const owner = await prisma.user.upsert({
       where: { email: `seller${i + 1}@ys.local` },
-      update: {},
-      create: { email: `seller${i + 1}@ys.local`, name: `${s.name} Owner`, role: "SELLER", passwordHash: await bcrypt.hash("seller123", 10) },
+      update: { username: handle },
+      create: { email: `seller${i + 1}@ys.local`, name: `${s.name} Owner`, username: handle, role: "BUYER", passwordHash: await bcrypt.hash("seller123", 10) },
     });
     sellers.push(owner);
     await prisma.store.upsert({
       where: { slug: s.slug },
-      update: { status: s.status, description: s.description, shippingPolicy: s.shippingPolicy, returnPolicy: s.returnPolicy },
-      create: { name: s.name, slug: s.slug, status: s.status, ownerId: owner.id, description: s.description, shippingPolicy: s.shippingPolicy, returnPolicy: s.returnPolicy },
+      update: { status: s.status, username: s.username, usernameChangeCount: 0, description: s.description, shippingPolicy: s.shippingPolicy, returnPolicy: s.returnPolicy },
+      create: { name: s.name, slug: s.slug, username: s.username, status: s.status, ownerId: owner.id, description: s.description, shippingPolicy: s.shippingPolicy, returnPolicy: s.returnPolicy },
     });
   }
 

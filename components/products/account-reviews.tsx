@@ -8,6 +8,7 @@ import { RatingStars } from "@/components/commerce/rating-stars";
 import { Pager } from "@/components/refine/ui";
 import { readEnvelope } from "@/lib/api/client";
 import { timeAgo } from "@/lib/format";
+import { useAccountUrl } from "@/lib/account-url";
 
 type MyReview = {
   id: string;
@@ -25,6 +26,7 @@ const PAGE_SIZE = 10;
 
 /** The buyer's own written reviews, with seller replies. */
 export function AccountReviewsTab() {
+  const a = useAccountUrl();
   const [page, setPage] = useState(1);
   const query = useQuery({
     queryKey: ["account-reviews", page],
@@ -53,7 +55,7 @@ export function AccountReviewsTab() {
     return (
       <div className="space-y-2 py-4 text-sm text-neutral-500">
         <p>You haven&apos;t written a review yet. Reviews unlock after delivery and help other buyers.</p>
-        <Button size="sm" variant="outline" asChild><Link href="/account?tab=orders">View my orders</Link></Button>
+        <Button size="sm" variant="outline" asChild><Link href={a("/orders")}>View my orders</Link></Button>
       </div>
     );
   }

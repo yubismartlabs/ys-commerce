@@ -58,7 +58,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         if (!ok) return null;
         // Suspended accounts fail closed with a distinct code the UIs surface.
         if (user.suspendedAt) throw new SuspendedSignin();
-        return { id: user.id, name: user.name, email: user.email, role: user.role };
+        return { id: user.id, name: user.name, email: user.email, role: user.role, username: user.username };
       },
     }),
   ],
@@ -67,18 +67,22 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       const apply = async (userId: string, role: string) => {
         const full = await db.user.findUnique({
           where: { id: userId },
-          select: { scopes: true, staffRoleId: true, staffRole: { select: { scopes: true } } },
+          select: { username: true, scopes: true, staffRoleId: true, staffRole: { select: { scopes: true } } },
         });
         token.role = role;
+        token.username = full?.username ?? (user as { username?: string } | undefined)?.username ?? null;
         token.scopes = effectiveScopes({ role, scopes: full?.scopes ?? [], staffScopes: full?.staffRole?.scopes ?? [] });
         token.staffRoleId = full?.staffRoleId ?? null;
       };
       if (user && "role" in user) {
         const role = (user as { role: string }).role;
         if (token.sub) await apply(token.sub, role);
-        else token.role = role;
+        else {
+          token.role = role;
+          token.username = (user as { username?: string }).username ?? null;
+        }
       }
-      // Client called update() (e.g. after become-seller): re-read role + scopes.
+      // Client called update() (e.g. after become-seller): re-read role + scopes + username.
       if (trigger === "update" && token.sub) {
         const fresh = await db.user.findUnique({ where: { id: token.sub }, select: { role: true } });
         if (fresh) await apply(token.sub, fresh.role);
@@ -89,6 +93,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       if (session.user) {
         session.user.id = token.sub ?? "";
         (session.user as { role?: string }).role = typeof token.role === "string" ? token.role : "BUYER";
+        (session.user as { username?: string | null }).username = typeof token.username === "string" ? token.username : null;
         (session.user as { scopes?: string[] }).scopes = Array.isArray(token.scopes) ? token.scopes : [];
         (session.user as { staffRoleId?: string | null }).staffRoleId = typeof token.staffRoleId === "string" ? token.staffRoleId : null;
       }

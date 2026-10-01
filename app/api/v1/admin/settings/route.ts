@@ -44,13 +44,18 @@ export const PATCH = withAdmin(async (req, actor) => {
         delete validated.resendApiKey;
       }
     }
-    if (g === "ai" && typeof (validated as Record<string, unknown>).hfApiKey === "string" && (validated as Record<string, unknown>).hfApiKey === "") {
-      const current = await db.setting.findUnique({ where: { key: g } });
-      const existing = (current?.value as Prisma.JsonObject | null)?.hfApiKey;
-      if (typeof existing === "string" && existing !== "") {
-        (validated as Record<string, unknown>).hfApiKey = existing;
-      } else {
-        delete (validated as Record<string, unknown>).hfApiKey;
+    if (g === "ai") {
+      // hfApiKey / googleApiKey are write-only: blank means "keep the stored key", never wipe it.
+      for (const k of ["hfApiKey", "googleApiKey"] as const) {
+        if (typeof (validated as Record<string, unknown>)[k] === "string" && (validated as Record<string, unknown>)[k] === "") {
+          const current = await db.setting.findUnique({ where: { key: g } });
+          const existing = (current?.value as Prisma.JsonObject | null)?.[k];
+          if (typeof existing === "string" && existing !== "") {
+            (validated as Record<string, unknown>)[k] = existing;
+          } else {
+            delete (validated as Record<string, unknown>)[k];
+          }
+        }
       }
     }
     const current = await db.setting.findUnique({ where: { key: g } });
@@ -67,14 +72,15 @@ export const PATCH = withAdmin(async (req, actor) => {
   return ok(maskSecrets(await getSettings()));
 }, "settings");
 
-// resendApiKey / hfApiKey are write-only: expose only whether a key is
-// configured, via env or DB, so the secret never leaves the server.
+// resendApiKey / hfApiKey / googleApiKey are write-only: expose only whether
+// a key is configured, via env or DB, so the secret never leaves the server.
 function maskSecrets(settings: Awaited<ReturnType<typeof getSettings>>) {
   const hasResendKey = Boolean(process.env.RESEND_API_KEY) || Boolean(settings.notifications.resendApiKey);
   const hasHfKey = Boolean(process.env.HUGGINGFACE_API_KEY) || Boolean(settings.ai.hfApiKey);
+  const hasGoogleKey = Boolean(process.env.GOOGLE_AI_API_KEY) || Boolean(settings.ai.googleApiKey);
   return {
     ...settings,
     notifications: { ...settings.notifications, resendApiKey: "", hasResendKey },
-    ai: { ...settings.ai, hfApiKey: "", hasHfKey },
+    ai: { ...settings.ai, hfApiKey: "", googleApiKey: "", hasHfKey, hasGoogleKey },
   };
 }

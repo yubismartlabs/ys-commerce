@@ -36,6 +36,7 @@ export default function UserShowPage({ params }: { params: Promise<{ id: string 
   const [role, setRole] = useState<string | null>(null);
   const [staffRoleId, setStaffRoleId] = useState<string | null | undefined>(undefined);
   const [reason, setReason] = useState("");
+  const [username, setUsername] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [tempPassword, setTempPassword] = useState<string | null>(null);
   const u = query.data?.data;
@@ -75,7 +76,7 @@ export default function UserShowPage({ params }: { params: Promise<{ id: string 
       <Card className="space-y-4 p-6">
         <div className="flex flex-wrap items-center gap-2">
           <div>
-            <h1 className="text-xl font-bold">{u.name ?? "Unnamed"}</h1>
+            <h1 className="text-xl font-bold">{u.name ?? "Unnamed"}{u.username ? <span className="ml-2 font-mono text-sm font-semibold text-ali-red">@{u.username}</span> : null}</h1>
             <p className="text-sm text-neutral-500">{u.email}</p>
           </div>
           <Badge variant="outline" className="font-mono text-[11px]">{u.role}</Badge>
@@ -116,12 +117,33 @@ export default function UserShowPage({ params }: { params: Promise<{ id: string 
         ) : null}
 
         <Separator />
+        <SectionTitle>Username</SectionTitle>
+        <div className="flex max-w-md gap-2">
+          <input
+            value={username ?? u.username ?? ""}
+            onChange={(e) => setUsername(e.target.value)}
+            placeholder="e.g. ada.collects"
+            maxLength={30}
+            spellCheck={false}
+            className="h-9 flex-1 rounded-lg border border-neutral-200 bg-white px-3 font-mono text-sm dark:border-neutral-800 dark:bg-neutral-900"
+          />
+          <Button
+            variant="outline"
+            disabled={busy || (username ?? u.username ?? "") === (u.username ?? "")}
+            onClick={() => act({ action: "username", username: username ?? u.username ?? "" }, "Username updated.")}
+          >
+            Save handle
+          </Button>
+        </div>
+        <p className="text-xs text-neutral-500">Same rules as signup: 3–30 lowercase letters/numbers with . _ -, unique, never reserved (admin, support, …).</p>
+
+        <Separator />
         <SectionTitle>Role</SectionTitle>
         <div className="flex max-w-md gap-2">
           <Select value={role ?? u.role} onValueChange={setRole}>
             <SelectTrigger><SelectValue /></SelectTrigger>
             <SelectContent>
-              {["BUYER", "SELLER", "ADMIN"].map((r) => (
+              {["BUYER", "ADMIN"].map((r) => (
                 <SelectItem key={r} value={r}>{r}</SelectItem>
               ))}
             </SelectContent>

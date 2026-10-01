@@ -5,6 +5,7 @@ import { useQuery } from "@tanstack/react-query";
 type PublicSettings = {
   siteName: string;
   logoUrl: string;
+  accountSlug: string;
   announcement: string;
   buyerProtectionText: string;
   buyerProtectionDays: number;
@@ -18,6 +19,7 @@ type PublicSettings = {
 const FALLBACK: PublicSettings = {
   siteName: "ys-commerce",
   logoUrl: "",
+  accountSlug: "account",
   announcement: "",
   buyerProtectionText: "Full refund if your order doesn't arrive.",
   buyerProtectionDays: 14,

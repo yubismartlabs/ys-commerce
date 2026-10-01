@@ -3,7 +3,7 @@ import { db } from "@/lib/db";
 import { parseSpecs, ratingDistribution } from "@/lib/products/ratings";
 import { getActiveDeal } from "@/lib/deals/pricing";
 import { relatedCardRows } from "@/lib/products/feed";
-import { safeImageList, safeImageSrc } from "@/lib/images";
+import { IMAGE_FALLBACK, safeImageList, safeImageSrc } from "@/lib/images";
 import { ApiError } from "@/lib/api/guard";
 import type { ApiCardRow } from "@/components/commerce/api-product-card";
 
@@ -45,7 +45,7 @@ export type ProductDetail = {
   variants: ProductVariant[];
   distribution: Array<{ rating: number; count: number }>;
   related: ApiCardRow[];
-  store: { id: string; name: string; slug: string; ratingAvg: number; followerCount: number };
+  store: { id: string; name: string; slug: string; username: string | null; ratingAvg: number; followerCount: number };
   deal: { id: string; dealPrice: number; endsAt: string | Date; stockCap: number | null; soldCount: number } | null;
   viewer: { reviewed: boolean; wishlisted: boolean };
   /** Test-catalog provenance (null for seller listings). Drives the demo banner. */
@@ -58,7 +58,7 @@ export async function loadProduct(slug: string): Promise<ProductDetail> {
   const product = await db.product.findUnique({
     where: { slug },
     include: {
-      store: { select: { id: true, name: true, slug: true, ratingAvg: true, followerCount: true } },
+      store: { select: { id: true, name: true, slug: true, username: true, ratingAvg: true, followerCount: true } },
       variants: { orderBy: { createdAt: "asc" } },
     },
   });
@@ -106,11 +106,19 @@ export async function loadProduct(slug: string): Promise<ProductDetail> {
     ratingAvg: product.ratingAvg,
     ratingCount: product.ratingCount,
     soldCount: product.soldCount,
-    variants: product.variants.map((v) => ({
-      ...v,
-      price: v.price === null ? null : Number(v.price),
-      image: safeImageSrc(v.image),
-    })),
+    variants: product.variants.map((v) => {
+      // safeImageSrc() maps null/bad hosts to the placeholder, but a
+      // placeholder is not a variant image: the product page renders a
+      // thumbnail whenever `image` is truthy, so leaking the fallback here
+      // painted a grey box on every imageless option and hid the color
+      // swatch. Keep it null so "no image" stays falsy.
+      const img = safeImageSrc(v.image);
+      return {
+        ...v,
+        price: v.price === null ? null : Number(v.price),
+        image: img === IMAGE_FALLBACK ? null : img,
+      };
+    }),
     distribution,
     related,
     deal: deal ? { ...deal, dealPrice: Number(deal.dealPrice) } : null,

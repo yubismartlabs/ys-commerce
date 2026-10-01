@@ -1,5 +1,6 @@
 import { db } from "@/lib/db";
-import { searchProducts } from "@/lib/search/engine";
+import { searchProductsCached } from "@/lib/search/engine";
+import { wantsOrderCard } from "@/lib/ai/orders";
 import { getActiveDeal } from "@/lib/deals/pricing";
 import { pairsFor } from "@/lib/affinity/recompute";
 import { parseSpecs } from "@/lib/products/ratings";
@@ -26,8 +27,24 @@ export type AiCitation = {
 
 export type AiContext = { text: string; citations: AiCitation[] };
 
+/**
+ * Token hygiene: seller HTML (descriptions, reviews, policies) must never
+ * reach the model raw — strip tags/entities first, then clip. Image URLs,
+ * vendor IDs and other opaque identifiers are UI-only (citations) and are
+ * never interpolated into the prompt text below.
+ */
+const stripHtml = (s: string | null | undefined): string =>
+  (s ?? "")
+    .replace(/<[^>]*>/g, " ")
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&amp;/gi, "&")
+    .replace(/&lt;/gi, "<")
+    .replace(/&gt;/gi, ">")
+    .replace(/&quot;/gi, '"')
+    .replace(/&#0*39;/g, "'");
+
 const clip = (s: string | null | undefined, n: number) =>
-  (s ?? "").replace(/\s+/g, " ").trim().slice(0, n);
+  stripHtml(s).replace(/\s+/g, " ").trim().slice(0, n);
 
 /** Seller tag vocabulary, cached: tag matching must not cost a scan per chat. */
 let cachedTags: { tags: string[]; at: number } | null = null;
@@ -47,25 +64,25 @@ async function knownTags(): Promise<string[]> {
   }
 }
 
-/** Truncated Q&A + review snippets for one product. */
+/** Truncated Q&A + review snippets for one product (snippets only, never full bodies). */
 async function productSnippets(productId: string): Promise<string> {
   const [reviews, qa] = await Promise.all([
     db.review.findMany({
       where: { productId },
       orderBy: [{ helpful: "desc" }, { createdAt: "desc" }],
       select: { rating: true, title: true, body: true },
-      take: 5,
+      take: 3,
     }),
     db.productQuestion.findMany({
       where: { productId, hidden: false },
       orderBy: { createdAt: "desc" },
-      select: { body: true, answers: { select: { body: true, fromSeller: true }, take: 2, orderBy: { createdAt: "asc" } } },
-      take: 3,
+      select: { body: true, answers: { select: { body: true, fromSeller: true }, take: 1, orderBy: { createdAt: "asc" } } },
+      take: 2,
     }),
   ]);
-  const r = reviews.map((v) => `[${v.rating}★] ${clip(v.title, 60)}: ${clip(v.body, 160)}`).join(" | ");
+  const r = reviews.map((v) => `[${v.rating}★] ${clip(v.title, 50)}: ${clip(v.body, 120)}`).join(" | ");
   const q = qa
-    .map((t) => `Q: ${clip(t.body, 120)} A: ${t.answers.map((a) => clip(a.body, 140)).join(" / ") || "—"}`)
+    .map((t) => `Q: ${clip(t.body, 100)} A: ${t.answers.map((a) => clip(a.body, 120)).join(" / ") || "—"}`)
     .join(" | ");
   return `reviews: ${r || "none"} || q&a: ${q || "none"}`;
 }
@@ -161,7 +178,7 @@ export async function buildAiContext(opts: {
       where: { slug: slugMatch },
       include: {
         store: { select: { id: true, name: true, slug: true, shippingPolicy: true, returnPolicy: true } },
-        variants: { select: { name: true, price: true, stock: true }, take: 8 },
+        variants: { select: { name: true, price: true, stock: true }, take: 4 },
       },
     });
     if (p && p.status === "ACTIVE") {
@@ -170,30 +187,30 @@ export async function buildAiContext(opts: {
         where: { productId: p.id },
         orderBy: { createdAt: "desc" },
         select: { price: true, createdAt: true },
-        take: 5,
+        take: 3,
       });
       const snip = await productSnippets(p.id);
       const specs = parseSpecs(p.specs)
-        .slice(0, 8)
+        .slice(0, 6)
         .map((s) => `${s.k}: ${s.v}`)
         .join("; ");
       const stockLine =
         p.variants.length > 0
-          ? `options: ${p.variants.map((v) => `${v.name}${v.price != null ? ` $${Number(v.price)}` : ""} (${v.stock > 0 ? `${v.stock} in stock` : "out of stock"})`).join("; ")}`
+          ? `options: ${p.variants.map((v) => `${clip(v.name, 40)}${v.price != null ? ` $${Number(v.price)}` : ""} (${v.stock > 0 ? `${v.stock} in stock` : "out of stock"})`).join("; ")}`
           : p.trackStock
             ? `stock: ${p.stock > 0 ? `${p.stock} in stock` : "out of stock"}`
             : `stock: not tracked`;
       parts.push(
-        `FOCUS PRODUCT: ${p.title} (${p.slug}) $${Number(p.price)}${p.compareAt ? ` was $${Number(p.compareAt)}` : ""}` +
-          ` rating ${p.ratingAvg} (${p.ratingCount}) sold ${p.soldCount} store ${p.store.name}` +
-          `${p.brand ? ` brand ${p.brand}` : ""} category ${p.category}` +
-          `${deal ? ` DEAL $${Number(deal.dealPrice)} ends ${deal.endsAt.toISOString()}` : ""}` +
+        `FOCUS PRODUCT: ${clip(p.title, 120)} (${p.slug}) $${Number(p.price)}${p.compareAt ? ` was $${Number(p.compareAt)}` : ""}` +
+          ` rating ${p.ratingAvg} (${p.ratingCount}) sold ${p.soldCount} store ${clip(p.store.name, 60)}` +
+          `${p.brand ? ` brand ${clip(p.brand, 40)}` : ""} category ${clip(p.category, 40)}` +
+          `${deal ? ` DEAL $${Number(deal.dealPrice)} ends ${deal.endsAt.toISOString().slice(0, 10)}` : ""}` +
           `${history.length ? ` price-history ${history.map((h) => `$${Number(h.price)}`).join(">")}` : ""}` +
           ` ${stockLine}` +
-          `${specs ? ` specs: ${clip(specs, 400)}` : ""}` +
-          `${p.store.shippingPolicy ? ` ship-policy: ${clip(p.store.shippingPolicy, 160)}` : ""}` +
-          `${p.store.returnPolicy ? ` return-policy: ${clip(p.store.returnPolicy, 160)}` : ""}` +
-          ` desc: ${clip(p.description, 300)} || ${snip}`
+          `${specs ? ` specs: ${clip(specs, 240)}` : ""}` +
+          `${p.store.shippingPolicy ? ` ship-policy: ${clip(p.store.shippingPolicy, 120)}` : ""}` +
+          `${p.store.returnPolicy ? ` return-policy: ${clip(p.store.returnPolicy, 120)}` : ""}` +
+          ` desc: ${clip(p.description, 200)} || ${snip}`
       );
       citations.push(
         toCitation(p, deal ? Number(deal.dealPrice) : null, p.store)
@@ -202,7 +219,7 @@ export async function buildAiContext(opts: {
       // Mentioned slugs resolve to cards downstream, so pairings surface
       // automatically whenever the answer names them.
       try {
-        let pairs = await pairsFor(p.id, 4);
+        let pairs = await pairsFor(p.id, 2);
         if (pairs.length === 0) {
           const fallback = await db.product.findMany({
             where: { status: "ACTIVE", storeId: p.storeId, id: { not: p.id } },
@@ -220,7 +237,7 @@ export async function buildAiContext(opts: {
         if (pairs.length > 0) {
           parts.push(
             `PAIRS WELL WITH: ` +
-              pairs.map(({ product: b, count }) => `${b.title} (${b.slug}) $${Number(b.price)}${count > 0 ? ` (together in ${count} orders)` : ""}`).join(" | ")
+              pairs.map(({ product: b, count }) => `${clip(b.title, 80)} (${b.slug}) $${Number(b.price)}${count > 0 ? ` (together in ${count} orders)` : ""}`).join(" | ")
           );
           for (const { product: b } of pairs) {
             if (citations.length >= 9 || citations.some((c) => c.slug === b.slug)) continue;
@@ -235,15 +252,18 @@ export async function buildAiContext(opts: {
   }
 
   // Advisory search: run the real engine so recommendations are catalog-true.
-  // Nine hits feed the grouped sections; only the top five cost model tokens.
+  // Cache-your-search: the engine (Postgres FTS, free) pulls the top matches
+  // first and results are cached ~60s shared across users — the model NEVER
+  // scans the catalog. Only the top 3 matches cost model tokens; the rest
+  // feed UI cards via citations (never sent to the LLM).
   const q = (opts.searchQuery ?? "").trim() || opts.lastUserText.slice(0, 120);
   if (q.length >= 2) {
     try {
-      const { hits } = await searchProducts(q, {}, 1, 9);
+      const { hits } = await searchProductsCached(q, {}, 1, 9);
       if (hits.length > 0) {
         parts.push(
           `SEARCH "${clip(q, 80)}": ` +
-            hits.slice(0, 5).map((h) => `${h.title} (${h.slug}) $${h.price} ★${h.ratingAvg} sold ${h.soldCount}`).join(" | ")
+            hits.slice(0, 3).map((h) => `${clip(h.title, 80)} (${h.slug}) $${h.price} ★${h.ratingAvg} sold ${h.soldCount}`).join(" | ")
         );
         for (const h of hits) {
           if (!citations.some((c) => c.slug === h.slug)) {
@@ -275,7 +295,7 @@ export async function buildAiContext(opts: {
       if (fresh.length > 0) {
         parts.push(
           `TAG MATCH (${matched.join(",")}): ` +
-            fresh.map((p) => `${p.title} (${p.slug}) $${Number(p.price)}`).join(" | ")
+            fresh.map((p) => `${clip(p.title, 80)} (${p.slug}) $${Number(p.price)}`).join(" | ")
         );
         for (const p of fresh) {
           if (citations.length >= 9) break;
@@ -288,22 +308,27 @@ export async function buildAiContext(opts: {
   }
 
   // Personal signals (signed-in only route, so these are the buyer's own rows).
-  // Non-sensitive only: first name, tenure, order counts and watchlist — used
-  // for greeting and personalization, never payment data or addresses.
-  const [profile, orderStats, orders, wishlist] = await Promise.all([
+  // Compressed by design: first name + tenure + order COUNT only — never
+  // spend totals, and order numbers / tracking numbers ONLY when the question
+  // is order-related (wantsOrderCard). Transaction histories must not ride
+  // along on every product question.
+  const orderIntent = wantsOrderCard(opts.lastUserText);
+  const [profile, orderCount, orders, wishlist] = await Promise.all([
     db.user.findUnique({ where: { id: opts.userId }, select: { name: true, createdAt: true } }),
-    db.order.aggregate({ where: { buyerId: opts.userId }, _count: true, _sum: { total: true } }),
-    db.order.findMany({
-      where: { buyerId: opts.userId },
-      orderBy: { createdAt: "desc" },
-      select: { number: true, status: true, total: true, createdAt: true },
-      take: 3,
-    }),
+    db.order.count({ where: { buyerId: opts.userId } }),
+    orderIntent
+      ? db.order.findMany({
+          where: { buyerId: opts.userId },
+          orderBy: { createdAt: "desc" },
+          select: { number: true, status: true, total: true, createdAt: true },
+          take: 2,
+        })
+      : Promise.resolve([] as Array<{ number: string; status: string; total: unknown; createdAt: Date }>),
     db.wishlistItem.findMany({
       where: { userId: opts.userId },
       orderBy: { createdAt: "desc" },
       select: { product: { select: { slug: true, title: true, price: true } } },
-      take: 5,
+      take: 3,
     }),
   ]);
   const firstName = profile?.name?.split(" ")[0]?.slice(0, 30) || null;
@@ -311,14 +336,14 @@ export async function buildAiContext(opts: {
   parts.push(
     `BUYER: ${firstName ? `first name ${firstName}` : "name unknown"}` +
       `${memberYear ? `, member since ${memberYear}` : ""}` +
-      `, ${orderStats._count} orders${orderStats._sum.total != null ? ` totaling $${Number(orderStats._sum.total).toFixed(0)}` : ""}` +
+      `, ${orderCount} orders` +
       `. Greet by first name when known; never reveal order numbers, totals or addresses unprompted.`
   );
   if (orders.length > 0) {
     parts.push(`BUYER ORDERS: ${orders.map((o) => `${o.number} ${o.status} $${Number(o.total)}`).join(" | ")}`);
   }
   if (wishlist.length > 0) {
-    parts.push(`WATCHLIST: ${wishlist.map((w) => `${w.product.title} (${w.product.slug}) $${Number(w.product.price)}`).join(" | ")}`);
+    parts.push(`WATCHLIST: ${wishlist.map((w) => `${clip(w.product.title, 80)} (${w.product.slug}) $${Number(w.product.price)}`).join(" | ")}`);
   }
 
   const [liveDeals, coupons, shipments] = await Promise.all([
@@ -334,21 +359,29 @@ export async function buildAiContext(opts: {
         AND: [{ OR: [{ endsAt: null }, { endsAt: { gt: new Date() } }] }],
       },
       select: { code: true, type: true, pctOff: true, amountOff: true, minSubtotal: true },
-      take: 6,
-    }),
-    db.shipment.findMany({
-      where: { order: { buyerId: opts.userId } },
-      orderBy: { updatedAt: "desc" },
-      select: {
-        status: true, carrier: true, trackingNumber: true, shippedAt: true, deliveredAt: true,
-        store: { select: { name: true } },
-        order: { select: { number: true } },
-      },
       take: 4,
     }),
+    orderIntent
+      ? db.shipment.findMany({
+          where: { order: { buyerId: opts.userId } },
+          orderBy: { updatedAt: "desc" },
+          select: {
+            status: true, carrier: true, trackingNumber: true, shippedAt: true, deliveredAt: true,
+            store: { select: { name: true } },
+            order: { select: { number: true } },
+          },
+          take: 2,
+        })
+      : Promise.resolve(
+          [] as Array<{
+            status: string; carrier: string | null; trackingNumber: string | null;
+            shippedAt: Date | null; deliveredAt: Date | null;
+            store: { name: string }; order: { number: string };
+          }>
+        ),
   ]);
   if (liveDeals.length > 0) {
-    parts.push(`LIVE DEALS: ${liveDeals.map((d) => `${d.product.title} (${d.product.slug}) $${Number(d.dealPrice)}`).join(" | ")}`);
+    parts.push(`LIVE DEALS: ${liveDeals.map((d) => `${clip(d.product.title, 80)} (${d.product.slug}) $${Number(d.dealPrice)}`).join(" | ")}`);
   }
   if (coupons.length > 0) {
     parts.push(
@@ -368,11 +401,11 @@ export async function buildAiContext(opts: {
           .map((s) => {
             const track = s.trackingNumber ? ` ${s.carrier ?? "carrier"} ${s.trackingNumber}` : "";
             const when = s.deliveredAt ? ` delivered ${new Date(s.deliveredAt).toISOString().slice(0, 10)}` : s.shippedAt ? ` shipped ${new Date(s.shippedAt).toISOString().slice(0, 10)}` : "";
-            return `order ${s.order.number} [${s.store.name}] ${s.status}${track}${when}`;
+            return `order ${s.order.number} [${clip(s.store.name, 40)}] ${s.status}${track}${when}`;
           })
           .join(" | ")
     );
   }
 
-  return { text: parts.join("\n").slice(0, 4400), citations: citations.slice(0, 9) };
+  return { text: parts.join("\n").slice(0, 2800), citations: citations.slice(0, 9) };
 }

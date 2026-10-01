@@ -1,11 +1,12 @@
 import { db } from "@/lib/db";
 import { fail, getPagination, ok } from "@/lib/api/http";
+import { resolvePublicStore } from "@/lib/stores/resolve";
 
 /** All reviews across a store's products (for the store page tab). */
 export async function GET(req: Request, { params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
-  const store = await db.store.findUnique({ where: { slug }, select: { id: true, status: true } });
-  if (!store || store.status !== "APPROVED") return fail("NOT_FOUND", "Store not found", 404);
+  const store = await resolvePublicStore(slug);
+  if (!store) return fail("NOT_FOUND", "Store not found", 404);
 
   const { page, pageSize, skip } = getPagination(new URL(req.url));
   const where = { storeId: store.id };

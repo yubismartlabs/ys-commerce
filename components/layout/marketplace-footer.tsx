@@ -1,6 +1,10 @@
 import Link from "next/link";
+import { getSettingGroup } from "@/lib/server-settings";
+import { accountPath } from "@/lib/account-path";
 
-export function MarketplaceFooter() {
+export async function MarketplaceFooter() {
+  const site = await getSettingGroup("site");
+  const a = (p: string) => accountPath(p, site.accountSlug);
   return (
     <footer className="mt-10 border-t bg-white">
       <div className="mx-auto grid max-w-7xl gap-8 px-4 py-10 text-sm text-neutral-600 md:grid-cols-4">
@@ -14,25 +18,25 @@ export function MarketplaceFooter() {
             <Link href="/deals">Flash Deals</Link>
             <Link href="/watchlist">Watchlist</Link>
             <Link href="/cart">Cart</Link>
-            <Link href="/account?tab=orders">Track Order</Link>
+            <Link href={a("/orders")}>Track Order</Link>
           </div>
         </div>
         <div>
           <p className="mb-2 font-semibold text-neutral-900">Sell</p>
           <div className="grid gap-1.5">
-            <Link href="/selling/onboarding">Start Selling</Link>
-            <Link href="/selling/dashboard">Seller Dashboard</Link>
-            <Link href="/selling/listings">Listings</Link>
-            <Link href="/selling/orders">Seller Orders</Link>
+            <Link href={a("/start-selling")}>Start Selling</Link>
+            <Link href={a("/store")}>My Store</Link>
+            <Link href={a("/listings")}>My Listings</Link>
+            <Link href={a("/orders?view=selling")}>Sales</Link>
           </div>
         </div>
         <div>
           <p className="mb-2 font-semibold text-neutral-900">Support</p>
           <div className="grid gap-1.5">
-            <Link href="/account">My Account</Link>
-            <Link href="/account?tab=orders">Orders</Link>
-            <Link href="/account/disputes">Disputes</Link>
-            <Link href="/account/messages">Messages</Link>
+            <Link href={a("/summary")}>My Account</Link>
+            <Link href={a("/orders")}>Orders</Link>
+            <Link href={a("/disputes")}>Disputes</Link>
+            <Link href={a("/messages")}>Messages</Link>
           </div>
         </div>
       </div>

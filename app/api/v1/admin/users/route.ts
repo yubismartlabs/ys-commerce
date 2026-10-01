@@ -18,9 +18,9 @@ export const GET = withAdmin(async (req) => {
 
   const where = {
     ...(q
-      ? { OR: [{ email: { contains: q, mode: "insensitive" as const } }, { name: { contains: q, mode: "insensitive" as const } }] }
+      ? { OR: [{ email: { contains: q, mode: "insensitive" as const } }, { name: { contains: q, mode: "insensitive" as const } }, { username: { contains: q, mode: "insensitive" as const } }] }
       : {}),
-    ...(role ? { role: role as "BUYER" | "SELLER" | "ADMIN" } : {}),
+    ...(role ? { role: role as "BUYER" | "ADMIN" } : {}),
     ...(status === "suspended" ? { suspendedAt: { not: null } } : status === "active" ? { suspendedAt: null } : {}),
   };
   const [total, users] = await Promise.all([
@@ -33,6 +33,7 @@ export const GET = withAdmin(async (req) => {
       select: {
         id: true,
         name: true,
+        username: true,
         email: true,
         role: true,
         suspendedAt: true,
@@ -57,7 +58,7 @@ const createSchema = z.object({
   name: z.string().min(1).max(80),
   email: z.string().email().toLowerCase(),
   password: z.string().min(8).max(128).optional(),
-  role: z.enum(["BUYER", "SELLER", "ADMIN"]).default("BUYER"),
+  role: z.enum(["BUYER", "ADMIN"]).default("BUYER"),
   staffRoleId: z.string().nullable().optional(),
 });
 
@@ -83,15 +84,18 @@ export const POST = withAdmin(async (req, actor) => {
 
   const temp = parsed.data.password ?? randomBytes(12).toString("base64url");
   const config = await getEmailConfig();
+  const { generateUsernameForNewUser } = await import("@/lib/usernames-server");
+  const username = await generateUsernameForNewUser(parsed.data.name, parsed.data.email);
   const user = await db.user.create({
     data: {
       name: parsed.data.name,
       email: parsed.data.email,
+      username,
       passwordHash: await bcrypt.hash(temp, 10),
       role: parsed.data.role,
       staffRoleId,
     },
-    select: { id: true, name: true, email: true, role: true },
+    select: { id: true, name: true, username: true, email: true, role: true },
   });
   await audit(actor.id, "user.create", "User", user.id, { email: user.email, role: user.role });
   let emailed = false;

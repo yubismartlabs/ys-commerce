@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useAccountUrl } from "@/lib/account-url";
 import Link from "next/link";
 import Image from "next/image";
 import {
@@ -315,6 +316,7 @@ const STATUS_TINT: Record<string, string> = {
 };
 
 export function OrderCards({ orders }: { orders: AssistantOrder[] }) {
+  const a = useAccountUrl();
   if (orders.length === 0) return null;
   return (
     <div className="space-y-2" aria-label="Your orders">
@@ -351,7 +353,7 @@ export function OrderCards({ orders }: { orders: AssistantOrder[] }) {
             </p>
           ))}
           <Link
-            href="/account?tab=orders"
+            href={a("/orders")}
             className="flex items-center justify-center gap-1 rounded-full border border-neutral-200 py-1.5 text-[12px] font-bold text-neutral-800 transition hover:border-ali-red hover:text-ali-red"
           >
             View in orders <ArrowRight className="size-3.5" />

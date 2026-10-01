@@ -11,6 +11,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { readData } from "@/lib/api/client";
 import { timeAgo } from "@/lib/format";
+import { useAccountUrl } from "@/lib/account-url";
 
 type Answer = {
   id: string;
@@ -37,6 +38,7 @@ type Question = {
  * badged so buyers can weight them.
  */
 export function ProductQuestions({ slug }: { slug: string }) {
+  const a = useAccountUrl();
   const queryClient = useQueryClient();
   const [draft, setDraft] = useState("");
   const [replyTo, setReplyTo] = useState<string | null>(null);
@@ -76,7 +78,7 @@ export function ProductQuestions({ slug }: { slug: string }) {
 
   const answer = useMutation({
     mutationFn: async (questionId: string) => {
-      const res = await fetch(`/api/v1/selling/questions/${questionId}`, {
+      const res = await fetch(`/api/v1/account/selling/questions/${questionId}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ body: reply }),
@@ -93,7 +95,7 @@ export function ProductQuestions({ slug }: { slug: string }) {
   const remove = async (id: string) => {
     if (!window.confirm("Delete your question and its answers?")) return;
     try {
-      await readData(await fetch(`/api/v1/selling/questions/${id}`, {
+      await readData(await fetch(`/api/v1/account/selling/questions/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ delete: true }),
@@ -225,7 +227,7 @@ export function ProductQuestions({ slug }: { slug: string }) {
 
       <p className="mt-4 text-[11px] text-neutral-400">
         Selling this product?{" "}
-        <Link href="/selling/questions" className="underline">
+        <Link href={a("/questions")} className="underline">
           Answer questions from your listings
         </Link>
         .

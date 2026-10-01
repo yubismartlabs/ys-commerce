@@ -88,7 +88,7 @@ function List({ basePath }: { basePath: string }) {
   );
 }
 
-export function ChatInbox({ basePath }: { basePath: "/account/messages" | "/selling/messages" }) {
+export function ChatInbox({ basePath }: { basePath: string }) {
   const { data: session, status } = useSession();
   const userId = (session?.user as { id?: string } | undefined)?.id;
   if (status === "loading") return <Card className="p-6 text-sm text-neutral-500">Loading…</Card>;

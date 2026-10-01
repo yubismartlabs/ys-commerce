@@ -6,6 +6,8 @@ import { audit } from "@/lib/api/guard";
 import { filingEligibility, freezeForOrder } from "@/lib/escrow/escrow";
 import { isSuspended } from "@/lib/api/identity";
 import { clientKey, limit } from "@/lib/api/rate-limit";
+import { getSettingGroup } from "@/lib/server-settings";
+import { accountPath } from "@/lib/account-path";
 import { evaluateMessage } from "@/lib/chat/safety";
 import { getEmailConfig } from "@/lib/email/send";
 import { disputeOpenedEmail } from "@/lib/email/templates";
@@ -114,6 +116,7 @@ export async function POST(req: Request) {
   });
 
   // Sellers with items on the order get an in-app alert to respond.
+  const site = await getSettingGroup("site");
   const storeIds = [...new Set(order.items.map((i) => i.storeId))];
   const owners = await db.store.findMany({ where: { id: { in: storeIds } }, select: { ownerId: true, name: true } });
   for (const s of owners) {
@@ -121,8 +124,8 @@ export async function POST(req: Request) {
       userId: s.ownerId,
       type: "dispute.opened",
       title: `Dispute opened on order ${order.number}`,
-      body: `A buyer disputed ${s.name} items. Respond in Selling → Disputes.`,
-      link: `/selling/disputes/${dispute.id}`,
+      body: `A buyer disputed ${s.name} items. Respond under My YS → Disputes → Against my store.`,
+      link: accountPath(`/disputes/${dispute.id}?view=selling`, site.accountSlug),
       meta: { entityId: dispute.id, orderNumber: order.number },
       email: { template, name: "dispute.opened.seller", enabled: config.enabled && config.adminAlerts },
     });

@@ -1,5 +1,6 @@
 import type { MetadataRoute } from "next";
 import { db } from "@/lib/db";
+import { storeUrl } from "@/lib/stores/url";
 import { CATEGORIES, categoryHref } from "@/lib/categories";
 
 /**
@@ -11,7 +12,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const now = new Date();
 
   let products: Array<{ slug: string; updatedAt: Date }> = [];
-  let stores: Array<{ slug: string; updatedAt: Date }> = [];
+  let stores: Array<{ slug: string; username: string | null; updatedAt: Date }> = [];
   try {
     [products, stores] = await Promise.all([
       db.product.findMany({
@@ -22,7 +23,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       }),
       db.store.findMany({
         where: { status: "APPROVED" },
-        select: { slug: true, updatedAt: true },
+        select: { slug: true, username: true, updatedAt: true },
         orderBy: { updatedAt: "desc" },
         take: 2000,
       }),
@@ -48,7 +49,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       priority: 0.8,
     })),
     ...stores.map((s) => ({
-      url: `${base}/store/${s.slug}`,
+      url: `${base}${storeUrl(s)}`,
       lastModified: s.updatedAt,
       changeFrequency: "weekly" as const,
       priority: 0.6,

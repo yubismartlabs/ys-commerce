@@ -4,6 +4,8 @@ import { fail, ok } from "@/lib/api/http";
 import { audit, withAdmin } from "@/lib/api/guard";
 import { settleBuyerWin, settleSellerWin } from "@/lib/escrow/escrow";
 import { notifyDisputeStatus, notifyUser } from "@/lib/notifications/notify";
+import { getSettingGroup } from "@/lib/server-settings";
+import { accountPath } from "@/lib/account-path";
 import { transitionOrder, TransitionError } from "@/lib/orders/transitions";
 import { open } from "@/lib/chat/server-crypto";
 
@@ -136,13 +138,14 @@ export const PATCH = withAdmin(
     // Sellers with items on the order learn the ruling in-app.
     const storeIds = [...new Set(dispute.order.items.map((i) => i.storeId))];
     const owners = await db.store.findMany({ where: { id: { in: storeIds } }, select: { ownerId: true } });
+    const site = await getSettingGroup("site");
     for (const s of owners) {
       await notifyUser({
         userId: s.ownerId,
         type: "dispute.updated",
         title: `Dispute ruled on order ${dispute.order.number}: ${parsed.data.status.replace(/_/g, " ")}`,
         body: settlement || undefined,
-        link: `/selling/disputes/${id}`,
+        link: accountPath(`/disputes/${id}?view=selling`, site.accountSlug),
         meta: { entityId: id },
       });
     }

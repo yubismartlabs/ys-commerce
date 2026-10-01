@@ -1,9 +1,11 @@
 /**
  * Central role/permission model.
  *
- * Account types stay flat (BUYER / SELLER / ADMIN) while staff access is
- * scope-based: a user's effective scopes = role scopes + staff-role scopes
- * + per-user overrides. ADMIN always resolves to ["*"].
+ * Accounts are flat (BUYER / ADMIN) — anyone can open a store and list,
+ * so there is no SELLER role. "Seller" is derived from store ownership
+ * (Store.ownerId), never from the role column. Staff access is scope-based:
+ * a user's effective scopes = role scopes + staff-role scopes + per-user
+ * overrides. ADMIN always resolves to ["*"].
  *
  * To add a new staff role: create a StaffRole row (ys-admin → Users → Roles)
  * with any of the AREAS below. No code changes needed — every admin route
@@ -11,9 +13,9 @@
  * middleware gate on the same list.
  */
 
-export type Role = "BUYER" | "SELLER" | "ADMIN";
+export type Role = "BUYER" | "ADMIN";
 
-export const ROLES: Role[] = ["BUYER", "SELLER", "ADMIN"];
+export const ROLES: Role[] = ["BUYER", "ADMIN"];
 
 /** Admin console areas. "admin" = superuser-only (tokens, destructive user ops). */
 export const AREAS = [
@@ -36,7 +38,6 @@ export type Area = (typeof AREAS)[number];
 
 const ROLE_SCOPES: Record<Role, string[]> = {
   ADMIN: ["*"],
-  SELLER: ["selling"],
   BUYER: [],
 };
 

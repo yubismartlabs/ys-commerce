@@ -16,6 +16,7 @@ import { HomeDeals } from "@/components/deals/home-deals";
 import { bestSellingProducts, categoryCounts, newestProducts } from "@/lib/products/feed";
 import { CATEGORIES, categoryHref } from "@/lib/categories";
 import { getSettingGroup } from "@/lib/server-settings";
+import { accountPath } from "@/lib/account-path";
 
 const heroSlides = [
   { title: "Mega Flash Deals", sub: "Up to -70% · Free shipping", bg: "bg-gradient-to-r from-[#e62e1b] to-[#ff6a00]", seed: "hero-1" },
@@ -42,6 +43,7 @@ export default async function HomePage() {
     safely("site settings", () => getSettingGroup("site"), null),
   ]);
   const siteName = site?.siteName || "ys-commerce";
+  const a = (path: string) => accountPath(path, site?.accountSlug ?? "account");
 
   // De-dupe: the "fresh" rail can overlap the best-seller grid.
   const bestSlugs = new Set(best.map((p) => p.slug));
@@ -101,7 +103,7 @@ export default async function HomePage() {
             <p className="flex items-center gap-1 text-sm font-bold"><Flame className="size-4 text-ali-orange" /> Sell on YS</p>
             <p className="mt-1 text-[13px] text-white/80">One account to buy and sell. 5% commission.</p>
             <Button asChild size="sm" className="mt-3 bg-ali-red text-white hover:bg-ali-red-dark">
-              <Link href="/selling/onboarding">Open a store</Link>
+              <Link href={a("/start-selling")}>Open a store</Link>
             </Button>
           </Card>
         </div>
@@ -151,7 +153,7 @@ export default async function HomePage() {
           <Card className="space-y-2 p-10 text-center text-sm text-neutral-500">
             <p>No products are listed yet.</p>
             <Button asChild size="sm" className="bg-ali-red text-white hover:bg-ali-red-dark">
-              <Link href="/selling/onboarding">Become a seller</Link>
+              <Link href={a("/start-selling")}>Become a seller</Link>
             </Button>
           </Card>
         ) : (

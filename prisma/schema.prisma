@@ -12,7 +12,6 @@ datasource db {
 
 enum Role {
   BUYER
-  SELLER
   ADMIN
 }
 
@@ -69,6 +68,12 @@ model User {
   id           String    @id @default(cuid())
   name         String?
   email        String    @unique
+  // eBay-style handle. Auto-generated from the display name at signup;
+  // a custom one can only be claimed when opening a store (become-seller).
+  // Nullable so pre-username accounts keep working — app code backfills on
+  // read (see lib/usernames + scripts/backfill-usernames). Unique where set
+  // (Postgres allows multiple NULLs, so the constraint only binds real rows).
+  username     String?   @unique
   passwordHash String?
   role         Role      @default(BUYER)
   // Staff-ready: roles stay in the enum; per-area scopes (when needed)
@@ -98,6 +103,7 @@ model User {
   notifications Notification[]
   aiMessages AiMessage[]
 }
+
 
 model Account {
   id                String  @id @default(cuid())
@@ -139,6 +145,14 @@ model Store {
   id             String      @id @default(cuid())
   name           String
   slug           String      @unique
+  // Public @handle: chosen at creation, shown as /store/@username. Slug stays
+  // as the immutable legacy key so old /store/<slug> links keep resolving
+  // (redirected to the @ URL). Nullable only for pre-handle rows — backfilled
+  // on deploy; app code treats it as required for new stores.
+  username     String?   @unique
+  // Lifetime cap on username changes (see usernames.storeUsernameMaxChanges).
+  // Creation doesn't count; each accepted rename increments.
+  usernameChangeCount Int @default(0)
   description    String?
   logo           String?
   banner         String?

@@ -10,6 +10,7 @@ import { readEnvelope } from "@/lib/api/client";
 import { formatUSD, timeAgo } from "@/lib/format";
 import { returnReasonLabel } from "@/lib/returns/returns-labels";
 import type { ReturnView } from "@/lib/refine/types";
+import { useAccountBase } from "@/lib/account-url";
 
 const PAGE_SIZE = 10;
 
@@ -24,6 +25,7 @@ const BLURB: Record<string, string> = {
 
 /** The buyer's return requests and where each one stands. */
 export function AccountReturnsTab() {
+  const base = useAccountBase();
   const queryClient = useQueryClient();
   const [page, setPage] = useState(1);
 
@@ -54,7 +56,7 @@ export function AccountReturnsTab() {
     return (
       <div className="space-y-2 py-4 text-sm text-neutral-500">
         <p>No returns. If something isn&apos;t right, open a return from the order page — it&apos;s not a dispute and won&apos;t affect the seller&apos;s record.</p>
-        <Button size="sm" variant="outline" asChild><Link href="/account?tab=orders">View my orders</Link></Button>
+        <Button size="sm" variant="outline" asChild><Link href={`${base}/orders`}>View my orders</Link></Button>
       </div>
     );
   }
@@ -86,7 +88,7 @@ export function AccountReturnsTab() {
             <li key={r.id} className="py-4">
               <div className="flex flex-wrap items-center gap-2">
                 <StatusBadge value={r.status} />
-                <Link href={`/account/orders/${encodeURIComponent(r.order?.number ?? "")}`} className="font-mono text-sm font-bold hover:underline">
+                <Link href={`${base}/orders/${encodeURIComponent(r.order?.number ?? "")}`} className="font-mono text-sm font-bold hover:underline">
                   {r.order?.number}
                 </Link>
                 <span className="text-xs text-neutral-500">{r.store?.name} · {timeAgo(r.createdAt)}</span>

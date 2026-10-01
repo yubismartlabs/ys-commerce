@@ -44,7 +44,7 @@ export function BulkActionBar({
       if (mode === "adjust_price") body.percent = Number(percent);
       if (mode === "set_stock") body.stock = Number(stock);
       return readData<Result>(
-        await fetch("/api/v1/selling/products/bulk-action", {
+        await fetch("/api/v1/account/selling/products/bulk-action", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(body),

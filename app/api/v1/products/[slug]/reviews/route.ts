@@ -6,6 +6,8 @@ import { audit } from "@/lib/api/guard";
 import { hasPurchased, recalcProductRating, recalcStoreRating } from "@/lib/products/ratings";
 import { getEmailConfig } from "@/lib/email/send";
 import { notifyUser } from "@/lib/notifications/notify";
+import { getSettingGroup } from "@/lib/server-settings";
+import { accountPath } from "@/lib/account-path";
 
 const sortMap: Record<string, object> = {
   helpful: [{ helpful: "desc" }, { createdAt: "desc" }],
@@ -100,11 +102,12 @@ export async function POST(req: Request, { params }: { params: Promise<{ slug: s
 
   // Seller gets an in-app + email nudge to respond.
   const config = await getEmailConfig();
+  const site = await getSettingGroup("site");
   await notifyUser({
     userId: product.store.ownerId,
     type: "review.new",
     title: `New ${review.rating}★ review: ${product.title}`,
-    link: `/selling/products/${product.id}`,
+    link: accountPath(`/listings/${product.id}`, site.accountSlug),
     meta: { entityId: review.id, rating: review.rating },
     email: {
       template: {

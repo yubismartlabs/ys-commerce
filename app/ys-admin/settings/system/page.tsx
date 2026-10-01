@@ -81,7 +81,13 @@ export default function SystemSettingsPage() {
         </TabsContent>
         <TabsContent value="ai">
           <GroupForm group="ai" schema={groupSchemas.ai} values={s.ai}>
-            {(c) => <AiFields control={c} hasHfKey={(s.ai as { hasHfKey?: boolean }).hasHfKey} />}
+            {(c) => (
+              <AiFields
+                control={c}
+                hasHfKey={(s.ai as { hasHfKey?: boolean }).hasHfKey}
+                hasGoogleKey={(s.ai as { hasGoogleKey?: boolean }).hasGoogleKey}
+              />
+            )}
           </GroupForm>
         </TabsContent>
       </Tabs>

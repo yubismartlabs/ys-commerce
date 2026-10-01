@@ -16,6 +16,7 @@ export const GET = withAdmin(
       select: {
         id: true,
         name: true,
+        username: true,
         email: true,
         role: true,
         scopes: true,
@@ -46,12 +47,13 @@ export const GET = withAdmin(
 , "users");
 
 const patchSchema = z.union([
-  z.object({ action: z.literal("role"), role: z.enum(["BUYER", "SELLER", "ADMIN"]) }),
+  z.object({ action: z.literal("role"), role: z.enum(["BUYER", "ADMIN"]) }),
   z.object({ action: z.literal("staffRole"), staffRoleId: z.string().nullable() }),
   z.object({ action: z.literal("suspend"), reason: z.string().max(300).optional() }),
   z.object({ action: z.literal("unsuspend") }),
   z.object({ action: z.literal("resetPassword") }),
   z.object({ action: z.literal("profile"), name: z.string().min(1).max(80) }),
+  z.object({ action: z.literal("username"), username: z.string().min(1).max(30) }),
 ]);
 
 async function assertNotLastAdmin(id: string): Promise<boolean> {
@@ -168,9 +170,26 @@ export const PATCH = withAdmin(
     }
 
     // profile
-    const updated = await db.user.update({ where: { id }, data: { name: parsed.data.name } });
-    await audit(actor.id, "user.profile", "User", id, { name: parsed.data.name });
-    return ok({ id: updated.id, name: updated.name });
+    if (parsed.data.action === "profile") {
+      const updated = await db.user.update({ where: { id }, data: { name: parsed.data.name } });
+      await audit(actor.id, "user.profile", "User", id, { name: parsed.data.name });
+      return ok({ id: updated.id, name: updated.name });
+    }
+
+    // username — admin override (same format + reserved + unique rules as
+    // signup, checked in the shared user+store namespace).
+    const { checkUsername, usernameErrorMessage } = await import("@/lib/usernames");
+    const { findHandleOwner, getReservedUsernames } = await import("@/lib/usernames-server");
+    const checked = checkUsername(parsed.data.username, await getReservedUsernames());
+    if (!checked.ok) {
+      const code = checked.reason === "RESERVED" ? "RESERVED" : "VALIDATION";
+      return fail(code, usernameErrorMessage(checked.reason), 422);
+    }
+    const taken = await findHandleOwner(checked.value, { userId: id });
+    if (taken) return fail("CONFLICT", usernameErrorMessage("TAKEN"), 409);
+    const renamed = await db.user.update({ where: { id }, data: { username: checked.value } });
+    await audit(actor.id, "user.username", "User", id, { from: user.username, to: checked.value });
+    return ok({ id: renamed.id, username: renamed.username });
   }
 , "users");
 

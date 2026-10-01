@@ -10,6 +10,7 @@ export async function GET() {
   return ok({
     siteName: s.site.siteName,
     logoUrl: s.site.logoUrl,
+    accountSlug: s.site.accountSlug,
     announcement: s.maintenance.announcement,
     buyerProtectionText: s.commerce.buyerProtectionText,
     buyerProtectionDays: s.commerce.buyerProtectionDays,

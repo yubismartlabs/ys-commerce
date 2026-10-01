@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { signIn, useSession } from "next-auth/react";
@@ -22,8 +22,13 @@ function SignInForm() {
   const next = safeNextPath(params.get("next"));
   const hydrated = useHydrated();
 
+  useEffect(() => {
+    if (status === "authenticated") {
+      router.replace(next);
+    }
+  }, [status, next, router]);
+
   if (status === "authenticated") {
-    router.replace(next);
     return null;
   }
 

@@ -1,8 +1,9 @@
 "use client";
 
-import { use, useState } from "react";
+import { use, useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Heart, Loader2, Megaphone, RotateCcw, Truck } from "lucide-react";
 import { toast } from "sonner";
@@ -16,12 +17,15 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { apiGet, readData, readEnvelope } from "@/lib/api/client";
 import { formatSold, timeAgo } from "@/lib/format";
+import { storeHandle, storeUrl } from "@/lib/stores/url";
 import { cn } from "@/lib/utils";
+import { useAccountUrl } from "@/lib/account-url";
 
 type StoreProfile = {
   id: string;
   name: string;
   slug: string;
+  username: string | null;
   description: string | null;
   logo: string | null;
   banner: string | null;
@@ -33,6 +37,7 @@ type StoreProfile = {
   soldCount: number;
   followerCount: number;
   createdAt: string;
+  owner: { username: string | null; name: string | null } | null;
 };
 
 type StoreResponse = {
@@ -111,7 +116,9 @@ function FollowButton({ slug, following, onChange }: { slug: string; following: 
 }
 
 export default function StorePage({ params }: { params: Promise<{ slug: string }> }) {
+  const a = useAccountUrl();
   const { slug } = use(params);
+  const router = useRouter();
   const queryClient = useQueryClient();
   const [category, setCategory] = useState("");
   const [sort, setSort] = useState("newest");
@@ -124,6 +131,15 @@ export default function StorePage({ params }: { params: Promise<{ slug: string }
     queryFn: () => fetchStore(slug, category, sort, page),
     retry: false,
   });
+
+  // Canonical URL is /store/@username. Legacy /store/<slug> links upgrade
+  // silently (replace, so back still exits the storefront).
+  const canonical = query.data ? storeUrl(query.data.store) : null;
+  useEffect(() => {
+    if (canonical && `/store/${slug}` !== canonical) {
+      router.replace(canonical);
+    }
+  }, [canonical, slug, router]);
   const reviewsQuery = useQuery({
     queryKey: ["store-reviews", slug],
     queryFn: () => fetchStoreReviews(slug),
@@ -178,6 +194,15 @@ export default function StorePage({ params }: { params: Promise<{ slug: string }
           )}
           <div className="min-w-0 flex-1">
             <h1 className="truncate text-xl font-bold">{store.name}</h1>
+            <p className="mt-0.5 font-mono text-sm font-semibold text-ali-red">{storeHandle(store)}</p>
+            {store.owner?.username ? (
+              <p className="mt-0.5 text-sm text-neutral-500">
+                by{" "}
+                <Link href={`/u/${store.owner.username}`} className="font-semibold text-neutral-700 hover:underline dark:text-neutral-300">
+                  @{store.owner.username}
+                </Link>
+              </p>
+            ) : null}
             <p className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-sm text-neutral-500">
               <RatingStars rating={store.ratingAvg} />
               <span className="font-semibold text-neutral-700 dark:text-neutral-200">{store.ratingAvg.toFixed(1)}</span>
@@ -198,7 +223,7 @@ export default function StorePage({ params }: { params: Promise<{ slug: string }
               queryClient.invalidateQueries({ queryKey: ["store", slug] });
             }}
           />
-          <MessageButton storeId={store.id} label="Message store" basePath="/account/messages" />
+          <MessageButton storeId={store.id} label="Message store" basePath={a("/messages")} />
         </div>
         {store.announcement ? (
           <p className="flex items-center gap-2 border-t bg-amber-400/10 px-5 py-2 text-sm">

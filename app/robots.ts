@@ -1,7 +1,10 @@
 import type { MetadataRoute } from "next";
+import { getSettingGroup } from "@/lib/server-settings";
+import { accountPath } from "@/lib/account-path";
 
-export default function robots(): MetadataRoute.Robots {
+export default async function robots(): Promise<MetadataRoute.Robots> {
   const base = process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "") ?? "http://localhost:3000";
+  const site = await getSettingGroup("site");
   return {
     rules: [
       {
@@ -11,11 +14,10 @@ export default function robots(): MetadataRoute.Robots {
         // index; the API is not crawlable content either.
         disallow: [
           "/api/",
-          "/account/",
+          `${accountPath("/", site.accountSlug)}`,
           "/cart",
           "/checkout",
           "/watchlist",
-          "/selling/",
           "/ys-admin",
           "/sign-in",
           "/sign-up",

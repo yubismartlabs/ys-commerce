@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { useAccountBase } from "@/lib/account-url";
 import { Flag, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -29,6 +30,7 @@ export const DISPUTE_CATEGORIES = [
 /** Buyer files a dispute from their order page. Freezes escrow on open. */
 export function FileDisputeDialog({ orderNumber }: { orderNumber: string }) {
   const router = useRouter();
+  const base = useAccountBase();
   const [open, setOpen] = useState(false);
   const [category, setCategory] = useState<string>("NOT_RECEIVED");
   const [reason, setReason] = useState("");
@@ -50,7 +52,7 @@ export function FileDisputeDialog({ orderNumber }: { orderNumber: string }) {
       if (!res.ok) throw new Error(json?.error?.message ?? "Filing failed.");
       toast.success("Dispute opened — the seller's funds are frozen.");
       setOpen(false);
-      router.push(`/account/disputes/${json.data.id}`);
+      router.push(`${base}/disputes/${json.data.id}`);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Filing failed.");
     } finally {

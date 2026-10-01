@@ -1,16 +1,22 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
 import { useSession } from "next-auth/react";
+import { useHasStore } from "@/components/account/use-has-store";
+import { useAccountBase } from "@/lib/account-url";
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 
-/** Self-service profile: display name + password change. */
+/** Self-service profile: display name + password change. Username is read-only here. */
 export function SecurityForm() {
   const { data: session, update } = useSession();
+  const username = (session?.user as { username?: string | null } | undefined)?.username ?? null;
+  const hasStore = useHasStore();
+  const base = useAccountBase();
   const [name, setName] = useState<string | null>(null);
   const [current, setCurrent] = useState("");
   const [next, setNext] = useState("");
@@ -62,6 +68,27 @@ export function SecurityForm() {
 
   return (
     <div className="grid gap-6">
+      <div className="grid gap-2">
+        <p className="text-sm font-bold">Username</p>
+        {username ? (
+          <p className="text-sm">
+            <Link href={`/u/${username}`} className="font-mono font-semibold text-ali-red hover:underline">
+              @{username}
+            </Link>{" "}
+            <span className="text-xs text-neutral-500">
+              {hasStore ? "— change it anytime from My store settings." : "— auto-generated. Claim a custom one when you open a store."}
+            </span>
+          </p>
+        ) : (
+          <p className="text-sm text-neutral-500">Your handle is being assigned…</p>
+        )}
+        {!hasStore ? (
+          <p className="text-xs text-neutral-500">
+            Want <span className="font-mono">@your-name</span>? <Link href={`${base}/start-selling`} className="font-semibold text-ali-red hover:underline">Open a store</Link> — anyone can list, and it&apos;s the only place a custom username can be claimed.
+          </p>
+        ) : null}
+      </div>
+      <Separator />
       <form onSubmit={saveName} className="grid gap-2">
         <p className="text-sm font-bold">Profile</p>
         <p className="text-xs text-neutral-500">{session?.user?.email}</p>

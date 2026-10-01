@@ -6,6 +6,7 @@ import { usePathname, useSelectedLayoutSegment } from "next/navigation";
 import { useLogout, useGetIdentity } from "@refinedev/core";
 import {
   ArrowLeft,
+  AtSign,
   Banknote,
   Bell,
   ChevronDown,
@@ -100,6 +101,7 @@ const NAV_GROUPS: NavGroup[] = [
       { href: "/ys-admin/activity", label: "Activity log", icon: <History className="size-4" />, scope: "ops" },
       { href: "/ys-admin/settings/site", label: "Site settings", icon: <Globe className="size-4" />, scope: "settings" },
       { href: "/ys-admin/settings/system", label: "System settings", icon: <SlidersHorizontal className="size-4" />, scope: "settings" },
+      { href: "/ys-admin/settings/usernames", label: "Usernames", icon: <AtSign className="size-4" />, scope: "settings" },
       { href: "/ys-admin/api-tokens", label: "API tokens", icon: <KeyRound className="size-4" />, scope: "admin" },
     ],
   },

@@ -24,7 +24,7 @@ export function MessageButton({
   productId?: string;
   subject?: string;
   label: string;
-  basePath: "/account/messages" | "/selling/messages";
+  basePath: string;
   size?: "sm" | "default";
   variant?: "outline" | "ghost" | "default";
 }) {

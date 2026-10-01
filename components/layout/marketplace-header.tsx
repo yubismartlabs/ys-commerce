@@ -27,12 +27,14 @@ import { Sheet, SheetClose, SheetContent, SheetTrigger } from "@/components/ui/s
 import { useCart } from "@/lib/store/cart";
 import { CATEGORIES, categoryHref } from "@/lib/categories";
 import { usePublicSettings } from "@/lib/public-settings";
+import { useAccountUrl } from "@/lib/account-url";
 import { useHydrated } from "@/lib/hooks/use-hydrated";
 import { BuyerBell } from "@/components/notifications/buyer-bell";
 import { SearchBox } from "@/components/search/search-box";
 import { AssistantHeaderButton } from "@/components/ai/assistant-shell";
 import { useAssistant } from "@/lib/store/assistant";
 import { signOut, useSession } from "next-auth/react";
+import { useHasStore } from "@/components/account/use-has-store";
 
 export function MarketplaceHeader() {
   const hydrated = useHydrated();
@@ -42,10 +44,10 @@ export function MarketplaceHeader() {
   // keep server HTML and the first client render identical.
   const displayCount = hydrated ? count : 0;
   const { data: session, status } = useSession();
-  const role = (session?.user as { role?: string } | undefined)?.role;
-  const isSeller = role === "SELLER" || role === "ADMIN";
+  const hasStore = useHasStore();
   const firstName = session?.user?.name?.split(" ")[0] ?? "Buyer";
   const { siteName, logoUrl, aiEnabled, aiName } = usePublicSettings();
+  const a = useAccountUrl();
   const assistantOpen = useAssistant((s) => s.open);
   const openAssistant = useAssistant((s) => s.openWith);
 
@@ -63,10 +65,10 @@ export function MarketplaceHeader() {
             </span>
           </div>
           <div className="flex items-center gap-4">
-            <Link href="/selling/onboarding" className="inline-flex items-center gap-1 hover:text-ali-red">
+            <Link href={a("/start-selling")} className="inline-flex items-center gap-1 hover:text-ali-red">
               <Store className="size-3.5" /> Sell on YS
             </Link>
-            <Link href="/account?tab=orders" className="inline-flex items-center gap-1 hover:text-ali-red">
+            <Link href={a("/orders")} className="inline-flex items-center gap-1 hover:text-ali-red">
               <CircleHelp className="size-3.5" /> Track order
             </Link>
           </div>
@@ -145,15 +147,19 @@ export function MarketplaceHeader() {
                 <DropdownMenuContent align="end" className="w-56">
                   <DropdownMenuLabel className="truncate">{session?.user?.email ?? "My YS"}</DropdownMenuLabel>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem asChild><Link href="/account">My Orders</Link></DropdownMenuItem>
-                  <DropdownMenuItem asChild><Link href="/account/messages">Messages</Link></DropdownMenuItem>
+                  <DropdownMenuItem asChild><Link href={a("/summary")}>My YS — Summary</Link></DropdownMenuItem>
+                  <DropdownMenuItem asChild><Link href={a("/orders")}>Purchase history</Link></DropdownMenuItem>
+                  <DropdownMenuItem asChild><Link href={a("/messages")}>Messages</Link></DropdownMenuItem>
                   <DropdownMenuItem asChild><Link href="/watchlist">Watchlist</Link></DropdownMenuItem>
-                  <DropdownMenuItem asChild><Link href="/account?tab=coupons">My coupons</Link></DropdownMenuItem>
+                  <DropdownMenuItem asChild><Link href={a("/coupons")}>My coupons</Link></DropdownMenuItem>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem asChild>
-                    <Link href={isSeller ? "/selling/dashboard" : "/selling/onboarding"}>
-                      {isSeller ? "Selling Dashboard" : "Start Selling"}
+                    <Link href={hasStore ? a("/store") : a("/start-selling")}>
+                      {hasStore ? "My Store" : "Start Selling"}
                     </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link href={a("/listings")}>My Listings</Link>
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem onClick={() => signOut({ callbackUrl: "/" })}>
@@ -224,7 +230,7 @@ export function MarketplaceHeader() {
               <Sparkles className="size-3.5" /> {aiName}
             </button>
           ) : null}
-          <Link href="/selling/onboarding" className="whitespace-nowrap hover:text-ali-red">Sell on YS</Link>
+          <Link href={a("/start-selling")} className="whitespace-nowrap hover:text-ali-red">Sell on YS</Link>
         </div>
       </nav>
     </header>

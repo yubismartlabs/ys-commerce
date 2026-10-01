@@ -2,6 +2,8 @@ export type Vendor = {
   id: string;
   name: string;
   slug: string;
+  username: string | null;
+  usernameChangeCount: number;
   description: string | null;
   logo: string | null;
   banner: string | null;
@@ -202,8 +204,9 @@ export type StaffRole = {
 export type AdminUser = {
   id: string;
   name: string | null;
+  username: string | null;
   email: string;
-  role: "BUYER" | "SELLER" | "ADMIN";
+  role: "BUYER" | "ADMIN";
   scopes: string[];
   staffRole: { id: string; name: string } | null;
   suspendedAt: string | null;

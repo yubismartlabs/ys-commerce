@@ -2,16 +2,18 @@ import { auth } from "@/auth";
 import { db } from "@/lib/db";
 import { fail, ok } from "@/lib/api/http";
 import { notifyUser } from "@/lib/notifications/notify";
+import { resolvePublicStore } from "@/lib/stores/resolve";
 
-/** Follow a store (idempotent). */
+/** Follow a store (idempotent). Param is the @handle or legacy slug. */
 export async function POST(_req: Request, { params }: { params: Promise<{ slug: string }> }) {
   const session = await auth();
   const userId = session?.user?.id;
   if (!userId) return fail("UNAUTHORIZED", "Sign in to follow stores", 401);
   const { slug } = await params;
 
-  const store = await db.store.findUnique({ where: { slug }, select: { id: true, name: true, status: true, ownerId: true } });
-  if (!store || store.status !== "APPROVED") return fail("NOT_FOUND", "Store not found", 404);
+  const store = await resolvePublicStore(slug);
+  if (!store) return fail("NOT_FOUND", "Store not found", 404);
+  if (store.ownerId === userId) return fail("VALIDATION", "You can't follow your own store", 422);
 
   const existing = await db.storeFollow.findUnique({
     where: { storeId_userId: { storeId: store.id, userId } },
@@ -43,7 +45,7 @@ export async function DELETE(_req: Request, { params }: { params: Promise<{ slug
   if (!userId) return fail("UNAUTHORIZED", "Sign in required", 401);
   const { slug } = await params;
 
-  const store = await db.store.findUnique({ where: { slug }, select: { id: true } });
+  const store = await resolvePublicStore(slug);
   if (!store) return fail("NOT_FOUND", "Store not found", 404);
 
   const existing = await db.storeFollow.findUnique({

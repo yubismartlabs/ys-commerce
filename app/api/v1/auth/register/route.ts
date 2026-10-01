@@ -3,6 +3,7 @@ import bcrypt from "bcryptjs";
 import { db } from "@/lib/db";
 import { fail, ok } from "@/lib/api/http";
 import { clientKey, limit } from "@/lib/api/rate-limit";
+import { generateUsernameForNewUser } from "@/lib/usernames-server";
 
 const registerSchema = z.object({
   name: z.string().min(1).max(80),
@@ -28,14 +29,19 @@ export async function POST(req: Request) {
   const existing = await db.user.findUnique({ where: { email: parsed.data.email } });
   if (existing) return fail("CONFLICT", "An account with this email already exists", 409);
 
+  // Every account gets an eBay-style handle, auto-generated from the name.
+  // A custom one can only be claimed later when opening a store.
+  const username = await generateUsernameForNewUser(parsed.data.name, parsed.data.email);
+
   const user = await db.user.create({
     data: {
       name: parsed.data.name,
       email: parsed.data.email,
+      username,
       passwordHash: await bcrypt.hash(parsed.data.password, 10),
       role: "BUYER",
     },
-    select: { id: true, name: true, email: true, role: true },
+    select: { id: true, name: true, username: true, email: true, role: true },
   });
   return ok(user, undefined, 201);
 }

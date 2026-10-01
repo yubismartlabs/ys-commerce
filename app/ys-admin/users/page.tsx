@@ -14,11 +14,10 @@ import { timeAgo } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import type { AdminUser } from "@/lib/refine/types";
 
-const roles = ["BUYER", "SELLER", "ADMIN"] as const;
+const roles = ["BUYER", "ADMIN"] as const;
 
 function roleClass(r: string): string {
   if (r === "ADMIN") return "bg-violet-500/10 text-violet-700 ring-violet-500/25 dark:text-violet-400";
-  if (r === "SELLER") return "bg-sky-500/10 text-sky-700 ring-sky-500/25 dark:text-sky-400";
   return "bg-neutral-500/10 text-neutral-600 ring-neutral-500/20 dark:text-neutral-400";
 }
 
@@ -35,6 +34,10 @@ export default function UsersPage() {
 
   const rows = tableQuery.data?.data ?? [];
   const total = tableQuery.data?.total;
+  const loadError =
+    tableQuery.error instanceof Error
+      ? tableQuery.error.message
+      : (tableQuery.error as { message?: unknown } | null | undefined)?.message;
 
   const apply = (r = role, s = status, query = q) => {
     const next: Array<{ field: string; operator: "eq"; value: string }> = [];
@@ -86,7 +89,7 @@ export default function UsersPage() {
           className="ml-auto flex gap-2"
           onSubmit={(e) => { e.preventDefault(); apply(role, status, q); }}
         >
-          <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Name or email…" className="w-52" />
+          <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Name, @username or email…" className="w-52" />
           <Button type="submit" size="sm" variant="outline">Search</Button>
         </form>
       </div>
@@ -94,7 +97,13 @@ export default function UsersPage() {
         {tableQuery.isLoading ? (
           <TableSkeleton rows={8} cols={6} />
         ) : tableQuery.isError ? (
-          <ErrorState message="Failed to load users." />
+          <ErrorState
+            message={
+              typeof loadError === "string" && loadError
+                ? `Failed to load users: ${loadError}`
+                : "Failed to load users."
+            }
+          />
         ) : rows.length === 0 ? (
           <EmptyState title="No users found" hint="Try different filters." />
         ) : (
@@ -106,7 +115,7 @@ export default function UsersPage() {
               {rows.map((u) => (
                 <TableRow key={u.id} className="hover:bg-neutral-50 dark:hover:bg-neutral-900">
                   <TableCell>
-                    <p className="font-medium">{u.name ?? "—"}</p>
+                    <p className="font-medium">{u.name ?? "—"}{u.username ? <span className="ml-1.5 font-mono text-xs font-semibold text-ali-red">@{u.username}</span> : null}</p>
                     <p className="text-xs text-neutral-500">{u.email}</p>
                   </TableCell>
                   <TableCell>

@@ -6,8 +6,10 @@ import { Suspense } from "react";
 import { CheckCircle2 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { useAccountUrl } from "@/lib/account-url";
 
 function SuccessBody() {
+  const a = useAccountUrl();
   const params = useSearchParams();
   const number = params.get("number");
   return (
@@ -27,7 +29,7 @@ function SuccessBody() {
           <Link href="/">Keep shopping</Link>
         </Button>
         <Button variant="ghost" size="sm" asChild>
-          <Link href="/account">View my orders</Link>
+          <Link href={a("/orders")}>View my orders</Link>
         </Button>
       </div>
     </Card>

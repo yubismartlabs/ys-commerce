@@ -18,9 +18,13 @@ import { ProductQuestions } from "@/components/products/product-questions";
 import { PriceHistory } from "@/components/products/price-history";
 import { WishlistHeart } from "@/components/products/wishlist-heart";
 import { MessageButton } from "@/components/chat/message-button";
+import { useAccountUrl } from "@/lib/account-url";
+import { storeHandle, storeUrl } from "@/lib/stores/url";
 import { useAssistant } from "@/lib/store/assistant";
 import { usePublicSettings } from "@/lib/public-settings";
 import { useCart } from "@/lib/store/cart";
+import { getVariantColor } from "@/lib/products/colors";
+import { displayVariantName } from "@/lib/products/variants";
 import { cn } from "@/lib/utils";
 import type { ProductDetail } from "@/lib/products/detail";
 
@@ -30,6 +34,7 @@ import type { ProductDetail } from "@/lib/products/detail";
  * state or browser APIs lives here.
  */
 export function ProductView({ product, shippingFee }: { product: ProductDetail; shippingFee: number }) {
+  const a = useAccountUrl();
   const router = useRouter();
   const add = useCart((s) => s.add);
   const openWith = useAssistant((s) => s.openWith);
@@ -154,7 +159,7 @@ export function ProductView({ product, shippingFee }: { product: ProductDetail; 
               <p className="mb-2 text-sm font-semibold" id="variant-label">
                 Option:{" "}
                 <span className="font-normal">
-                  {variant ? variant.name : `Select (${product.variants.length})`}
+                  {variant ? displayVariantName(variant.name) : `Select (${product.variants.length})`}
                 </span>
                 {stock !== null || productSoldOut ? (
                   <span className={cn("ml-2 text-xs font-normal", stock === 0 ? "text-red-600" : "text-neutral-500")}>
@@ -166,7 +171,9 @@ export function ProductView({ product, shippingFee }: { product: ProductDetail; 
                   implement arrow-key roving focus, and announcing "radio
                   group" without it misleads screen-reader users. */}
               <div className="flex flex-wrap gap-2" aria-labelledby="variant-label">
-                {product.variants.map((v) => (
+                {product.variants.map((v) => {
+                  const swatch = !v.image ? getVariantColor(v.name) : null;
+                  return (
                   <button
                     key={v.id}
                     aria-pressed={v.id === variantId}
@@ -184,13 +191,21 @@ export function ProductView({ product, shippingFee }: { product: ProductDetail; 
                       <span className="relative size-8 overflow-hidden rounded-md bg-neutral-100">
                         <Image src={v.image} alt="" fill className="object-cover" sizes="32px" />
                       </span>
+                    ) : swatch ? (
+                      <span
+                        aria-hidden="true"
+                        title={displayVariantName(v.name)}
+                        className="size-6 shrink-0 rounded-full border border-neutral-300 dark:border-neutral-600"
+                        style={{ backgroundColor: swatch }}
+                      />
                     ) : null}
-                    <span>{v.name}</span>
+                    <span>{displayVariantName(v.name)}</span>
                     {v.price !== null && v.price !== product.price ? (
                       <span className="font-bold text-ali-red">{formatUSD(v.price)}</span>
                     ) : null}
                   </button>
-                ))}
+                  );
+                })}
               </div>
               {needsVariant ? (
                 <p className="mt-1.5 text-xs text-neutral-500">Select an option above to add to cart.</p>
@@ -254,10 +269,10 @@ export function ProductView({ product, shippingFee }: { product: ProductDetail; 
                 <ShieldCheck className="size-4 text-emerald-600" /> Buyer Protection ({buyerProtectionDays} days) ·{" "}
                 {buyerProtectionText}
               </p>
-              <Link href={`/store/${product.store.slug}`} className="flex items-center gap-2 pt-1 font-medium">
-                <Store className="size-4" /> {product.store.name} · {product.store.ratingAvg.toFixed(1)} ★
+              <Link href={storeUrl(product.store)} className="flex items-center gap-2 pt-1 font-medium">
+                <Store className="size-4" /> {product.store.name} · <span className="font-mono">{storeHandle(product.store)}</span> · {product.store.ratingAvg.toFixed(1)} ★
               </Link>
-              <MessageButton productId={product.id} label="Ask about this product" basePath="/account/messages" />
+              <MessageButton productId={product.id} label="Ask about this product" basePath={a("/messages")} />
               {aiEnabled ? (
                 <Button
                   variant="outline"

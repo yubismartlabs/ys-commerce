@@ -97,7 +97,7 @@ export default function NewUserPage() {
             <Select value={role} onValueChange={setRole}>
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
-                {["BUYER", "SELLER", "ADMIN"].map((r) => (
+                {["BUYER", "ADMIN"].map((r) => (
                   <SelectItem key={r} value={r}>{r}{r === "ADMIN" ? " (superuser)" : ""}</SelectItem>
                 ))}
               </SelectContent>

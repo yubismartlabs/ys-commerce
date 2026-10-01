@@ -8,6 +8,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { storeHandle, storeUrl } from "@/lib/stores/url";
 import { Separator } from "@/components/ui/separator";
 import { BackLink, ErrorState, Field, SectionTitle, StatusBadge, TableSkeleton } from "@/components/refine/ui";
 import { formatUSD, initials, timeAgo } from "@/lib/format";
@@ -40,7 +41,7 @@ export default function VendorShowPage({ params }: { params: Promise<{ id: strin
               <h1 className="text-xl font-bold tracking-tight">{v.name}</h1>
               <StatusBadge value={v.status} />
             </div>
-            <p className="mt-0.5 font-mono text-xs text-neutral-400">{v.slug}</p>
+            <p className="mt-0.5 font-mono text-xs text-neutral-400">{storeHandle(v)} · slug {v.slug}</p>
           </div>
           <div className="flex flex-wrap gap-2">
             {v.status === "PENDING" && (
@@ -109,7 +110,7 @@ export default function VendorShowPage({ params }: { params: Promise<{ id: strin
             </Field>
           ) : null}
           <Field label="Storefront">
-            <Link href={`/store/${v.slug}`} target="_blank" className="text-ali-red hover:underline">View live store →</Link>
+            <Link href={storeUrl(v)} target="_blank" className="text-ali-red hover:underline">View live store →</Link>
           </Field>
         </dl>
       </Card>

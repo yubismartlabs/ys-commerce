@@ -7,6 +7,8 @@ import { getConversationFor } from "@/lib/chat/access";
 import { publish, rateLimited } from "@/lib/chat/hub";
 import { getEmailConfig } from "@/lib/email/send";
 import { notifyUser } from "@/lib/notifications/notify";
+import { getSettingGroup } from "@/lib/server-settings";
+import { accountPath } from "@/lib/account-path";
 import { buyerPrefs } from "@/lib/lifecycle/prefs";
 import { evaluateMessage } from "@/lib/chat/safety";
 import { open, seal } from "@/lib/chat/server-crypto";
@@ -175,7 +177,8 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     const prefs = await buyerPrefs(peerId);
     const snippet = text ? (text.length > 140 ? `${text.slice(0, 140)}…` : text) : "📷 Photo";
     const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-    const link = peer.role === "BUYER" ? `/account/messages/${id}` : `/selling/messages/${id}`;
+    const site = await getSettingGroup("site");
+    const link = accountPath(`/messages/${id}`, site.accountSlug);
     await notifyUser({
       userId: peerId,
       type: "chat.message",

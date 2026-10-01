@@ -2,7 +2,7 @@ import { test, expect, type APIRequestContext, type Page } from "@playwright/tes
 
 /**
  * End-to-end coverage for the seller inventory manager: CSV bulk update by
- * slug, and the selection-based action bar on /selling/listings.
+ * slug, and the selection-based action bar on /account/listings.
  *
  * Each describe block creates its own listing through the API and deletes it
  * afterwards, so the suite is repeatable and doesn't depend on specific seeded
@@ -13,8 +13,8 @@ type Product = { id: string; slug: string; title: string; price: number; stock: 
 
 /** Create a throwaway listing owned by the signed-in seller. */
 async function createProduct(request: APIRequestContext, title: string): Promise<Product> {
-  const storeEnvelope = await (await request.get("/api/v1/selling/store")).json();
-  const res = await request.post("/api/v1/selling/products", {
+  const storeEnvelope = await (await request.get("/api/v1/account/selling/store")).json();
+  const res = await request.post("/api/v1/account/selling/products", {
     data: {
       storeId: storeEnvelope.data[0].id,
       title,
@@ -31,7 +31,7 @@ async function createProduct(request: APIRequestContext, title: string): Promise
 }
 
 async function fetchProduct(request: APIRequestContext, id: string): Promise<Product> {
-  return (await (await request.get(`/api/v1/selling/products/${id}`)).json()).data;
+  return (await (await request.get(`/api/v1/account/selling/products/${id}`)).json()).data;
 }
 
 /**
@@ -59,11 +59,11 @@ test.describe("selection action bar", () => {
   });
 
   test.afterAll(async ({ request }) => {
-    if (product) await request.delete(`/api/v1/selling/products/${product.id}`);
+    if (product) await request.delete(`/api/v1/account/selling/products/${product.id}`);
   });
 
   test("a listing can be selected and the action bar appears", async ({ page }) => {
-    await page.goto("/selling/listings");
+    await page.goto("/account/listings");
     await searchListings(page, product.title);
 
     // Nothing selected yet, so the bar must not be on screen.
@@ -74,7 +74,7 @@ test.describe("selection action bar", () => {
   });
 
   test("a percentage markdown is a multiplier on the current price", async ({ page, request }) => {
-    await page.goto("/selling/listings");
+    await page.goto("/account/listings");
     await searchListings(page, product.title);
 
     const price = async () => (await fetchProduct(request, product.id)).price;
@@ -99,7 +99,7 @@ test.describe("selection action bar", () => {
   });
 
   test("an absolute stock set is applied to the listing", async ({ page, request }) => {
-    await page.goto("/selling/listings");
+    await page.goto("/account/listings");
     await searchListings(page, product.title);
 
     await page.getByLabel(`Select ${product.title}`).check();
@@ -111,11 +111,11 @@ test.describe("selection action bar", () => {
 
   test("unpublish takes the listing to DRAFT and publish restores it", async ({ page, request }) => {
     const statusOf = async () => {
-      const envelope = await (await request.get("/api/v1/selling/products?pageSize=50")).json();
+      const envelope = await (await request.get("/api/v1/account/selling/products?pageSize=50")).json();
       return envelope.data.find((p: { id: string }) => p.id === product.id)?.status;
     };
 
-    await page.goto("/selling/listings");
+    await page.goto("/account/listings");
     await searchListings(page, product.title);
     await page.getByLabel(`Select ${product.title}`).check();
     await page.getByRole("button", { name: "Unpublish", exact: true }).click();
@@ -133,7 +133,7 @@ test.describe("selection action bar", () => {
   });
 
   test("select-all-on-page selects every visible listing", async ({ page }) => {
-    await page.goto("/selling/listings");
+    await page.goto("/account/listings");
     const main = page.getByRole("main");
     await expect(main.getByLabel("Select all listings on this page")).toBeVisible();
     await main.getByLabel("Select all listings on this page").check();
@@ -152,23 +152,23 @@ test.describe("bulk update by slug", () => {
   });
 
   test.afterAll(async ({ request }) => {
-    if (product) await request.delete(`/api/v1/selling/products/${product.id}`);
+    if (product) await request.delete(`/api/v1/account/selling/products/${product.id}`);
   });
 
   test("the update tab offers its own template and a store picker", async ({ page }) => {
-    await page.goto("/selling/listings/bulk");
+    await page.goto("/account/listings/bulk");
     await page.getByRole("button", { name: /update existing/i }).click();
 
     await expect(page.getByRole("link", { name: /update template/i })).toHaveAttribute(
       "href",
-      "/api/v1/selling/products/bulk/template-update"
+      "/api/v1/account/selling/products/bulk/template-update"
     );
     await expect(page.getByLabel("Apply to store")).toBeVisible();
     await expect(page.getByLabel("CSV data")).toBeVisible();
   });
 
   test("updates only the columns present and explains rows it can't match", async ({ page, request }) => {
-    await page.goto("/selling/listings/bulk");
+    await page.goto("/account/listings/bulk");
     await page.getByRole("button", { name: /update existing/i }).click();
 
     // Only slug + price + stock. compare_at and status are absent, so they must
@@ -188,9 +188,9 @@ test.describe("bulk update by slug", () => {
 
   test("a stock value on a non-tracking listing is rejected with a reason", async ({ page, request }) => {
     // turnStock off so the row exercises the guard.
-    await request.patch(`/api/v1/selling/products/${product.id}`, { data: { trackStock: false } });
+    await request.patch(`/api/v1/account/selling/products/${product.id}`, { data: { trackStock: false } });
 
-    await page.goto("/selling/listings/bulk");
+    await page.goto("/account/listings/bulk");
     await page.getByRole("button", { name: /update existing/i }).click();
     await page.getByLabel("CSV data").fill(["slug,stock", `${product.slug},500`].join("\n"));
     await page.getByRole("button", { name: /apply update/i }).click();

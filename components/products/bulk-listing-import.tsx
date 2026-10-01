@@ -101,7 +101,7 @@ function CreatePanel({ stores }: { stores: Array<{ id: string; name: string }> }
         </div>
         <div className="flex flex-wrap gap-2">
           <Button variant="outline" size="sm" asChild>
-            <a href="/api/v1/selling/products/bulk/template" download>
+            <a href="/api/v1/account/selling/products/bulk/template" download>
               <Download className="size-4" /> Template
             </a>
           </Button>
@@ -282,7 +282,7 @@ function ErrorList({ errors }: { errors: RowError[] }) {
 }
 
 async function postJson(body: unknown): Promise<Response> {
-  return fetch("/api/v1/selling/products/bulk", {
+  return fetch("/api/v1/account/selling/products/bulk", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
@@ -290,7 +290,7 @@ async function postJson(body: unknown): Promise<Response> {
 }
 
 async function putJson(body: unknown): Promise<Response> {
-  return fetch("/api/v1/selling/products/bulk", {
+  return fetch("/api/v1/account/selling/products/bulk", {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
@@ -339,7 +339,7 @@ function UpdatePanel({ stores }: { stores: Array<{ id: string; name: string }> }
           <p className="text-sm font-semibold">Upload a price or stock feed</p>
           <div className="flex flex-wrap gap-2">
             <Button variant="outline" size="sm" asChild>
-              <a href="/api/v1/selling/products/bulk/template-update" download>
+              <a href="/api/v1/account/selling/products/bulk/template-update" download>
                 <Download className="size-4" /> Update template
               </a>
             </Button>

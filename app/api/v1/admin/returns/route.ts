@@ -4,6 +4,8 @@ import { fail, getPagination, ok } from "@/lib/api/http";
 import { audit, withAdmin } from "@/lib/api/guard";
 import { moveReturn, ReturnError } from "@/lib/returns/returns";
 import { notifyUser } from "@/lib/notifications/notify";
+import { getSettingGroup } from "@/lib/server-settings";
+import { accountPath } from "@/lib/account-path";
 
 const patchSchema = z.object({
   to: z.enum(["ACCEPTED", "REJECTED", "RECEIVED", "REFUNDED"]),
@@ -63,6 +65,7 @@ export const PATCH = withAdmin(async (req, actor) => {
       include: { order: { select: { number: true } } },
     });
     if (request) {
+      const site = await getSettingGroup("site");
       await notifyUser({
         userId: request.buyerId,
         type: `return.${parsed.data.to.toLowerCase()}`,
@@ -71,7 +74,7 @@ export const PATCH = withAdmin(async (req, actor) => {
             ? `Refund issued for order ${request.order.number}`
             : `Return ${parsed.data.to.toLowerCase()} — order ${request.order.number}`,
         body: updated.refundAmount ? `Refunded $${Number(updated.refundAmount).toFixed(2)}.` : undefined,
-        link: `/account?tab=returns`,
+        link: accountPath("/returns", site.accountSlug),
         meta: { entityId: id },
       });
     }

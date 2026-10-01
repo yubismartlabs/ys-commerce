@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/refine/ui";
 import { formatUSD, timeAgo } from "@/lib/format";
 import { hasScope } from "@/lib/auth/permissions";
+import { useHydrated } from "@/lib/hooks/use-hydrated";
 
 type Identity = { email?: string; name?: string | null; role?: string; scopes?: string[] };
 
@@ -81,7 +82,13 @@ function Kpi({ label, value, href }: { label: string; value: string; href?: stri
 export default function AdminDashboard() {
   const { data: identity } = useGetIdentity<Identity>();
   const scopes = identity?.scopes ?? [];
-  const name = identity?.name || identity?.email || "there";
+  // Identity loads client-side after the SSR prerender, so the first client
+  // render can already know the user's name while the server HTML has the
+  // "there" fallback. Rendering the name immediately causes a hydration
+  // mismatch ("Hello, there" vs "Hello, YS"). Wait until after hydration to
+  // personalize so server HTML and the first client render agree.
+  const mounted = useHydrated();
+  const name = mounted ? identity?.name || identity?.email || "there" : "there";
 
   const stats = useStats(scopes);
   const pendingVendors = useTotal("/api/v1/admin/vendors?status=PENDING", "vendors", scopes);

@@ -1,15 +1,21 @@
 import { auth } from "@/auth";
 import { db } from "@/lib/db";
 import { fail, getPagination, ok } from "@/lib/api/http";
+import { storeUrl, stripAtParam } from "@/lib/stores/url";
 
 export async function GET(req: Request, { params }: { params: Promise<{ slug: string }> }) {
-  const { slug } = await params;
-  const store = await db.store.findUnique({
-    where: { slug },
+  const { slug: raw } = await params;
+  // Canonical URLs carry the @handle (/store/@shop). Legacy /store/<slug>
+  // links still resolve by slug. Either way the response carries the
+  // canonical @ URL so clients can upgrade legacy links.
+  const key = stripAtParam(decodeURIComponent(raw));
+  const byUsername = await db.store.findUnique({
+    where: { username: key },
     select: {
       id: true,
       name: true,
       slug: true,
+      username: true,
       description: true,
       logo: true,
       banner: true,
@@ -22,9 +28,35 @@ export async function GET(req: Request, { params }: { params: Promise<{ slug: st
       soldCount: true,
       followerCount: true,
       createdAt: true,
+      owner: { select: { username: true, name: true } },
     },
   });
-  if (!store || store.status !== "APPROVED") return fail("NOT_FOUND", "Store not found", 404);
+  const resolved =
+    byUsername ??
+    (await db.store.findUnique({
+      where: { slug: key },
+      select: {
+        id: true,
+        name: true,
+        slug: true,
+        username: true,
+        description: true,
+        logo: true,
+        banner: true,
+        shippingPolicy: true,
+        returnPolicy: true,
+        announcement: true,
+        status: true,
+        ratingAvg: true,
+        ratingCount: true,
+        soldCount: true,
+        followerCount: true,
+        createdAt: true,
+        owner: { select: { username: true, name: true } },
+      },
+    }));
+  if (!resolved || resolved.status !== "APPROVED") return fail("NOT_FOUND", "Store not found", 404);
+  const store = resolved;
 
   const url = new URL(req.url);
   const category = url.searchParams.get("category");
@@ -61,5 +93,6 @@ export async function GET(req: Request, { params }: { params: Promise<{ slug: st
   }
   return ok({ store, products, following }, { page, pageSize, total }, 200, {
     categories: categories.map((c) => ({ category: c.category, count: c._count })),
+    canonical: storeUrl({ slug: store.slug, username: store.username }),
   });
 }

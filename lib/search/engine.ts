@@ -286,3 +286,78 @@ export function logSearch(query: string, results: number, userId?: string): void
     .create({ data: { query: q, results, userId } })
     .catch(() => {});
 }
+
+// ---------------------------------------------------------------------------
+// Cache-your-search for AI (Crucial).
+//
+// Wrong way: user asks for boots → AI reads the entire catalog of 500 boots →
+// AI picks 3. That burns the free-tier limit in seconds.
+//
+// Best way: fast, free website code pulls the top N matches via searchProducts
+// first (cached below), and only those N matches are stuffed into the model
+// prompt. The model never scans the catalog — it only rephrases/ranks what
+// the engine already found.
+//
+// The cache is shared across users (search is not personalized) and short
+// lived: catalog truth stays fresh while repeated "boots" questions in a
+// session cost zero extra DB scans.
+// ---------------------------------------------------------------------------
+
+type CachedSearch = { hits: SearchHit[]; total: number; suggestion: string[]; at: number };
+
+const AI_SEARCH_CACHE = new Map<string, CachedSearch>();
+const AI_SEARCH_TTL_MS = 60_000;
+const AI_SEARCH_MAX_ENTRIES = 200;
+
+function normalizeSearchKey(q: string): string {
+  return q.toLowerCase().trim().replace(/\s+/g, " ").slice(0, 120);
+}
+
+function searchCacheKey(q: string, f: SearchFilters, page: number, pageSize: number): string {
+  return `${normalizeSearchKey(q)}|p${page}|n${pageSize}|${JSON.stringify(f)}`;
+}
+
+function pruneSearchCache(): void {
+  if (AI_SEARCH_CACHE.size <= AI_SEARCH_MAX_ENTRIES) return;
+  // Map preserves insertion order — evict oldest first (simple LRU).
+  const overflow = AI_SEARCH_CACHE.size - AI_SEARCH_MAX_ENTRIES;
+  const keys = AI_SEARCH_CACHE.keys();
+  for (let i = 0; i < overflow; i++) {
+    const k = keys.next().value;
+    if (k === undefined) break;
+    AI_SEARCH_CACHE.delete(k);
+  }
+}
+
+/**
+ * Cached wrapper around {@link searchProducts} for the AI path (and any
+ * hot read path). Same result shape; repeated identical queries within the
+ * TTL skip Postgres entirely. Never throws — falls through to a live search.
+ */
+export async function searchProductsCached(
+  q: string,
+  f: SearchFilters,
+  page: number,
+  pageSize: number,
+  ttlMs = AI_SEARCH_TTL_MS
+): Promise<{ hits: SearchHit[]; total: number; suggestion: string[] }> {
+  const key = searchCacheKey(q, f, page, pageSize);
+  const now = Date.now();
+  const cached = AI_SEARCH_CACHE.get(key);
+  if (cached && now - cached.at < ttlMs) {
+    // Refresh recency without changing `at` (fixed-window TTL keeps
+    // catalog truth fresh; LRU order keeps hot queries cached).
+    AI_SEARCH_CACHE.delete(key);
+    AI_SEARCH_CACHE.set(key, cached);
+    return { hits: cached.hits, total: cached.total, suggestion: cached.suggestion };
+  }
+  const live = await searchProducts(q, f, page, pageSize);
+  AI_SEARCH_CACHE.set(key, { ...live, at: now });
+  pruneSearchCache();
+  return live;
+}
+
+/** Test hook: clear the search cache. */
+export function clearSearchCache(): void {
+  AI_SEARCH_CACHE.clear();
+}

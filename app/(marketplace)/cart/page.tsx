@@ -16,6 +16,7 @@ import { useQuote } from "@/components/coupons/use-quote";
 import { useShippingQuote } from "@/components/cart/use-shipping-quote";
 import { useHydrated } from "@/lib/hooks/use-hydrated";
 import { formatUSD } from "@/lib/format";
+import { displayVariantName } from "@/lib/products/variants";
 
 type SavedLine = {
   slug: string;
@@ -111,7 +112,7 @@ export default function CartPage() {
             </div>
             <div className="min-w-0 flex-1">
               <p className="line-clamp-2 text-sm">{i.title}</p>
-              {i.variant ? <p className="text-xs text-neutral-500">{i.variant}</p> : null}
+              {i.variant ? <p className="text-xs text-neutral-500">{displayVariantName(i.variant)}</p> : null}
               <p className="mt-1 font-extrabold text-ali-red">{formatUSD(i.price)}</p>
               <div className="mt-2 flex items-center gap-2">
                 <div className="flex items-center rounded-full border">
