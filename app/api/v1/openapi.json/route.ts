@@ -66,7 +66,7 @@ const spec = {
       delete: { summary: "Delete a non-live deal (admin)" },
     },
     "/deals": { get: { summary: "Live + scheduled deals (no auth)" } },
-    "/account/wishlist": { get: { summary: "My wishlist (auth)" }, post: { summary: "Save item + price target (auth)" } },
+    "/account/wishlist": { get: { summary: "My wishlist (auth)" }, post: { summary: "Save item + price target (auth)" }, delete: { summary: "Remove several items (auth)" } },
     "/account/wishlist/{slug}": { delete: { summary: "Remove saved item (auth)" } },
     "/account/notifications": { get: { summary: "My inbox (auth)" }, patch: { summary: "Mark read (auth)" } },
     "/account/preferences": { get: { summary: "My email prefs (auth)" }, patch: { summary: "Opt out of lifecycle mail (auth)" } },
@@ -89,6 +89,11 @@ const spec = {
       delete: { summary: "Clear my browse history (auth)" },
     },
     "/account/recently-viewed/{slug}": { delete: { summary: "Remove one product from history (auth)" } },
+    "/account/shopping-preferences": {
+      get: { summary: "My saved sizes and brands (auth)" },
+      post: { summary: "Save a size or brand (auth)" },
+    },
+    "/account/shopping-preferences/{kind}/{value}": { delete: { summary: "Remove one size or brand (auth)" } },
     "/account/addresses/{id}": {
       get: { summary: "One saved address (auth)" },
       patch: { summary: "Edit an address, or set isDefault (auth)" },

@@ -96,3 +96,32 @@ export async function POST(req: Request) {
   }
   return ok(item, undefined, 201);
 }
+
+const bulkRemoveSchema = z.object({
+  slugs: z.array(z.string().min(1).max(120)).min(1).max(50),
+});
+
+/**
+ * Remove several items at once, for the multi-select on the summary list.
+ * Rows only — same as the single-item DELETE, which likewise leaves any armed
+ * price alerts alone rather than silently disarming something the buyer set.
+ * Unknown slugs are ignored, so a retry after a partial success is a no-op
+ * rather than an error.
+ */
+export async function DELETE(req: Request) {
+  const session = await auth();
+  const userId = session?.user?.id;
+  if (!userId) return fail("UNAUTHORIZED", "Sign in required", 401);
+
+  const parsed = bulkRemoveSchema.safeParse(await req.json().catch(() => null));
+  if (!parsed.success) return fail("VALIDATION", "slugs[] (1-50) required", 422);
+
+  const products = await db.product.findMany({
+    where: { slug: { in: parsed.data.slugs } },
+    select: { id: true },
+  });
+  const { count } = await db.wishlistItem.deleteMany({
+    where: { userId, productId: { in: products.map((p) => p.id) } },
+  });
+  return ok({ removed: count });
+}
