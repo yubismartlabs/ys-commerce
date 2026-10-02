@@ -104,6 +104,7 @@ model User {
   aiMessages AiMessage[]
   addresses Address[]
   productViews ProductView[]
+  shoppingPreferences ShoppingPreference[]
 }
 
 // eBay-style address book: a buyer keeps several and picks one at checkout.
@@ -142,6 +143,30 @@ model Address {
   // isDefault]) instead — Postgres treats NULLs as distinct in unique
   // indexes only for NULL values, not for false, so that would allow two
   // defaults and forbid two non-defaults, the exact opposite of the rule.
+}
+
+// Shopping preferences: the sizes and brands a buyer wants surfaced back to
+// them. Free-form values rather than fixed enums — "size" means footwear in one
+// category and waist in another, and a hardcoded list would reject exactly the
+// buyers it is meant to serve. Normalised at the edges: TRIMMED and title-cased
+// for SIZE, upper-cased for BRAND, so "nike" and "Nike" cannot both be saved.
+model ShoppingPreference {
+  id     String           @id @default(cuid())
+  userId String
+  kind   PreferenceKind
+  value  String
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // One row per (buyer, kind, value). The case-insensitive unique index below
+  // is what actually dedupes, since Postgres compares text exactly.
+  @@unique([userId, kind, value])
+  @@index([userId, kind])
+}
+
+enum PreferenceKind {
+  SIZE
+  BRAND
 }
 
 model Account {

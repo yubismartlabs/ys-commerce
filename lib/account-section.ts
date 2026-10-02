@@ -16,6 +16,7 @@ import {
   PackageX,
   Plus,
   Receipt,
+  SlidersHorizontal,
   Star,
   Store,
   User,
@@ -138,6 +139,7 @@ export function activityGroups(): NavGroup[] {
         { href: "/orders", label: "Purchases", icon: Package, match: ["/orders/"], view: "buying", defaultView: "buying" },
         { href: "/following", label: "Following", icon: HeartHandshake },
         { href: "/reviews", label: "My reviews", icon: Star, match: ["/reviews/"] },
+        { href: "/preferences", label: "Shopping preferences", icon: SlidersHorizontal },
       ],
     },
     {

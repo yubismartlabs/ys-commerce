@@ -35,6 +35,8 @@ export type ProductDetail = {
   price: number;
   compareAt: number | null;
   category: string;
+  /** Seller-declared brand, used to match a buyer's saved brand preferences. */
+  brand: string | null;
   badge: string | null;
   freeShipping: boolean;
   trackStock: boolean;
@@ -98,6 +100,7 @@ export async function loadProduct(slug: string): Promise<ProductDetail> {
     price: Number(product.price),
     compareAt: product.compareAt === null ? null : Number(product.compareAt),
     category: product.category,
+    brand: product.brand,
     badge: product.badge,
     freeShipping: product.freeShipping,
     trackStock: product.trackStock,

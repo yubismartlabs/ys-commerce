@@ -25,6 +25,8 @@ import { usePublicSettings } from "@/lib/public-settings";
 import { useCart } from "@/lib/store/cart";
 import { getVariantColor } from "@/lib/products/colors";
 import { displayVariantName } from "@/lib/products/variants";
+import { brandMatches, sizeMatches } from "@/lib/shopping-preferences";
+import { useShoppingPreferences } from "@/components/account/use-shopping-preferences";
 import { cn } from "@/lib/utils";
 import type { ProductDetail } from "@/lib/products/detail";
 
@@ -42,6 +44,12 @@ export function ProductView({ product, shippingFee }: { product: ProductDetail; 
   const [imgIdx, setImgIdx] = useState(0);
   const [variantId, setVariantId] = useState<string | null>(null);
   const [qty, setQty] = useState(1);
+  // The buyer's saved sizes/brands, fetched here rather than passed down: this
+  // is a storefront page that every visitor loads, so the request must stay out
+  // of the server render path and out of the cache for signed-out visitors.
+  const myPrefs = useShoppingPreferences();
+  const mySizes = myPrefs.sizes;
+  const isMyBrand = product.brand ? myPrefs.brands.some((b) => brandMatches(b, product.brand)) : false;
 
   const hasVariants = product.variants.length > 0;
   const gallery = product.images.length > 0 ? product.images : [product.image];
@@ -173,6 +181,7 @@ export function ProductView({ product, shippingFee }: { product: ProductDetail; 
               <div className="flex flex-wrap gap-2" aria-labelledby="variant-label">
                 {product.variants.map((v) => {
                   const swatch = !v.image ? getVariantColor(v.name) : null;
+                  const isMySize = mySizes.length > 0 && sizeMatches(v.name, mySizes);
                   return (
                   <button
                     key={v.id}
@@ -184,7 +193,11 @@ export function ProductView({ product, shippingFee }: { product: ProductDetail; 
                     }}
                     className={cn(
                       "flex items-center gap-2 rounded-lg border-2 px-2.5 py-1.5 text-sm disabled:opacity-50",
-                      v.id === variantId ? "border-ali-red bg-ali-red/5" : "border-neutral-200 dark:border-neutral-700"
+                      v.id === variantId
+                        ? "border-ali-red bg-ali-red/5"
+                        : isMySize
+                          ? "border-neutral-900 dark:border-white"
+                          : "border-neutral-200 dark:border-neutral-700"
                     )}
                   >
                     {v.image ? (
@@ -200,6 +213,11 @@ export function ProductView({ product, shippingFee }: { product: ProductDetail; 
                       />
                     ) : null}
                     <span>{displayVariantName(v.name)}</span>
+                    {isMySize ? (
+                      <span className="rounded-full bg-neutral-900 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white dark:bg-white dark:text-neutral-900">
+                        Your size
+                      </span>
+                    ) : null}
                     {v.price !== null && v.price !== product.price ? (
                       <span className="font-bold text-ali-red">{formatUSD(v.price)}</span>
                     ) : null}
@@ -272,6 +290,11 @@ export function ProductView({ product, shippingFee }: { product: ProductDetail; 
               <Link href={storeUrl(product.store)} className="flex items-center gap-2 pt-1 font-medium">
                 <Store className="size-4" /> {product.store.name} · <span className="font-mono">{storeHandle(product.store)}</span> · {product.store.ratingAvg.toFixed(1)} ★
               </Link>
+              {isMyBrand ? (
+                <p className="text-xs font-semibold text-neutral-700 dark:text-neutral-300">
+                  From {product.brand} — one of your saved brands
+                </p>
+              ) : null}
               <MessageButton productId={product.id} label="Ask about this product" basePath={a("/messages")} />
               {aiEnabled ? (
                 <Button
