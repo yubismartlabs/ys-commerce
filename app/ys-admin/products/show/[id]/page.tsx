@@ -1,15 +1,48 @@
 "use client";
 
-import { use } from "react";
+import { use, useState } from "react";
 import { useShow, useUpdate } from "@refinedev/core";
 import Image from "next/image";
+import { toast } from "sonner";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { BackLink, ErrorState, Field, SectionTitle, StatusBadge, TableSkeleton } from "@/components/refine/ui";
-import { formatUSD } from "@/lib/format";
+import { formatUSD, timeAgo } from "@/lib/format";
 import type { Product } from "@/lib/refine/types";
+
+/**
+ * Dismiss one buyer report. Plain fetch rather than a refine resource: there
+ * is no reports collection screen, and adding a resource for a single button
+ * would drag the generic data-provider's list/update/delete machinery along.
+ */
+function ReportDismissButton({ id, onDismissed }: { id: string; onDismissed: () => void }) {
+  const [busy, setBusy] = useState(false);
+  const dismiss = async () => {
+    setBusy(true);
+    try {
+      const res = await fetch(`/api/v1/admin/product-reports/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: "DISMISSED" }),
+      });
+      const json = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(json?.error?.message ?? "Dismiss failed.");
+      toast.success("Report dismissed.");
+      onDismissed();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Dismiss failed.");
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <Button size="sm" variant="outline" disabled={busy} onClick={dismiss} className="shrink-0">
+      Dismiss
+    </Button>
+  );
+}
 
 export default function ProductShowPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
@@ -100,6 +133,29 @@ export default function ProductShowPage({ params }: { params: Promise<{ id: stri
               </TableBody>
             </Table>
           </>
+        )}
+
+        <Separator className="my-5" />
+        <SectionTitle>
+          Buyer reports ({p.reports?.length ?? 0})
+        </SectionTitle>
+        {(p.reports?.length ?? 0) === 0 ? (
+          <p className="mt-2 text-sm text-neutral-500">No open reports on this listing.</p>
+        ) : (
+          <ul className="mt-3 space-y-2">
+            {p.reports!.map((r) => (
+              <li key={r.id} className="flex items-start justify-between gap-3 rounded-lg border border-neutral-200 p-3 text-sm dark:border-neutral-800">
+                <div className="min-w-0">
+                  <p className="font-semibold">
+                    {r.reason.replace(/_/g, " ").toLowerCase().replace(/^\w/, (c) => c.toUpperCase())}
+                    <span className="ml-2 font-normal text-neutral-500">{r.reporter.email} · {timeAgo(r.createdAt)}</span>
+                  </p>
+                  {r.detail ? <p className="mt-0.5 text-neutral-600 dark:text-neutral-300">{r.detail}</p> : null}
+                </div>
+                <ReportDismissButton id={r.id} onDismissed={() => query.refetch()} />
+              </li>
+            ))}
+          </ul>
         )}
 
         <Separator className="my-5" />

@@ -19,7 +19,11 @@ export const GET = withAdmin(async (req) => {
       skip,
       take: pageSize,
       orderBy: { createdAt: "desc" },
-      include: { store: { select: { name: true, slug: true } } },
+      include: {
+        store: { select: { name: true, slug: true } },
+        // Open buyer reports, so the queue surfaces without a second query.
+        _count: { select: { reports: { where: { status: "OPEN" } } } },
+      },
     }),
   ]);
   return ok(products, { page, pageSize, total });

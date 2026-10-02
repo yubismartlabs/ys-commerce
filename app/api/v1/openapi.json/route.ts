@@ -12,6 +12,7 @@ const spec = {
   paths: {
     "/products": { get: { summary: "Search active products: q, category, price, shipping, rating, sort (no auth)" } },
     "/products/{slug}": { get: { summary: "Product detail: gallery, variants, specs, reviews, related (no auth)" } },
+    "/products/{slug}/report": { post: { summary: "Flag a listing for trust & safety (auth)" } },
     "/products/{slug}/reviews": { get: { summary: "Paginated reviews (no auth)" }, post: { summary: "Review, verified buyers only (auth)" } },
     "/reviews/{id}/helpful": { post: { summary: "Toggle helpful vote (auth)" } },
     "/account/selling/products": { get: { summary: "My listings (store owner)" }, post: { summary: "Create listing as draft (store owner)" } },
@@ -34,6 +35,7 @@ const spec = {
     },
     "/admin/products": { get: { summary: "List products (admin)" } },
     "/admin/products/{id}": { patch: { summary: "Takedown / restore product (admin)" } },
+    "/admin/product-reports/{id}": { patch: { summary: "Dismiss a buyer report (admin)" } },
     "/admin/orders": { get: { summary: "List orders, filters ?status=&q= (admin)" } },
     "/admin/orders/{id}": { get: { summary: "Order with buyer + timeline (admin)" }, patch: { summary: "Transition order, tracking, notes (admin)" } },
     "/account/selling/orders": { get: { summary: "Orders with my items (store owner)" } },

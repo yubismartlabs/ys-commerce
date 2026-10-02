@@ -66,7 +66,14 @@ export default function ProductsPage() {
                       <span className="relative size-10 shrink-0 overflow-hidden rounded-lg bg-neutral-100">
                         <Image src={p.image} alt="" fill sizes="40px" className="object-cover" />
                       </span>
-                      <span className="line-clamp-2 font-medium underline-offset-2 hover:underline">{p.title}</span>
+                      <span className="min-w-0">
+                        <span className="line-clamp-2 block font-medium underline-offset-2 hover:underline">{p.title}</span>
+                        {(p._count?.reports ?? 0) > 0 ? (
+                          <span className="mt-1 inline-flex w-fit items-center rounded-full bg-red-500/10 px-2 py-0.5 text-[11px] font-bold text-red-600">
+                            {p._count!.reports} report{p._count!.reports === 1 ? "" : "s"}
+                          </span>
+                        ) : null}
+                      </span>
                     </Link>
                   </TableCell>
                   <TableCell className="text-neutral-500">{p.store.name}</TableCell>

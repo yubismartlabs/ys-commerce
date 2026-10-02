@@ -44,7 +44,14 @@ export type Product = {
   createdAt: string;
   store: { id?: string; name: string; slug: string };
   variants?: ProductVariant[];
-  _count?: { reviews: number };
+  _count?: { reviews: number; reports?: number };
+  reports?: Array<{
+    id: string;
+    reason: string;
+    detail: string | null;
+    createdAt: string;
+    reporter: { email: string };
+  }>;
 };
 
 export type OrderItem = {

@@ -12,6 +12,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { StatusBadge } from "@/components/refine/ui";
+import { WatchRowActions } from "@/components/account/watch-row-actions";
 import { readEnvelope } from "@/lib/api/client";
 import { useCart } from "@/lib/store/cart";
 import { formatUSD, timeAgo } from "@/lib/format";
@@ -26,8 +27,9 @@ type WatchItem = {
     price: number;
     freeShipping: boolean;
     status: string;
+    category: string;
     variants: Array<{ stock: number }>;
-    store: { id: string; name: string; slug: string };
+    store: { id: string; name: string; slug: string; username: string | null };
   };
 };
 
@@ -285,6 +287,15 @@ export function SummaryList({ base }: { base: string }) {
                         <p className="truncate text-xs text-neutral-500">
                           {item.product.store.name} · {timeAgo(item.createdAt)}
                         </p>
+                        <WatchRowActions
+                          item={{
+                            slug: item.product.slug,
+                            title: item.product.title,
+                            category: item.product.category,
+                            store: item.product.store,
+                          }}
+                          base={base}
+                        />
                       </div>
                       <div className="shrink-0 text-right">
                         <p className="text-sm font-bold tabular-nums">{formatUSD(Number(item.product.price))}</p>

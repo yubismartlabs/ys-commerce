@@ -14,7 +14,21 @@ export const GET = withAdmin(
     const { id } = await params;
     const product = await db.product.findUnique({
       where: { id },
-      include: { store: { select: { name: true, slug: true } }, variants: true },
+      include: {
+        store: { select: { name: true, slug: true } },
+        variants: true,
+        reports: {
+          where: { status: "OPEN" },
+          orderBy: { createdAt: "desc" },
+          select: {
+            id: true,
+            reason: true,
+            detail: true,
+            createdAt: true,
+            reporter: { select: { email: true } },
+          },
+        },
+      },
     });
     if (!product) return fail("NOT_FOUND", "Product not found", 404);
     return ok(product);

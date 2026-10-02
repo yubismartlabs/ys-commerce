@@ -23,10 +23,11 @@ export async function GET(req: Request) {
           select: {
             slug: true, title: true, image: true, price: true, compareAt: true,
             ratingAvg: true, ratingCount: true, soldCount: true, badge: true,
-            freeShipping: true, status: true,
+            freeShipping: true, status: true, category: true,
             variants: { select: { stock: true } },
-            // Needed so "add to cart" from the watchlist can group by seller.
-            store: { select: { id: true, name: true, slug: true } },
+            // Needed so "add to cart" from the watchlist can group by seller,
+            // and so the store link resolves to the canonical @handle.
+            store: { select: { id: true, name: true, slug: true, username: true } },
           },
         },
       },
