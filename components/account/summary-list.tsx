@@ -15,6 +15,7 @@ import { StatusBadge } from "@/components/refine/ui";
 import { WatchRowActions } from "@/components/account/watch-row-actions";
 import { readEnvelope } from "@/lib/api/client";
 import { useCart } from "@/lib/store/cart";
+import { usePublicSettings } from "@/lib/public-settings";
 import { formatUSD, timeAgo } from "@/lib/format";
 
 type WatchItem = {
@@ -51,6 +52,7 @@ type OrderRow = {
 export function SummaryList({ base }: { base: string }) {
   const queryClient = useQueryClient();
   const add = useCart((s) => s.add);
+  const { etaText } = usePublicSettings();
   const [selected, setSelected] = useState<string[]>([]);
   const [removing, setRemoving] = useState(false);
   // Filters are client-side: both lists arrive whole (≤50 watched, 10 orders),
@@ -323,11 +325,16 @@ export function SummaryList({ base }: { base: string }) {
                         <p className="text-sm font-bold tabular-nums">{formatUSD(Number(item.product.price))}</p>
                         {(() => {
                           const cost = shipCost(item.product.slug);
-                          if (cost === null) return null;
+                          if (cost === null) return <p className="text-[11px] text-neutral-500">{etaText}</p>;
                           return cost === 0 ? (
-                            <p className="text-[11px] font-semibold text-emerald-600">Free shipping</p>
+                            <p className="text-[11px]">
+                              <span className="font-semibold text-emerald-600">Free Delivery</span>
+                              <span className="text-neutral-500"> · {etaText}</span>
+                            </p>
                           ) : (
-                            <p className="text-[11px] text-neutral-500 tabular-nums">+{formatUSD(cost)} shipping</p>
+                            <p className="text-[11px] text-neutral-500 tabular-nums">
+                              +{formatUSD(cost)} shipping · {etaText}
+                            </p>
                           );
                         })()}
                         {out ? (

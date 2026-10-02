@@ -119,9 +119,9 @@ export const ACCOUNT_TABS: { key: AccountSection; label: string; path: string }[
 ];
 
 /**
- * Activity owns buying and selling. Watchlist is deliberately top-level
- * (/watchlist) rather than under the account slug — it is shared with the
- * storefront header.
+ * Activity owns buying and selling. The watchlist lives at both addresses:
+ * the in-shell page (/:slug/watchlist, this nav) and the standalone
+ * /watchlist linked from the storefront header — one shared list component.
  *
  * The selling entries are all views over one listings table rather than
  * separate pages, the same way Purchases and Sales are two views of /orders:
@@ -135,7 +135,7 @@ export function activityGroups(): NavGroup[] {
       items: [
         { href: "/summary", label: "Summary", icon: LayoutDashboard },
         { href: "/recently-viewed", label: "Recently viewed", icon: History },
-        { href: "/watchlist", label: "Watchlist", icon: Heart, external: true },
+        { href: "/watchlist", label: "Watchlist", icon: Heart },
         { href: "/orders", label: "Purchases", icon: Package, match: ["/orders/"], view: "buying", defaultView: "buying" },
         { href: "/following", label: "Following", icon: HeartHandshake },
         { href: "/reviews", label: "My reviews", icon: Star, match: ["/reviews/"] },

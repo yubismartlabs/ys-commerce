@@ -63,7 +63,7 @@ export async function recordProductView(userId: string, productId: string, owner
   }
 }
 
-/** Newest first, with just enough product detail to render a card. */
+/** Newest first, with just enough product detail to render a list row. */
 export async function listRecentViews(userId: string) {
   return db.productView.findMany({
     where: { userId },
@@ -78,7 +78,10 @@ export async function listRecentViews(userId: string) {
           image: true,
           price: true,
           status: true,
-          store: { select: { name: true, slug: true } },
+          category: true,
+          freeShipping: true,
+          variants: { select: { stock: true } },
+          store: { select: { id: true, name: true, slug: true, username: true } },
         },
       },
     },
