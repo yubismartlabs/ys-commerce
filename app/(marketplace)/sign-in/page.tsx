@@ -3,7 +3,7 @@
 import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { signIn, useSession } from "next-auth/react";
+import { signIn, signOut, useSession } from "next-auth/react";
 import { Loader2, Lock, Mail } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -20,15 +20,24 @@ function SignInForm() {
   const [error, setError] = useState<string | null>(params.get("error") ? "Please sign in to continue." : null);
   const [busy, setBusy] = useState(false);
   const next = safeNextPath(params.get("next"));
+  // Set by the account layout when the session cookie points at a user who no
+  // longer exists. next-auth still reports that cookie as authenticated, so the
+  // normal "already signed in, skip past the form" path would fire and bounce
+  // the visitor straight back into the account area in a redirect loop. Drop the
+  // cookie instead, so the form they actually need to use is reachable.
+  const staleSession = params.get("reason") === "session";
   const hydrated = useHydrated();
 
   useEffect(() => {
-    if (status === "authenticated") {
-      router.replace(next);
+    if (status !== "authenticated") return;
+    if (staleSession) {
+      void signOut({ redirect: false });
+      return;
     }
-  }, [status, next, router]);
+    router.replace(next);
+  }, [status, next, router, staleSession]);
 
-  if (status === "authenticated") {
+  if (status === "authenticated" && !staleSession) {
     return null;
   }
 
@@ -76,6 +85,16 @@ function SignInForm() {
       {error ? (
         <p role="alert" aria-live="assertive" id="signin-error" className="rounded-lg bg-red-500/10 px-3 py-2 text-center text-sm font-medium text-red-600">
           {error}
+        </p>
+      ) : null}
+      {/* Informational, not an error: the cookie was dropped because the
+          account behind it is gone, which is expected on a reset dev database
+          and alarming anywhere else. Say which, rather than a bare form. */}
+      {staleSession && !error ? (
+        <p aria-live="polite" className="rounded-lg bg-neutral-100 px-3 py-2 text-center text-sm text-neutral-700 dark:bg-neutral-800 dark:text-neutral-200">
+          {hydrated && status !== "authenticated"
+            ? "Your previous session is no longer valid — sign in again."
+            : "Signing you out…"}
         </p>
       ) : null}
       <form className="space-y-3" onSubmit={submit}>
