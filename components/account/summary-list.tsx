@@ -91,6 +91,28 @@ export function SummaryList({ base }: { base: string }) {
   const orderRows = useMemo(() => orders.data?.rows ?? [], [orders.data]);
   const orderTotal = orders.data?.total ?? 0;
 
+  // What each watched item would cost to ship bought alone. One request for
+  // the whole list, keyed by slug — a miss (dead listing, failed quote) means
+  // no estimate rather than a wrong number.
+  const liveSlugs = useMemo(
+    () => rows.filter((r) => r.product.status === "ACTIVE").map((r) => r.product.slug),
+    [rows]
+  );
+  const shipping = useQuery({
+    queryKey: ["summary-shipping", liveSlugs.join(",")],
+    queryFn: async (): Promise<Map<string, number>> => {
+      const params = new URLSearchParams({
+        lines: JSON.stringify(liveSlugs.map((slug) => ({ slug, qty: 1 }))),
+        perLine: "1",
+      });
+      const res = await fetch(`/api/v1/cart/shipping?${params.toString()}`);
+      const envelope = await readEnvelope<Array<{ slug: string; cost: number }>>(res);
+      return new Map((envelope.data ?? []).map((l) => [l.slug, l.cost]));
+    },
+    retry: false,
+    enabled: liveSlugs.length > 0,
+  });
+  const shipCost = (slug: string): number | null => shipping.data?.get(slug) ?? null;
 
   const outOfStock = (p: WatchItem["product"]) =>
     p.variants.length > 0 && p.variants.every((v) => v.stock <= 0);
@@ -299,6 +321,15 @@ export function SummaryList({ base }: { base: string }) {
                       </div>
                       <div className="shrink-0 text-right">
                         <p className="text-sm font-bold tabular-nums">{formatUSD(Number(item.product.price))}</p>
+                        {(() => {
+                          const cost = shipCost(item.product.slug);
+                          if (cost === null) return null;
+                          return cost === 0 ? (
+                            <p className="text-[11px] font-semibold text-emerald-600">Free shipping</p>
+                          ) : (
+                            <p className="text-[11px] text-neutral-500 tabular-nums">+{formatUSD(cost)} shipping</p>
+                          );
+                        })()}
                         {out ? (
                           <p className="text-[11px] font-semibold text-amber-600">Out of stock</p>
                         ) : (

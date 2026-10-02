@@ -96,13 +96,26 @@ export async function shippingForLines(lines: ShippingLine[]): Promise<ShippingB
   }
 
   for (const [storeId, storeLines] of groups) {
-    const allFree = storeLines.every((l) => l.freeShipping);
-    const subtotal = storeLines.reduce((a, l) => a + l.price * l.qty, 0);
-    const fee = allFree ? 0 : subtotal >= shipping.freeThreshold ? 0 : shipping.defaultFee;
-    byStore.set(storeId, round2(fee));
+    byStore.set(storeId, storeParcelFee(storeLines, shipping));
   }
 
   return { byStore, total: round2([...byStore.values()].reduce((a, b) => a + b, 0)) };
+}
+
+/**
+ * What one parcel costs: free when every line ships free, free once the
+ * parcel clears the threshold, otherwise the flat fee. Pure so both the
+ * basket quote and single-item estimates share one rule instead of two
+ * copies that can drift.
+ */
+export function storeParcelFee(
+  storeLines: ShippingLine[],
+  shipping: { freeThreshold: number; defaultFee: number }
+): number {
+  const allFree = storeLines.every((l) => l.freeShipping);
+  const subtotal = storeLines.reduce((a, l) => a + l.price * l.qty, 0);
+  const fee = allFree ? 0 : subtotal >= shipping.freeThreshold ? 0 : shipping.defaultFee;
+  return round2(fee);
 }
 
 function round2(n: number): number {

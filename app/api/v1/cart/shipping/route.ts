@@ -1,7 +1,8 @@
 import { z } from "zod";
 import { db } from "@/lib/db";
 import { fail, ok } from "@/lib/api/http";
-import { cartLineSchema, resolveCart, shippingForLines } from "@/lib/coupons/cart";
+import { cartLineSchema, resolveCart, shippingForLines, storeParcelFee } from "@/lib/coupons/cart";
+import { getSettingGroup } from "@/lib/server-settings";
 
 const querySchema = z.object({
   lines: z.string().min(1),
@@ -35,6 +36,21 @@ export async function GET(req: Request) {
     resolved = await resolveCart(lines.data);
   } catch (e) {
     return fail("VALIDATION", e instanceof Error ? e.message : "Invalid cart", 422);
+  }
+
+  // Per-line mode (?perLine=1): what each item would cost to ship bought
+  // alone, for surfaces like the watchlist where the buyer compares items
+  // rather than checking out a basket. A dead listing fails the whole quote
+  // instead of silently returning a partial set of numbers — the caller sends
+  // only live slugs and treats any failure as "no estimate".
+  if (url.searchParams.get("perLine") === "1") {
+    const shipping = await getSettingGroup("shipping");
+    return ok({
+      perLine: resolved.map((l) => ({
+        slug: l.slug,
+        cost: storeParcelFee([{ price: l.price, qty: l.qty, freeShipping: l.freeShipping, storeId: l.storeId }], shipping),
+      })),
+    });
   }
 
   const { byStore, total } = await shippingForLines(resolved);
