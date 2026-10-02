@@ -84,6 +84,11 @@ const spec = {
     "/account/profile": { patch: { summary: "Update my display name (auth)" } },
     "/account/password": { post: { summary: "Change my password (auth)" } },
     "/account/addresses": { get: { summary: "My address book, default first (auth)" }, post: { summary: "Save an address (auth)" } },
+    "/account/recently-viewed": {
+      get: { summary: "My browse history, newest first, max 50 (auth)" },
+      delete: { summary: "Clear my browse history (auth)" },
+    },
+    "/account/recently-viewed/{slug}": { delete: { summary: "Remove one product from history (auth)" } },
     "/account/addresses/{id}": {
       get: { summary: "One saved address (auth)" },
       patch: { summary: "Edit an address, or set isDefault (auth)" },

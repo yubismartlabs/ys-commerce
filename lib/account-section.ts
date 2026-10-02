@@ -1,6 +1,6 @@
 import {
   Bell,
-  Building2,
+  CalendarClock,
   CreditCard,
   Globe,
   Heart,
@@ -11,16 +11,13 @@ import {
   Lock,
   MapPin,
   MessageSquareText,
-  MessagesSquare,
   Package,
   PackageCheck,
+  PackageX,
+  Plus,
   Receipt,
-  RotateCcw,
-  ShieldAlert,
   Star,
   Store,
-  Tag,
-  Ticket,
   User,
   Wallet,
 } from "lucide-react";
@@ -44,12 +41,19 @@ export type NavItem = {
    * (/orders/YS-1) highlights nothing.
    */
   match?: string[];
-  /**
+/**
    * Value of the ?view= param that makes this item the active one. Two items
    * can share a path (Purchases / Sales both live on /orders) and are told
    * apart by this. Items without it ignore the param.
    */
   view?: string;
+  /**
+   * The view a path falls back to when ?view is absent — "buying" for
+   * /orders, "all" for /listings. Without it an item could never be active on
+   * its own undecorated path, and the default would have to be hardcoded here
+   * for whichever page happened to come first.
+   */
+  defaultView?: string;
   /** Not built yet — rendered disabled with a "Soon" badge, never a link. */
   soon?: boolean;
   /**
@@ -59,7 +63,19 @@ export type NavItem = {
   external?: boolean;
 };
 
-export type NavGroup = { title: string | null; items: NavItem[] };
+export type NavGroup = {
+  title: string | null;
+  items: NavItem[];
+  /** Shown beside the group title, as an anchor when the group is collapsed. */
+  icon?: React.ElementType;
+  /**
+   * Render a toggle so the buyer can fold this group away. Selling is the
+   * reason this exists: six entries most buyers never open, sitting below a
+   * six-item buying list. A group with no title is the primary list and is
+   * never collapsible — there would be nothing left if it were.
+   */
+  collapsible?: boolean;
+};
 
 /**
  * Which section a pathname belongs to. Messages is matched first because it
@@ -92,7 +108,7 @@ export function isItemActive(item: NavItem, pathname: string, view: string | nul
     return (item.match ?? []).some((m) => pathname.startsWith(m));
   }
   if (item.view === undefined) return true;
-  return (view ?? "buying") === item.view;
+  return (view ?? item.defaultView ?? "") === item.view;
 }
 
 export const ACCOUNT_TABS: { key: AccountSection; label: string; path: string }[] = [
@@ -102,41 +118,39 @@ export const ACCOUNT_TABS: { key: AccountSection; label: string; path: string }[
 ];
 
 /**
- * Activity owns buying, selling and after-sales. Watchlist is deliberately
- * top-level (/watchlist) rather than under the account slug — it is shared
- * with the storefront header.
+ * Activity owns buying and selling. Watchlist is deliberately top-level
+ * (/watchlist) rather than under the account slug — it is shared with the
+ * storefront header.
+ *
+ * The selling entries are all views over one listings table rather than
+ * separate pages, the same way Purchases and Sales are two views of /orders:
+ * Overview is every listing, and the other three narrow it. That keeps the
+ * count in each row honest without four near-identical screens.
  */
-export function activityGroups(hasStore: boolean): NavGroup[] {
+export function activityGroups(): NavGroup[] {
   return [
     {
       title: null,
       items: [
         { href: "/summary", label: "Summary", icon: LayoutDashboard },
-        { href: "/recently-viewed", label: "Recently viewed", icon: History, soon: true },
+        { href: "/recently-viewed", label: "Recently viewed", icon: History },
         { href: "/watchlist", label: "Watchlist", icon: Heart, external: true },
-        { href: "/orders", label: "Purchases", icon: Package, match: ["/orders/"], view: "buying" },
-        { href: "/orders?view=selling", label: "Sales", icon: PackageCheck, match: ["/sales/"], view: "selling" },
+        { href: "/orders", label: "Purchases", icon: Package, match: ["/orders/"], view: "buying", defaultView: "buying" },
         { href: "/following", label: "Following", icon: HeartHandshake },
         { href: "/reviews", label: "My reviews", icon: Star, match: ["/reviews/"] },
       ],
     },
     {
       title: "Selling",
-      items: hasStore
-        ? [
-            { href: "/listings", label: "My listings", icon: Tag, match: ["/listings/"] },
-            { href: "/payouts", label: "Payouts", icon: Wallet },
-            { href: "/questions", label: "Q&A", icon: MessagesSquare },
-            { href: "/store", label: "My store", icon: Store },
-          ]
-        : [{ href: "/start-selling", label: "Become an official store", icon: Building2 }],
-    },
-    {
-      title: "After-sales",
+      icon: Store,
+      collapsible: true,
       items: [
-        { href: "/returns", label: "Returns", icon: RotateCcw, match: ["/returns/"] },
-        { href: "/disputes", label: "Disputes", icon: ShieldAlert, match: ["/disputes/"] },
-        { href: "/coupons", label: "Coupons", icon: Ticket },
+        { href: "/listings", label: "Overview", icon: LayoutDashboard, match: ["/listings/"], view: "all", defaultView: "all" },
+        { href: "/listings/new", label: "Sell an item", icon: Plus, match: ["/listings/bulk"] },
+        { href: "/listings?view=scheduled", label: "Scheduled", icon: CalendarClock, view: "scheduled" },
+        { href: "/listings?view=sold", label: "Sold", icon: PackageCheck, view: "sold" },
+        { href: "/listings?view=unsold", label: "Unsold", icon: PackageX, view: "unsold" },
+        { href: "/payouts", label: "Payment", icon: Wallet },
       ],
     },
   ];
@@ -180,10 +194,12 @@ function withBase(path: string, base: string): string {
   return path.startsWith("/") ? `${base}${path}` : path;
 }
 
-export function groupsFor(section: AccountSection, hasStore: boolean, base: string): NavGroup[] {
-  const source = section === "activity" ? activityGroups(hasStore) : section === "account" ? ACCOUNT_GROUPS : [];
+export function groupsFor(section: AccountSection, base: string): NavGroup[] {
+  const source = section === "activity" ? activityGroups() : section === "account" ? ACCOUNT_GROUPS : [];
   return source.map((group) => ({
-    title: group.title,
+    // Spread first: the slug rewrite below only rewrites what it knows about,
+    // and anything it dropped (collapsible) would silently default to false.
+    ...group,
     items: group.items.map((item) => ({
       ...item,
       href: item.external ? item.href : withBase(item.href, base),

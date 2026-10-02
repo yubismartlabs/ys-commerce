@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { ChevronRight, Plus, Upload } from "lucide-react";
 import { Card } from "@/components/ui/card";
@@ -40,17 +41,32 @@ type Row = Listing;
 
 const PAGE_SIZE = 20;
 
+/** The seller-side views the My YS sidebar links to, as pills on this page. */
+const VIEWS = [
+  { key: "all", label: "Overview" },
+  { key: "scheduled", label: "Scheduled" },
+  { key: "sold", label: "Sold" },
+  { key: "unsold", label: "Unsold" },
+] as const;
+
 export default function ListingsPage() {
   const base = useAccountBase();
+  const search = useSearchParams();
+  const router = useRouter();
+  // The sidebar links Overview / Scheduled / Sold / Unsold as views of this
+  // one table, so the view is URL state rather than local — that keeps each
+  // link shareable and the highlighted nav item honest.
+  const view = search.get("view") ?? "all";
   const [status, setStatus] = useState<string | undefined>(undefined);
   const [q, setQ] = useState("");
   const [appliedQ, setAppliedQ] = useState("");
   const [selected, setSelected] = useState<string[]>([]);
   const [page, setPage] = useState(1);
   const query = useQuery({
-    queryKey: ["account-listings", status ?? "all", appliedQ, page],
+    queryKey: ["account-listings", view, status ?? "all", appliedQ, page],
     queryFn: async (): Promise<ListResponse> => {
       const params = new URLSearchParams({ page: String(page), pageSize: String(PAGE_SIZE) });
+      if (view !== "all") params.set("view", view);
       if (status) params.set("status", status);
       if (appliedQ) params.set("q", appliedQ);
       const res = await fetch(`/api/v1/account/selling/products?${params.toString()}`);
@@ -82,24 +98,44 @@ export default function ListingsPage() {
   const scopeStoreId = selectedStores.length === 1 ? selectedStores[0] : undefined;
   const mixedStores = selected.length > 0 && selectedStores.length > 1;
   const pages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  const setView = (next: string) => {
+    router.replace(next === "all" ? `${base}/listings` : `${base}/listings?view=${next}`, { scroll: false });
+    setPage(1);
+    setSelected([]);
+  };
+  const viewLabel = VIEWS.find((v) => v.key === view)?.label ?? "Overview";
 
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h1 className="text-xl font-bold">Listings</h1>
+        <h1 className="text-xl font-bold">{viewLabel}</h1>
         <div className="flex flex-wrap items-center gap-1.5">
-          {(["DRAFT", "ACTIVE", "TAKEDOWN"] as const).map((s) => (
-            <Button key={s} size="sm" variant={status === s ? "default" : "outline"} aria-pressed={status === s} className="rounded-full" onClick={() => { setStatus(status === s ? undefined : s); setPage(1); setSelected([]); }}>
-              {s}
-            </Button>
-          ))}
+          {/* The status pills and the view are both filters on the same table;
+              showing both at once would let them silently intersect, so only
+              one is offered at a time. */}
+          {view === "all"
+            ? (["DRAFT", "ACTIVE", "TAKEDOWN"] as const).map((s) => (
+                <Button key={s} size="sm" variant={status === s ? "default" : "outline"} aria-pressed={status === s} className="rounded-full" onClick={() => { setStatus(status === s ? undefined : s); setPage(1); setSelected([]); }}>
+                  {s}
+                </Button>
+              ))
+            : null}
           <Button size="sm" variant="outline" asChild>
             <Link href={`${base}/listings/bulk`}><Upload className="size-4" /> Bulk import</Link>
           </Button>
           <Button size="sm" asChild className="bg-ali-red text-white hover:bg-ali-red-dark">
-            <Link href={`${base}/listings/new`}><Plus className="size-4" /> Add product</Link>
+            <Link href={`${base}/listings/new`}><Plus className="size-4" /> Sell an item</Link>
           </Button>
         </div>
+      </div>
+      {/* In-page equivalents of the sidebar entries, for when the table is the
+          thing you are looking at. */}
+      <div className="flex flex-wrap items-center gap-1.5">
+        {VIEWS.map((v) => (
+          <Button key={v.key} size="sm" variant={view === v.key ? "default" : "outline"} aria-pressed={view === v.key} className="rounded-full" onClick={() => setView(v.key)}>
+            {v.label}
+          </Button>
+        ))}
       </div>
       <form className="flex gap-2" onSubmit={(e) => { e.preventDefault(); setAppliedQ(q); setPage(1); setSelected([]); }}>
         <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search my listings…" aria-label="Search my listings" className="max-w-64" />
@@ -114,7 +150,15 @@ export default function ListingsPage() {
             <Button size="sm" variant="outline" asChild><Link href={`${base}/start-selling`}>Open a store</Link></Button>
           </div>
         ) : rows.length === 0 ? (
-          <p className="p-6 text-sm text-neutral-500">No listings yet — add your first product.</p>
+          <p className="p-6 text-sm text-neutral-500">
+            {view === "scheduled"
+              ? "Nothing scheduled — listings you draft but don't publish wait here."
+              : view === "sold"
+                ? "Nothing sold yet."
+                : view === "unsold"
+                  ? "Every published listing has sold at least once."
+                  : "No listings yet — add your first product."}
+          </p>
         ) : (
           <Table>
             <TableHeader>

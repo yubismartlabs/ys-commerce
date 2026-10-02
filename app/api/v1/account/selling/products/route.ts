@@ -5,6 +5,15 @@ import { audit } from "@/lib/api/guard";
 import { isSuspended } from "@/lib/api/identity";
 import { productInput, slugify } from "@/lib/products/schema";
 
+/**
+ * The three seller-side views the My YS sidebar links to. They are filters
+ * over the same table rather than separate pages:
+ *   scheduled — drafted but not published yet
+ *   sold      — live or historical listings that have sold at least one unit
+ *   unsold    — published listings that have never sold
+ */
+const VIEWS = ["scheduled", "sold", "unsold"] as const;
+
 /** Seller's own listings across their stores. */
 export async function GET(req: Request) {
   const session = await auth();
@@ -18,11 +27,19 @@ export async function GET(req: Request) {
   const url = new URL(req.url);
   const status = url.searchParams.get("status");
   const q = url.searchParams.get("q");
+  const rawView = url.searchParams.get("view");
+  const view = VIEWS.includes(rawView as (typeof VIEWS)[number]) ? (rawView as (typeof VIEWS)[number]) : null;
   const { page, pageSize, skip } = getPagination(url);
   const where = {
     storeId: { in: storeIds },
     ...(status ? { status: status as "DRAFT" | "ACTIVE" | "TAKEDOWN" } : {}),
     ...(q ? { title: { contains: q, mode: "insensitive" as const } } : {}),
+    // A view is a claim about publication and sales together, so it overrides
+    // a bare ?status= rather than intersecting with it — "?status=DRAFT" would
+    // otherwise make "Sold" quietly empty instead of reporting a conflict.
+    ...(view === "scheduled" ? { status: "DRAFT" as const } : {}),
+    ...(view === "sold" ? { soldCount: { gt: 0 } } : {}),
+    ...(view === "unsold" ? { soldCount: 0, status: "ACTIVE" as const } : {}),
   };
   const [total, products] = await Promise.all([
     db.product.count({ where }),
@@ -41,7 +58,7 @@ export async function GET(req: Request) {
       },
     }),
   ]);
-  return ok(products, { page, pageSize, total }, 200, { stores });
+  return ok(products, { page, pageSize, total }, 200, { stores, view });
 }
 
 /** Create a listing (starts as DRAFT; seller publishes via PATCH). */

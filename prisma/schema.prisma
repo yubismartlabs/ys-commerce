@@ -103,6 +103,7 @@ model User {
   notifications Notification[]
   aiMessages AiMessage[]
   addresses Address[]
+  productViews ProductView[]
 }
 
 // eBay-style address book: a buyer keeps several and picks one at checkout.
@@ -355,11 +356,31 @@ model Product {
   deals    Deal[]
   questions ProductQuestion[]
   priceHistory PriceSnapshot[]
+  viewedBy ProductView[]
 
   @@index([category])
   @@index([status])
   @@index([ratingAvg])
   @@index([soldCount])
+}
+
+// Per-buyer browse history ("Recently viewed"), capped at 50 rows by
+// lib/products/recently-viewed. One row per (buyer, product): re-viewing a
+// product bumps viewedAt instead of appending, so the list is a recency order
+// rather than a visit log. Signed-in buyers only — nothing is recorded for
+// signed-out visitors.
+model ProductView {
+  id        String   @id @default(cuid())
+  userId    String
+  productId String
+  viewedAt  DateTime @default(now())
+
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, productId])
+  // Serves the one query the page makes: newest first, for one buyer.
+  @@index([userId, viewedAt])
 }
 
 model ProductVariant {

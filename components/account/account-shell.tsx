@@ -17,7 +17,7 @@ import { ACCOUNT_TABS, groupsFor, hasSidebar, resolveSection } from "@/lib/accou
  * /account/settings), so switching tabs is a navigation and every section
  * stays linkable from notifications, email and the footer.
  */
-export function AccountShell({ hasStore, children }: { hasStore: boolean; children: React.ReactNode }) {
+export function AccountShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const base = useAccountBase();
   const section = resolveSection(pathname, base);
@@ -48,7 +48,7 @@ export function AccountShell({ hasStore, children }: { hasStore: boolean; childr
               <div className="min-w-max lg:min-w-0">
                 {/* The sidebar reads ?view= to tell Purchases from Sales. */}
                 <Suspense fallback={null}>
-                  <AccountSidebar groups={groupsFor(section, hasStore, base)} section={section} />
+                  <AccountSidebar groups={groupsFor(section, base)} section={section} />
                 </Suspense>
               </div>
             </div>

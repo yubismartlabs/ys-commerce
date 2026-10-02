@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
+import { auth } from "@/auth";
 import { loadProduct } from "@/lib/products/detail";
+import { recordProductView } from "@/lib/products/recently-viewed";
 import { ApiError } from "@/lib/api/guard";
 import { ProductView } from "@/components/products/product-view";
 import { discountPct } from "@/lib/format";
@@ -68,5 +70,18 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
     throw e;
   }
   const shipping = await getSettingGroup("shipping").catch(() => null);
+
+  // Recently viewed. Recorded here, in the server render, rather than from a
+  // client effect: it is one small write on a page load that already hit the
+  // database, and it avoids a second round trip from the browser. Awaited
+  // rather than fired-and-forgotten because a floating promise in a server
+  // component can be cut short when the response is sent. Only signed-in
+  // buyers — nothing is kept for signed-out visitors.
+  const session = await auth();
+  const viewerId = session?.user?.id;
+  if (viewerId) {
+    await recordProductView(viewerId, product.id, product.store.ownerId);
+  }
+
   return <ProductView product={product} shippingFee={shipping?.defaultFee ?? 1.99} />;
 }

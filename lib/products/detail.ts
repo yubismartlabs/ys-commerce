@@ -45,7 +45,7 @@ export type ProductDetail = {
   variants: ProductVariant[];
   distribution: Array<{ rating: number; count: number }>;
   related: ApiCardRow[];
-  store: { id: string; name: string; slug: string; username: string | null; ratingAvg: number; followerCount: number };
+  store: { id: string; name: string; slug: string; username: string | null; ratingAvg: number; followerCount: number; ownerId: string };
   deal: { id: string; dealPrice: number; endsAt: string | Date; stockCap: number | null; soldCount: number } | null;
   viewer: { reviewed: boolean; wishlisted: boolean };
   /** Test-catalog provenance (null for seller listings). Drives the demo banner. */
@@ -58,7 +58,7 @@ export async function loadProduct(slug: string): Promise<ProductDetail> {
   const product = await db.product.findUnique({
     where: { slug },
     include: {
-      store: { select: { id: true, name: true, slug: true, username: true, ratingAvg: true, followerCount: true } },
+      store: { select: { id: true, name: true, slug: true, username: true, ratingAvg: true, followerCount: true, ownerId: true } },
       variants: { orderBy: { createdAt: "asc" } },
     },
   });

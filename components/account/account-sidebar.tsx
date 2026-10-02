@@ -2,8 +2,10 @@
 
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
+import { ChevronDown } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
+import { useCollapsedGroups } from "@/lib/hooks/use-collapsed-groups";
 import {
   isItemActive,
   type AccountSection,
@@ -46,19 +48,70 @@ function NavItem({ item, active }: { item: NavItem; active: boolean }) {
   );
 }
 
-function Section({ title, items, pathname, view }: { title: string | null; items: NavItem[]; pathname: string; view: string | null }) {
+/**
+ * A titled group. Collapsible ones get a toggle; the buyer's choice is kept in
+ * localStorage so folding Selling away survives navigation — otherwise it
+ * would spring open again on every page change and the toggle would be a
+ * gesture that goes nowhere.
+ *
+ * A group holding the CURRENT page is force-shown even when recorded as
+ * collapsed: a buyer who collapsed Selling, then clicked a link into it from
+ * elsewhere, would otherwise land on a page with no nav entry highlighted.
+ */
+function Section({
+  title,
+  icon: GroupIcon,
+  items,
+  collapsible,
+  collapsed,
+  onToggle,
+  pathname,
+  view,
+}: {
+  title: string | null;
+  icon?: React.ElementType;
+  items: NavItem[];
+  collapsible: boolean;
+  collapsed: boolean;
+  onToggle: () => void;
+  pathname: string;
+  view: string | null;
+}) {
+  const anyActive = items.some((i) => isItemActive(i, pathname, view));
+  const show = !collapsible || !collapsed || anyActive;
+
   return (
     <div>
       {title ? (
-        <p className="px-3 pb-1.5 text-[11px] font-bold uppercase tracking-wider text-neutral-400">
-          {title}
-        </p>
+        collapsible ? (
+          <button
+            type="button"
+            onClick={onToggle}
+            aria-expanded={show}
+            className="group/head flex w-full items-center gap-1.5 rounded px-3 pb-1.5 text-left text-[11px] font-bold uppercase tracking-wider text-neutral-400 transition hover:text-neutral-700 dark:hover:text-neutral-200"
+          >
+            {GroupIcon ? <GroupIcon className="size-3.5 shrink-0" aria-hidden /> : null}
+            {title}
+            <ChevronDown
+              className={cn(
+                "ml-auto size-3.5 transition-transform",
+                show ? "rotate-0" : "-rotate-90"
+              )}
+            />
+          </button>
+        ) : (
+          <p className="px-3 pb-1.5 text-[11px] font-bold uppercase tracking-wider text-neutral-400">
+            {title}
+          </p>
+        )
       ) : null}
-      <div className="grid gap-0.5">
-        {items.map((item) => (
-          <NavItem key={item.href} item={item} active={isItemActive(item, pathname, view)} />
-        ))}
-      </div>
+      {show ? (
+        <div className="grid gap-0.5">
+          {items.map((item) => (
+            <NavItem key={item.href} item={item} active={isItemActive(item, pathname, view)} />
+          ))}
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -72,11 +125,22 @@ export function AccountSidebar({ groups, section }: { groups: NavGroup[]; sectio
   const pathname = usePathname();
   const search = useSearchParams();
   const view = search.get("view");
+  const [collapsed, toggle] = useCollapsedGroups();
 
   return (
     <nav aria-label={section === "account" ? "Account settings" : "Account activity"} className="grid gap-5">
       {groups.map((group) => (
-        <Section key={group.title ?? "main"} title={group.title} items={group.items} pathname={pathname} view={view} />
+        <Section
+          key={group.title ?? "main"}
+          title={group.title}
+          icon={group.icon}
+          items={group.items}
+          collapsible={!!group.collapsible}
+          collapsed={!!collapsed[group.title ?? ""]}
+          onToggle={() => group.title && toggle(group.title)}
+          pathname={pathname}
+          view={view}
+        />
       ))}
     </nav>
   );

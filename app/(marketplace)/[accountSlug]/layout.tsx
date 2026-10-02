@@ -1,6 +1,5 @@
 import { notFound, redirect } from "next/navigation";
 import { auth } from "@/auth";
-import { db } from "@/lib/db";
 import { getSettingGroup } from "@/lib/server-settings";
 import { accountPath } from "@/lib/account-path";
 import { AccountShell } from "@/components/account/account-shell";
@@ -29,7 +28,6 @@ export default async function AccountLayout({
   if (!user?.id) {
     redirect(`/sign-in?next=${encodeURIComponent(accountPath("/summary", site.accountSlug))}`);
   }
-  const hasStore = (await db.store.count({ where: { ownerId: user.id } })) > 0;
   const displayName = user.name?.split(" ")[0] ?? user.email?.split("@")[0] ?? "there";
 
   return (
@@ -39,7 +37,7 @@ export default async function AccountLayout({
           My YS <span className="ml-1 align-middle text-sm font-medium text-neutral-500">Hi, {displayName}!</span>
         </h1>
       </div>
-      <AccountShell hasStore={hasStore}>{children}</AccountShell>
+      <AccountShell>{children}</AccountShell>
     </div>
   );
 }
